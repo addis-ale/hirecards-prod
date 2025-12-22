@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Zap, Target, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ScrollMorphHero from "@/components/ui/scroll-morph-hero";
+import ScrollMorphHero from "@/app/modules/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 
 export const HomeHeroSection = () => {

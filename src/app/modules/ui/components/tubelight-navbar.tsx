@@ -56,7 +56,7 @@ export function NavBar({
   return (
     <>
       {/* Mobile Navbar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 p-4 flex items-center justify-between bg-background/80 backdrop-blur-md border-b border-border">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-[9999] p-4 flex items-center justify-between bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center">
           {logo || <div className="text-lg font-bold text-foreground">LOGO</div>}
         </div>
@@ -105,7 +105,7 @@ export function NavBar({
       {/* Desktop Navbar */}
       <div
         className={cn(
-          "hidden md:block fixed top-0 left-0 right-0 z-50 pt-6 px-4",
+          "hidden md:block fixed top-0 left-0 right-0 z-[9999] pt-6 px-4",
           className
         )}
       >
