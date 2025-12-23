@@ -47,7 +47,10 @@ const EditorialStepCard = ({ number, description }: any) => {
 
 export const HowItWorks = () => {
   return (
-    <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
+    <section
+      id="how-it-works"
+      className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300 scroll-mt-20"
+    >
       <div className="max-w-7xl mx-auto mb-20 text-center">
         <div className="inline-block border border-slate-200 dark:border-slate-800 py-1 px-4 rounded-lg bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-6">
           Process

@@ -38,7 +38,10 @@ const faqData = [
 
 export const FAQs = () => {
   return (
-    <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
+    <section
+      id="faq"
+      className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300 scroll-mt-20"
+    >
       <div className="container mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

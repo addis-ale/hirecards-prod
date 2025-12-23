@@ -38,7 +38,7 @@ export const BuiltFor = () => {
   ];
 
   return (
-    <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
+    <section id="built-for" className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300 scroll-mt-20">
       <div className="mb-12">
         <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
           Built for These
