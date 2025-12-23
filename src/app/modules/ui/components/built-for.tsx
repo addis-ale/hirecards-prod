@@ -1,6 +1,6 @@
 "use client";
 
-import { FeaturesSectionWithHoverEffects } from "@/components/ui/feature-section-with-hover-effects";
+import { FeaturesSectionWithHoverEffects } from "@/app/modules/ui/components/feature-section-with-hover-effects";
 import { Rocket, Users, Briefcase, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
