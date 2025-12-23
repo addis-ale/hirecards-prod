@@ -1,3 +1,4 @@
+import { BuiltFor } from "../components/built-for";
 import { HomeHeroSection } from "../components/home-hero-section";
 import { HomeNavbar } from "../components/home-nav-bar";
 import { HowItWorks } from "../components/how-it-works";
@@ -10,6 +11,7 @@ export const HomeView = () => {
       <HomeHeroSection />
       <OutPutPlaceholder />
       <HowItWorks />
+      <BuiltFor />
     </div>
   );
 };
