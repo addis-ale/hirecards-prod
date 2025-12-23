@@ -38,26 +38,26 @@ export const BuiltFor = () => {
   ];
 
   return (
-    <section className="bg-white px-8 py-24">
+    <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
       <div className="mb-12">
-        <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-2">
+        <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
           Built for These
         </h2>
-        <h3 className="text-center text-2xl md:text-3xl font-bold text-slate-700 mb-4">
+        <h3 className="text-center text-2xl md:text-3xl font-bold text-slate-700 dark:text-slate-300 mb-4">
           Beautiful Delusionals
         </h3>
-        <p className="text-center text-lg text-slate-500 mb-8">
+        <p className="text-center text-lg text-slate-500 dark:text-slate-400 mb-8">
           (Who Think They Can Actually Hire Good People)
         </p>
       </div>
       <FeaturesSectionWithHoverEffects features={features} />
       <div className="text-center mt-12">
-        <p className="text-lg font-semibold text-slate-900 mb-6">
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6">
           Think You Qualify? Try It
         </p>
         <Button
           size="lg"
-          className="group px-8 py-6 rounded-2xl font-bold text-lg shadow-[0_10px_20px_-10px_rgba(15,23,42,0.5)] bg-slate-900 text-white hover:bg-slate-800 transition-all hover:-translate-y-0.5"
+          className="group px-8 py-6 rounded-2xl font-bold text-lg shadow-[0_10px_20px_-10px_rgba(15,23,42,0.5)] bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all hover:-translate-y-0.5"
         >
           <span>Generate Battle Cards</span>
           <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />

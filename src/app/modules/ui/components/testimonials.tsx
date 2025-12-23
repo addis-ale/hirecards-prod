@@ -1,6 +1,6 @@
 "use client";
 
-import { TestimonialsColumn } from "@/components/ui/testimonials-columns";
+import { TestimonialsColumn } from "@/app/modules/ui/components/testimonials-columns";
 import { motion } from "motion/react";
 
 const testimonials = [
@@ -75,7 +75,7 @@ const thirdColumn = testimonials.slice(6, 9);
 
 export const Testimonials = () => {
   return (
-    <section className="bg-white px-8 py-24 relative">
+    <section className="bg-white dark:bg-slate-950 px-8 py-24 relative transition-colors duration-300">
       <div className="container z-10 mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -85,20 +85,20 @@ export const Testimonials = () => {
           className="flex flex-col items-center justify-center max-w-[600px] mx-auto mb-12"
         >
           <div className="flex justify-center mb-4">
-            <div className="border border-slate-200 py-1 px-4 rounded-lg bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <div className="border border-slate-200 dark:border-slate-800 py-1 px-4 rounded-lg bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Testimonials
             </div>
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-4 text-center">
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4 text-center">
             What our users say
           </h2>
-          <p className="text-center text-lg text-slate-600">
+          <p className="text-center text-lg text-slate-600 dark:text-slate-400">
             See what hiring teams have to say about Battle Cards
           </p>
         </motion.div>
 
-        <div className="flex justify-center gap-6 mt-10 mask-[linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] max-h-[740px] overflow-hidden">
+        <div className="flex justify-center gap-6 mt-10 mask-[linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] dark:mask-[linear-gradient(to_bottom,transparent,white_25%,white_75%,transparent)] max-h-[740px] overflow-hidden">
           <TestimonialsColumn testimonials={firstColumn} duration={15} />
           <TestimonialsColumn
             testimonials={secondColumn}

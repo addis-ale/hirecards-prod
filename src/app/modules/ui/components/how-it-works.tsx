@@ -41,15 +41,15 @@ export const HowItWorks = () => {
   ];
 
   return (
-    <section className="bg-white px-8 py-24">
+    <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
       <div className="">
-        <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-2">
+        <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
           How We Fix Your Chaos
         </h2>
-        <p className="text-center text-lg text-slate-500 mb-4">
+        <p className="text-center text-lg text-slate-500 dark:text-slate-400 mb-4">
           (In Three Actually Simple Steps)
         </p>
-        <p className="text-center text-lg text-slate-600 max-w-2xl mx-auto">
+        <p className="text-center text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
           From mess to masterpiece faster than your average hiring round
         </p>
       </div>

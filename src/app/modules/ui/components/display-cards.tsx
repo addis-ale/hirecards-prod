@@ -26,22 +26,22 @@ function DisplayCard({
   return (
     <div
       className={cn(
-        "relative flex h-48 w-[30rem] -skew-y-[8deg] select-none flex-col justify-between rounded-xl border-2 bg-muted/90 px-6 py-4 transition-all duration-700 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[28rem] after:bg-gradient-to-l after:from-background after:to-transparent after:content-[''] hover:border-white/20 hover:bg-muted [&>*]:flex [&>*]:items-center [&>*]:gap-2",
+        "relative flex h-48 w-120 -skew-y-[8deg] select-none flex-col justify-between rounded-xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 transition-all duration-700 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-md after:bg-linear-to-l after:from-white dark:after:from-slate-950 after:to-transparent after:content-[''] hover:border-slate-900 dark:hover:border-white/20 *:flex *:items-center *:gap-2",
         className
       )}
     >
       <div>
-        <span className="relative inline-block rounded-full bg-blue-800 p-1">
+        <span className="relative inline-block rounded-full bg-slate-900 dark:bg-slate-800 p-1">
           {icon}
         </span>
-        <p className={cn("text-xl font-semibold mb-2", titleClassName)}>
+        <p className={cn("text-xl font-bold mb-2 text-slate-900 dark:text-white", titleClassName)}>
           {title}
         </p>
       </div>
-      <p className="text-base font-medium leading-relaxed line-clamp-3">
+      <p className="text-base font-medium leading-relaxed line-clamp-3 text-slate-600 dark:text-slate-400">
         {description}
       </p>
-      <p className="text-muted-foreground text-sm font-semibold mt-auto">
+      <p className="text-slate-400 dark:text-slate-500 text-sm font-bold mt-auto">
         {date}
       </p>
     </div>
@@ -56,11 +56,11 @@ export default function DisplayCards({ cards }: DisplayCardsProps) {
   const defaultCards = [
     {
       className:
-        "[grid-area:stack] -translate-x-20 hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
+        "[grid-area:stack] -translate-x-20 hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 dark:before:bg-slate-950/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
     },
     {
       className:
-        "[grid-area:stack] translate-x-32 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
+        "[grid-area:stack] translate-x-32 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 dark:before:bg-slate-950/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
     },
     {
       className:

@@ -16,9 +16,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function getSectionClass(theme: string | undefined) {
-  return theme === "dark"
-    ? "bg-destructive text-secondary px-8 py-24"
-    : "bg-slate-50 px-8 py-24";
+  return "bg-slate-50 dark:bg-slate-950 px-8 py-24 transition-colors duration-300";
 }
 
 function getCardVariant(theme: string | undefined) {
@@ -64,7 +62,7 @@ const CTACard = ({ arrayLength }: { arrayLength: number }) => {
           width: "100%",
           maxWidth: "70vw",
         }}
-        className="mx-auto p-16 md:p-20 rounded-[40px] bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 border-0 shadow-2xl"
+        className="mx-auto p-16 md:p-20 rounded-[40px] bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 border border-white/10 shadow-2xl"
       >
         <div className="flex flex-col items-center text-center space-y-6">
           <h3 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight">
@@ -97,11 +95,11 @@ export const OutPutPlaceholder = () => {
   return (
     <section className={getSectionClass(theme)}>
       <div className="mb-12">
-        <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-4">
+        <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
           Stop guessing. <br className="hidden sm:block" />
           Start hiring with precision.
         </h3>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 leading-relaxed">
+        <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
           See a live example below, a clear, data-driven view of your best
           hiring options, including cost, timing, and risk tradeoffs.
         </p>

@@ -163,10 +163,10 @@ function ScrollMorphHero({
       <div className="flex h-full w-full flex-col items-center justify-center perspective-1000">
         {/* Center Text */}
         <div className="absolute z-10 flex flex-col items-center justify-center text-center pointer-events-auto top-[25%] -translate-y-1/2 px-4 max-w-[600px] mx-auto">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-gray-900 mb-4 text-balance leading-[1.1]">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-4 text-balance leading-[1.1]">
             {title}
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed px-4">
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed px-4">
             {description}
           </p>
         </div>

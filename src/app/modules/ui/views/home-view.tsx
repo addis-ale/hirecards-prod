@@ -1,4 +1,5 @@
 import { BuiltFor } from "../components/built-for";
+import { Footer } from "../components/footer";
 import { HomeHeroSection } from "../components/home-hero-section";
 import { HomeNavbar } from "../components/home-nav-bar";
 import { HowItWorks } from "../components/how-it-works";
@@ -14,6 +15,7 @@ export const HomeView = () => {
       <HowItWorks />
       <BuiltFor />
       <Testimonials />
+      <Footer />
     </div>
   );
 };
