@@ -35,8 +35,7 @@ export const Testimonials = ({ className }: TestimonialSliderProps) => {
       name: "Ashley Right",
       affiliation: "Pinterest",
       quote:
-        "Professionals in their craft! All products were super amazing with strong attention to details, comps and overall vibe.",
-      // Image from the provided screenshot
+        "HireCards made it incredibly easy to showcase talent. The clean profile cards and smooth experience helped us connect with the right candidates faster.",
       imageSrc:
         "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=600&fit=crop&q=80",
       thumbnailSrc:
@@ -47,8 +46,7 @@ export const Testimonials = ({ className }: TestimonialSliderProps) => {
       name: "Jacob Jose",
       affiliation: "New York Times",
       quote:
-        "Unlimited, instant access to hundreds of premium quality resources created by designers for designers.",
-      // Image from the provided screenshot
+        "A modern approach to hiring. HireCards turns resumes into elegant, scannable cards that recruiters can understand at a glance.",
       imageSrc:
         "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&q=80",
       thumbnailSrc:
@@ -59,8 +57,7 @@ export const Testimonials = ({ className }: TestimonialSliderProps) => {
       name: "Elara Sands",
       affiliation: "Behance",
       quote:
-        "The attention to detail is immaculate. Every component feels polished and ready for production.",
-      // Thumbnail from the provided screenshot
+        "From layout to performance, everything feels intentional. HireCards makes candidate profiles feel professional and trustworthy.",
       imageSrc:
         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=600&fit=crop&q=80",
       thumbnailSrc:
@@ -71,8 +68,7 @@ export const Testimonials = ({ className }: TestimonialSliderProps) => {
       name: "Marcus Cole",
       affiliation: "Dribbble",
       quote:
-        "A true time-saver. I can focus on my core logic instead of pixel-pushing. Highly recommended.",
-      // Thumbnail from the provided screenshot
+        "Hiring no longer feels overwhelming. HireCards simplifies the process so teams can focus on people, not paperwork.",
       imageSrc:
         "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=600&fit=crop&q=80",
       thumbnailSrc:
@@ -83,13 +79,14 @@ export const Testimonials = ({ className }: TestimonialSliderProps) => {
       name: "Serena V.",
       affiliation: "Figma",
       quote:
-        "This is the design system I've been waiting for. It's flexible, accessible, and beautiful.",
+        "Beautifully designed and practical. HireCards bridges the gap between design and real-world hiring needs.",
       imageSrc:
         "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=600&fit=crop&q=80",
       thumbnailSrc:
         "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=120&fit=crop&q=80",
     },
   ];
+
   const [currentIndex, setCurrentIndex] = useState(0);
   // 'direction' helps framer-motion understand slide direction (next vs. prev)
   const [direction, setDirection] = useState<"left" | "right">("right");
