@@ -172,7 +172,7 @@ function ScrollMorphHero({
         </div>
 
         {/* Main Container - Framed Side Layout */}
-        <div className="relative hidden md:flex items-center justify-center w-full h-full overflow-visible pointer-events-none">
+        <div className="relative hidden md:flex items-center justify-center w-full h-full overflow-hidden pointer-events-none">
           {containerSize.width > 0 && cards.slice(0, 6).map((card, i) => {
             const isMobile = containerSize.width < 768;
             const isLeft = i < 3;

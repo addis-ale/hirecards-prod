@@ -54,7 +54,7 @@ export const HowItWorks = () => {
         </p>
       </div>
 
-      <div className="flex min-h-[500px] w-full items-center justify-center overflow-x-auto">
+      <div className="flex min-h-[500px] w-full items-center justify-center overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           <DisplayCards cards={steps} />
         </div>

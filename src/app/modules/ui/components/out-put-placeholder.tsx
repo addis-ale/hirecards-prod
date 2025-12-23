@@ -11,7 +11,12 @@ import {
 import { heroCards } from "./hero-cards-data";
 import { CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { motion, useTransform, useSpring } from "motion/react";
+import {
+  motion,
+  useTransform,
+  useSpring,
+  useMotionTemplate,
+} from "motion/react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,8 +28,7 @@ function getCardVariant(theme: string | undefined) {
   return theme === "dark" ? "dark" : "light";
 }
 
-// CTA Card Component that appears after all cards flip
-const CTACard = ({ arrayLength }: { arrayLength: number }) => {
+const FinalBanner = ({ arrayLength }: { arrayLength: number }) => {
   const { scrollYProgress } = useContainerScrollContext();
   const smoothProgress = useSpring(scrollYProgress, {
     stiffness: 200,
@@ -32,60 +36,69 @@ const CTACard = ({ arrayLength }: { arrayLength: number }) => {
     restDelta: 0.001,
   });
 
-  // CTA appears after all cards have flipped
-  // Last card finishes at: arrayLength / (arrayLength + 1)
-  const ctaStart = arrayLength / (arrayLength + 1);
-  const ctaEnd = 1;
+  // Banner appears as the very last thing
+  const start = arrayLength / (arrayLength + 1);
+  const end = 1;
 
-  const opacity = useTransform(smoothProgress, [ctaStart, ctaEnd], [0, 1]);
-  const scale = useTransform(smoothProgress, [ctaStart, ctaEnd], [0.9, 1]);
-  const y = useTransform(smoothProgress, [ctaStart, ctaEnd], [20, 0]);
+  const opacity = useTransform(smoothProgress, [start, end], [0, 1]);
+  const scale = useTransform(smoothProgress, [start, end], [0.95, 1]);
+  const yAnim = useTransform(smoothProgress, [start, end], [40, 0]);
+  const translateY = useMotionTemplate`calc(-50% + ${yAnim}px)`;
 
   return (
-    <div
+    <motion.div
       style={{
+        opacity,
+        scale,
+        y: translateY,
         position: "absolute",
-        top: arrayLength * 10,
         left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 1,
-        width: "100vw",
-        height: "100%",
+        top: "55%",
+        x: "-50%",
+        width: "100%",
+        zIndex: 100,
       }}
-      className="flex items-center justify-center"
+      className="max-w-5xl mx-auto px-4 pointer-events-none"
     >
-      <motion.div
-        style={{
-          opacity,
-          scale,
-          y,
-          width: "100%",
-          maxWidth: "70vw",
-        }}
-        className="mx-auto p-16 md:p-20 rounded-[40px] bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 border border-white/10 shadow-2xl"
-      >
-        <div className="flex flex-col items-center text-center space-y-6">
-          <h3 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight">
-            READY TO STOP
-            <br />
-            WINGING IT?
-          </h3>
-          <h4 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white/90 tracking-tight">
-            LET'S BUILD SOMETHING BETTER.
-          </h4>
-          <p className="text-xl md:text-2xl text-white/80 max-w-6xl leading-relaxed">
-            Join the teams who stopped winging it and started winning at hiring
-          </p>
-          <Button
-            size="lg"
-            className="group mt-6 px-12 py-8 rounded-2xl font-bold text-lg md:text-xl shadow-[0_10px_20px_-10px_rgba(15,23,42,0.5)] bg-white text-slate-900 hover:bg-slate-100 transition-all hover:-translate-y-0.5"
-          >
-            <span>Generate Battle Cards</span>
-            <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" />
-          </Button>
+      <div className="relative group pointer-events-auto overflow-hidden rounded-[48px] border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-12 md:p-20 min-h-[550px] shadow-2xl transition-colors duration-300 flex flex-col items-center justify-center text-center">
+        {/* Project DNA: Background Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.03)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[40px_40px] opacity-40" />
+
+        {/* Project DNA: Animated Glows */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/15 dark:bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-500/10 dark:bg-blue-600/10 rounded-full blur-3xl" />
+
+        <div className="relative z-10 space-y-8">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="text-3xl md:text-4xl lg:text-6xl font-black text-slate-900 dark:text-white leading-tight tracking-tighter uppercase">
+                READY TO STOP
+                <br />
+                <span className="text-primary">WINGING IT?</span>
+              </h3>
+              <h4 className="text-lg md:text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                LET'S BUILD SOMETHING BETTER.
+              </h4>
+            </div>
+
+            <p className="text-slate-600 dark:text-slate-400 font-bold text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+              Join the teams who stopped winging it and started winning at
+              hiring
+            </p>
+          </div>
+
+          <div className="pt-4">
+            <Button
+              size="lg"
+              className="group px-10 py-7 rounded-2xl font-black text-lg md:text-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all hover:-translate-y-1 shadow-[0_20px_40px_-15px_rgba(15,23,42,0.3)] dark:shadow-[0_20px_40px_-15px_rgba(255,255,255,0.2)]"
+            >
+              <span>FIX MY HIRING MESS</span>
+              <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1.5 transition-transform" />
+            </Button>
+          </div>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 };
 
@@ -104,64 +117,66 @@ export const OutPutPlaceholder = () => {
           hiring options, including cost, timing, and risk tradeoffs.
         </p>
       </div>
-      <ContainerScroll className="container h-[400vh]">
-        <div className="sticky left-0 top-0 h-svh w-full py-12 flex items-center justify-center">
-          <CardsContainer className="mx-auto w-full max-w-2xl h-[450px]">
-            {heroCards.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <CardTransformed
-                  arrayLength={heroCards.length}
-                  key={card.id}
-                  variant={getCardVariant(theme)}
-                  index={index + 1}
-                  className="p-0 overflow-hidden rounded-[32px] border-0 shadow-2xl"
-                >
-                  <div
-                    className={cn(
-                      "h-full w-full flex flex-col p-6",
-                      card.color
-                        ? `bg-linear-to-br ${card.color}`
-                        : "bg-slate-900"
-                    )}
+      <ContainerScroll className="container h-[300vh]">
+        <div className="sticky left-0 top-0 h-svh w-full flex items-center justify-center">
+          <div className="relative w-full max-w-5xl mx-auto h-[750px]">
+            <CardsContainer className="mx-auto w-full max-w-xl h-[480px] mt-24">
+              {heroCards.map((card, index) => {
+                const Icon = card.icon;
+                return (
+                  <CardTransformed
+                    arrayLength={heroCards.length}
+                    key={card.id}
+                    variant={getCardVariant(theme)}
+                    index={index + 1}
+                    className="p-0 overflow-hidden rounded-[32px] border-0 shadow-2xl"
                   >
-                    {/* Header */}
-                    <div className="flex justify-between items-start w-full mb-6">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em]">
-                          {card.title.split(" ")[0]}
-                        </span>
-                        <h4 className="text-xl font-black text-white mt-1">
-                          {card.title}
-                        </h4>
+                    <div
+                      className={cn(
+                        "h-full w-full flex flex-col p-6",
+                        card.color
+                          ? `bg-linear-to-br ${card.color}`
+                          : "bg-slate-900"
+                      )}
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-start w-full mb-6">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em]">
+                            {card.title.split(" ")[0]}
+                          </span>
+                          <h4 className="text-lg font-black text-white mt-1">
+                            {card.title}
+                          </h4>
+                        </div>
+                        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
+                          {Icon && <Icon className="w-4 h-4 text-white" />}
+                        </div>
                       </div>
-                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
-                        {Icon && <Icon className="w-5 h-5 text-white" />}
-                      </div>
-                    </div>
 
-                    {/* Metric */}
-                    <div className="my-auto flex flex-col gap-2">
-                      <div className="text-5xl font-black text-white tracking-tighter">
-                        {card.metricValue || "****"}
+                      {/* Metric */}
+                      <div className="my-auto flex flex-col gap-1">
+                        <div className="text-4xl font-black text-white tracking-tighter">
+                          {card.metricValue || "****"}
+                        </div>
+                        <div className="text-[10px] font-medium text-white/50 uppercase tracking-widest">
+                          {card.metricLabel || "Metric"}
+                        </div>
                       </div>
-                      <div className="text-xs font-medium text-white/50 uppercase tracking-widest">
-                        {card.metricLabel || "Metric"}
-                      </div>
-                    </div>
 
-                    {/* Description */}
-                    <div className="mt-auto pt-6 border-t border-white/10">
-                      <p className="text-base font-medium text-white/90 leading-snug">
-                        "{card.description}"
-                      </p>
+                      {/* Description */}
+                      <div className="mt-auto pt-4 border-t border-white/10">
+                        <p className="text-sm font-medium text-white/90 leading-snug">
+                          "{card.description}"
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardTransformed>
-              );
-            })}
-            <CTACard arrayLength={heroCards.length} />
-          </CardsContainer>
+                  </CardTransformed>
+                );
+              })}
+            </CardsContainer>
+            <FinalBanner arrayLength={heroCards.length} />
+          </div>
         </div>
       </ContainerScroll>
     </section>
