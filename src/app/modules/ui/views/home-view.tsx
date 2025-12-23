@@ -3,6 +3,7 @@ import { HomeHeroSection } from "../components/home-hero-section";
 import { HomeNavbar } from "../components/home-nav-bar";
 import HowItWorks from "../components/how-it-works";
 import { OutPutPlaceholder } from "../components/out-put-placeholder";
+import Pricing from "../components/pricing";
 import { Testimonials } from "../components/testimonials";
 
 export const HomeView = () => {
@@ -13,6 +14,7 @@ export const HomeView = () => {
       <OutPutPlaceholder />
       <HowItWorks />
       <Testimonials className="w-full" />
+      <Pricing />
       <Footer />
     </div>
   );
