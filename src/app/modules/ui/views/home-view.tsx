@@ -1,4 +1,5 @@
 import { BuiltFor } from "../components/built-for";
+import { FAQs } from "../components/faqs";
 import { Footer } from "../components/footer";
 import { HomeHeroSection } from "../components/home-hero-section";
 import { HomeNavbar } from "../components/home-nav-bar";
@@ -8,13 +9,14 @@ import { Testimonials } from "../components/testimonials";
 
 export const HomeView = () => {
   return (
-    <div className="">
+    <div>
       <HomeNavbar />
       <HomeHeroSection />
       <OutPutPlaceholder />
       <HowItWorks />
       <BuiltFor />
       <Testimonials />
+      <FAQs />
       <Footer />
     </div>
   );
