@@ -1,5 +1,6 @@
 import { HomeHeroSection } from "../components/home-hero-section";
 import { HomeNavbar } from "../components/home-nav-bar";
+import { HowItWorks } from "../components/how-it-works";
 import { OutPutPlaceholder } from "../components/out-put-placeholder";
 
 export const HomeView = () => {
@@ -8,6 +9,7 @@ export const HomeView = () => {
       <HomeNavbar />
       <HomeHeroSection />
       <OutPutPlaceholder />
+      <HowItWorks />
     </div>
   );
 };
