@@ -1,62 +1,71 @@
 "use client";
 
-import DisplayCards from "@/app/modules/ui/components/display-cards";
+import Image from "next/image";
 import { Upload, Database, Share2 } from "lucide-react";
 
-export const HowItWorks = () => {
-  const steps = [
-    {
-      icon: <Upload className="size-4 text-primary" />,
-      title: "SHARE YOUR REQUIREMENTS",
-      description:
-        "Tell us about your role requirements, ideal candidate profile, and hiring needs. The more details, the better your battle cards.",
-      date: "Step 1",
-      iconClassName: "text-primary",
-      titleClassName: "text-primary",
-      className:
-        "[grid-area:stack] -translate-x-20 hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
-    },
-    {
-      icon: <Database className="size-4 text-primary" />,
-      title: "GENERATED FROM REAL DATA",
-      description:
-        "Comprehensive battle cards generated from real-world scraped data, complete with key competencies, interview questions, and evaluation criteria tailored to your role.",
-      date: "Step 2",
-      iconClassName: "text-primary",
-      titleClassName: "text-primary",
-      className:
-        "[grid-area:stack] translate-x-32 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0",
-    },
-    {
-      icon: <Share2 className="size-4 text-primary" />,
-      title: "SHARE & START HIRING",
-      description:
-        "Get your deck instantly. Share with your hiring team. Run structured interviews that help you identify the best candidates.",
-      date: "Step 3",
-      iconClassName: "text-primary",
-      titleClassName: "text-primary",
-      className:
-        "[grid-area:stack] translate-x-84 translate-y-20 hover:translate-y-10",
-    },
-  ];
+const steps = [
+  {
+    number: "01",
+    title: "SHARE YOUR REQUIREMENTS",
+    description:
+      "Tell us about your role requirements, ideal candidate profile, and hiring needs. The more details, the better your battle cards.",
+  },
+  {
+    number: "02",
+    title: "GENERATED FROM REAL DATA",
+    description:
+      "Comprehensive battle cards generated from real-world scraped data, complete with key competencies, interview questions, and evaluation criteria tailored to your role.",
+  },
+  {
+    number: "03",
+    title: "SHARE & START HIRING",
+    description:
+      "Get your deck instantly. Share with your hiring team. Run structured interviews that help you identify the best candidates.",
+  },
+];
 
+const EditorialStepCard = ({ number, description }: any) => {
+  return (
+    <div className="flex flex-col group">
+      {/* Large index number and Quote style description */}
+      <div className="flex items-start gap-6">
+        <span
+          className="text-[80px] md:text-[100px] font-light leading-none text-slate-900/10 dark:text-white/10 select-none transition-all duration-500 group-hover:text-primary/20"
+          style={{ fontFeatureSettings: '"tnum"' }}
+        >
+          {number}
+        </span>
+        <div className="flex-1 pt-4 md:pt-6 text-left">
+          <blockquote className="text-xl md:text-2xl font-light leading-relaxed text-slate-900 dark:text-slate-100 tracking-tight transition-all duration-300 group-hover:text-slate-900 dark:group-hover:text-white">
+            {description}
+          </blockquote>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const HowItWorks = () => {
   return (
     <section className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300">
-      <div className="">
-        <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
+      <div className="max-w-7xl mx-auto mb-20 text-center">
+        <div className="inline-block border border-slate-200 dark:border-slate-800 py-1 px-4 rounded-lg bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-6">
+          Process
+        </div>
+        <h2 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
           How We Fix Your Chaos
         </h2>
-        <p className="text-center text-lg text-slate-500 dark:text-slate-400 mb-4">
-          (In Three Actually Simple Steps)
-        </p>
-        <p className="text-center text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-          From mess to masterpiece faster than your average hiring round
+        <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed">
+          From mess to masterpiece faster than your average hiring round. Three
+          actually simple steps to hiring precision.
         </p>
       </div>
 
-      <div className="flex min-h-[500px] w-full items-center justify-center overflow-x-hidden">
-        <div className="max-w-7xl mx-auto">
-          <DisplayCards cards={steps} />
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16 md:gap-12">
+          {steps.map((step, index) => (
+            <EditorialStepCard key={index} {...step} />
+          ))}
         </div>
       </div>
     </section>

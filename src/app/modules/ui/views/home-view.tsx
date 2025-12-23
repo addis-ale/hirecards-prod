@@ -12,7 +12,7 @@ export const HomeView = () => {
       <HomeNavbar />
       <HomeHeroSection />
       <OutPutPlaceholder />
-      {/* <HowItWorks /> */}
+      <HowItWorks />
       <BuiltFor />
       <Testimonials />
       <Footer />
