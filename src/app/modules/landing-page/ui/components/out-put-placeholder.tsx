@@ -108,13 +108,13 @@ export const OutPutPlaceholder = () => {
   return (
     <section className={getSectionClass()} suppressHydrationWarning>
       <div className="mb-12">
-        <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
-          Stop guessing. <br className="hidden sm:block" />
-          Start hiring with precision.
+        <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4 uppercase">
+          Zero in on the truth. <br className="hidden sm:block" />
+          Build a strategy that wins.
         </h3>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-          See a live example below, a clear, data-driven view of your best
-          hiring options, including cost, timing, and risk tradeoffs.
+        <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
+          Dive deep into the precise data points that separate a successful hire
+          from a costly restart. Your complete hiring playbook, decoded.
         </p>
       </div>
       <ContainerScroll className="container h-[300svh]">
