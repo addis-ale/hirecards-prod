@@ -10,7 +10,7 @@ export const HomeHeroSection = () => {
   const [roleDescription, setRoleDescription] = useState("");
 
   return (
-    <section className="relative h-screen flex flex-col overflow-hidden bg-linear-to-b from-white via-gray-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <section className="relative h-screen flex flex-col overflow-x-hidden bg-linear-to-b from-white via-gray-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Static background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-[120px] animate-pulse" />

@@ -61,7 +61,7 @@ function FlipCard({ card, index, total, phase, target }: FlipCardProps) {
         transform: `translate3d(${target.x}px, ${target.y}px, 0) rotate(${target.rotation}deg) scale(${target.scale})`,
         opacity: target.opacity,
       }}
-      className="group pointer-events-auto"
+      className="group pointer-events-auto overflow-hidden"
     >
       <div className="relative h-full w-full">
         <Card
@@ -79,7 +79,7 @@ function FlipCard({ card, index, total, phase, target }: FlipCardProps) {
                 <span className="text-xs font-bold text-white/60 uppercase tracking-[0.2em]">
                   {card.title.split(" ")[0]}
                 </span>
-                <CardTitle className="text-xl font-black text-white mt-1">
+                <CardTitle className="md:text-xl text-2xl font-black text-white mt-1">
                   {card.title}
                 </CardTitle>
               </div>
@@ -124,11 +124,7 @@ interface ScrollMorphHeroProps {
   description: string;
 }
 
-function ScrollMorphHero({
-  cards,
-  title,
-  description,
-}: ScrollMorphHeroProps) {
+function ScrollMorphHero({ cards, title, description }: ScrollMorphHeroProps) {
   const TOTAL_CARDS = cards.length;
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,7 +159,7 @@ function ScrollMorphHero({
       <div className="flex h-full w-full flex-col items-center justify-center perspective-1000">
         {/* Center Text */}
         <div className="absolute z-10 flex flex-col items-center justify-center text-center pointer-events-auto top-[25%] -translate-y-1/2 px-4 max-w-[600px] mx-auto">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-4 text-balance leading-[1.1]">
+          <h1 className="text-5xl md:text-5xl lg:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-4 text-balance leading-[1.1]">
             {title}
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed px-4">
@@ -173,59 +169,60 @@ function ScrollMorphHero({
 
         {/* Main Container - Framed Side Layout */}
         <div className="relative hidden md:flex items-center justify-center w-full h-full overflow-hidden pointer-events-none">
-          {containerSize.width > 0 && cards.slice(0, 6).map((card, i) => {
-            const isMobile = containerSize.width < 768;
-            const isLeft = i < 3;
-            const positionInSide = i % 3; // 0, 1, 2 for each side
+          {containerSize.width > 0 &&
+            cards.slice(0, 6).map((card, i) => {
+              const isMobile = containerSize.width < 768;
+              const isLeft = i < 3;
+              const positionInSide = i % 3; // 0, 1, 2 for each side
 
-            // Horizontal position: tight stack
-            const cardSafetyPadding = isMobile ? 10 : 30;
-            const maxSafeX =
-              containerSize.width / 2 - CARD_WIDTH / 2 - cardSafetyPadding;
+              // Horizontal position: tight stack
+              const cardSafetyPadding = isMobile ? 10 : 30;
+              const maxSafeX =
+                containerSize.width / 2 - CARD_WIDTH / 2 - cardSafetyPadding;
 
-            // Tight stacking like the banking image
-            // We want them overlapping significantly
-            const xStep = isMobile ? 15 : 25;
-            const xBase = maxSafeX * 0.95;
-            let x = isLeft
-              ? -(xBase - positionInSide * xStep)
-              : xBase - positionInSide * xStep;
+              // Tight stacking like the banking image
+              // We want them overlapping significantly
+              const xStep = isMobile ? 15 : 25;
+              const xBase = maxSafeX * 0.95;
+              let x = isLeft
+                ? -(xBase - positionInSide * xStep)
+                : xBase - positionInSide * xStep;
 
-            // Vertical position - stacked and fanned
-            const yStep = isMobile ? 30 : 45;
-            let y = positionInSide * yStep;
+              // Vertical position - stacked and fanned
+              const yStep = isMobile ? 30 : 45;
+              let y = positionInSide * yStep;
 
-            // Shift down to center/frame the input form
-            const verticalOffset = isMobile ? 80 : 100;
-            y += verticalOffset;
+              // Shift down to center/frame the input form
+              const verticalOffset = isMobile ? 80 : 100;
+              y += verticalOffset;
 
-            // Rotation: Creative incline to match the banking image
-            // Top card (index 0) is flat or slightly tilted
-            // Cards below it tilt more aggressively
-            const rotationAngles = [10, 22, 35];
-            let rotation = isLeft
-              ? rotationAngles[positionInSide]
-              : -rotationAngles[positionInSide];
+              // Rotation: Creative incline to match the banking image
+              // Top card (index 0) is flat or slightly tilted
+              // Cards below it tilt more aggressively
+              const rotationAngles = [10, 22, 35];
+              let rotation = isLeft
+                ? rotationAngles[positionInSide]
+                : -rotationAngles[positionInSide];
 
-            const target = {
-              x,
-              y,
-              rotation,
-              scale: isMobile ? 0.65 : 0.9,
-              opacity: 1,
-            };
+              const target = {
+                x,
+                y,
+                rotation,
+                scale: isMobile ? 0.65 : 0.9,
+                opacity: 1,
+              };
 
-            return (
-              <FlipCard
-                key={card.id}
-                card={card}
-                index={i}
-                total={6}
-                phase="circle"
-                target={target}
-              />
-            );
-          })}
+              return (
+                <FlipCard
+                  key={card.id}
+                  card={card}
+                  index={i}
+                  total={6}
+                  phase="circle"
+                  target={target}
+                />
+              );
+            })}
         </div>
       </div>
     </div>

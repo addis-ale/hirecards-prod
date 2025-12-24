@@ -118,9 +118,9 @@ export const OutPutPlaceholder = () => {
           hiring options, including cost, timing, and risk tradeoffs.
         </p>
       </div>
-      <ContainerScroll className="container h-[300vh]">
+      <ContainerScroll className="container h-[300svh]">
         <div className="sticky left-0 top-0 h-svh w-full flex items-center justify-center">
-          <div className="relative w-full max-w-5xl mx-auto h-[750px]">
+          <div className="relative overflow-x-hidden w-full max-w-5xl mx-auto h-[750px]">
             <CardsContainer className="mx-auto w-full max-w-xl h-[480px] mt-24">
               {heroCards.map((card, index) => {
                 const Icon = card.icon;
