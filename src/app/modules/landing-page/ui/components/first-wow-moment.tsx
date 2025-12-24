@@ -72,7 +72,7 @@ export const FirstWowMoment = () => {
           </div>
 
           {/* Main Card Container */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl shadow-[#102a63]/10 dark:shadow-black/40 border border-slate-200/60 dark:border-white/10 overflow-hidden min-h-[700px] md:min-h-[850px] flex flex-col transition-colors duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl shadow-[#102a63]/10 dark:shadow-black/40 border border-slate-200/60 dark:border-white/10 overflow-hidden min-h-[650px] md:min-h-[850px] flex flex-col transition-colors duration-300">
             {/* App Chrome (Browser Header Simulation) */}
             <div className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-white/5 px-4 py-3 flex items-center gap-2">
               <div className="flex gap-1.5">
