@@ -120,7 +120,7 @@ export const OutPutPlaceholder = () => {
       <ContainerScroll className="container h-[300svh]">
         <div className="sticky left-0 top-0 h-svh w-full flex items-center justify-center">
           <div className="relative w-full max-w-5xl mx-auto h-[620px]">
-            <CardsContainer className="mx-auto w-full max-w-2xl h-[520px] mt-16">
+            <CardsContainer className="mx-auto w-[80%] sm:w-full max-w-2xl h-[520px] mt-16">
               {heroCards.map((card, index) => {
                 const Icon = card.icon;
                 return (
@@ -167,14 +167,23 @@ export const OutPutPlaceholder = () => {
                       {/* Key Insights */}
                       {card.keyInsights && (
                         <div className="mt-4">
-                          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Key Insights</span>
+                          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">
+                            Key Insights
+                          </span>
                           <ul className="mt-2 space-y-1.5">
-                            {card.keyInsights.slice(0, 3).map((insight: string, idx: number) => (
-                              <li key={idx} className="text-sm text-white leading-snug flex items-start gap-2">
-                                <span className="text-white/50 font-bold">•</span>
-                                <span>{insight}</span>
-                              </li>
-                            ))}
+                            {card.keyInsights
+                              .slice(0, 3)
+                              .map((insight: string, idx: number) => (
+                                <li
+                                  key={idx}
+                                  className="text-sm text-white leading-snug flex items-start gap-2"
+                                >
+                                  <span className="text-white/50 font-bold">
+                                    •
+                                  </span>
+                                  <span>{insight}</span>
+                                </li>
+                              ))}
                           </ul>
                         </div>
                       )}
@@ -182,7 +191,9 @@ export const OutPutPlaceholder = () => {
                       {/* Brutal Truth */}
                       {card.brutalTruth && (
                         <div className="mt-4 p-4 rounded-xl bg-black/30 border border-white/20">
-                          <span className="text-xs font-bold text-yellow-300 uppercase tracking-wider">⚡ Brutal Truth</span>
+                          <span className="text-xs font-bold text-yellow-300 uppercase tracking-wider">
+                            ⚡ Brutal Truth
+                          </span>
                           <p className="text-sm text-white leading-relaxed mt-2">
                             {card.brutalTruth}
                           </p>
@@ -193,32 +204,49 @@ export const OutPutPlaceholder = () => {
                       <div className="grid grid-cols-2 gap-4 mt-4">
                         {card.helps && (
                           <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/30">
-                            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">What Helps</span>
+                            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+                              What Helps
+                            </span>
                             <ul className="mt-2 space-y-1">
-                              {card.helps.slice(0, 3).map((item: string, idx: number) => (
-                                <li key={idx} className="text-sm text-white leading-snug flex items-start gap-1.5">
-                                  <span className="text-emerald-300 font-bold">+</span>
-                                  <span>{item}</span>
-                                </li>
-                              ))}
+                              {card.helps
+                                .slice(0, 3)
+                                .map((item: string, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="text-sm text-white leading-snug flex items-start gap-1.5"
+                                  >
+                                    <span className="text-emerald-300 font-bold">
+                                      +
+                                    </span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
                             </ul>
                           </div>
                         )}
                         {card.hurts && (
                           <div className="p-3 rounded-xl bg-red-500/20 border border-red-400/30">
-                            <span className="text-xs font-bold text-red-300 uppercase tracking-wider">What Hurts</span>
+                            <span className="text-xs font-bold text-red-300 uppercase tracking-wider">
+                              What Hurts
+                            </span>
                             <ul className="mt-2 space-y-1">
-                              {card.hurts.slice(0, 3).map((item: string, idx: number) => (
-                                <li key={idx} className="text-sm text-white leading-snug flex items-start gap-1.5">
-                                  <span className="text-red-300 font-bold">−</span>
-                                  <span>{item}</span>
-                                </li>
-                              ))}
+                              {card.hurts
+                                .slice(0, 3)
+                                .map((item: string, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="text-sm text-white leading-snug flex items-start gap-1.5"
+                                  >
+                                    <span className="text-red-300 font-bold">
+                                      −
+                                    </span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
                             </ul>
                           </div>
                         )}
                       </div>
-
                     </div>
                   </CardTransformed>
                 );
