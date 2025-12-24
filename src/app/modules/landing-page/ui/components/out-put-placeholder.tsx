@@ -120,8 +120,8 @@ export const OutPutPlaceholder = () => {
       </div>
       <ContainerScroll className="container h-[300svh]">
         <div className="sticky left-0 top-0 h-svh w-full flex items-center justify-center">
-          <div className="relative overflow-x-hidden w-full max-w-5xl mx-auto h-[750px]">
-            <CardsContainer className="mx-auto w-full max-w-xl h-[480px] mt-24">
+          <div className="relative w-full max-w-5xl mx-auto h-[620px]">
+            <CardsContainer className="mx-auto w-full max-w-2xl h-[520px] mt-16">
               {heroCards.map((card, index) => {
                 const Icon = card.icon;
                 return (
@@ -140,37 +140,86 @@ export const OutPutPlaceholder = () => {
                           : "bg-slate-900"
                       )}
                     >
-                      {/* Header */}
-                      <div className="flex justify-between items-start w-full mb-6">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em]">
+                      {/* Header Row */}
+                      <div className="flex justify-between items-start w-full">
+                        <div className="flex flex-col flex-1">
+                          <span className="text-xs font-bold text-white/60 uppercase tracking-wider">
                             {card.title.split(" ")[0]}
                           </span>
-                          <h4 className="text-lg font-black text-white mt-1">
+                          <h4 className="text-xl font-black text-white leading-tight">
                             {card.title}
                           </h4>
                         </div>
-                        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
-                          {Icon && <Icon className="w-4 h-4 text-white" />}
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-3xl font-black text-white tracking-tight leading-none">
+                              {card.metricValue}
+                            </div>
+                            <div className="text-xs font-semibold text-white/60 uppercase">
+                              {card.metricLabel}
+                            </div>
+                          </div>
+                          <div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center border border-white/20">
+                            {Icon && <Icon className="w-5 h-5 text-white" />}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Metric */}
-                      <div className="my-auto flex flex-col gap-1">
-                        <div className="text-4xl font-black text-white tracking-tighter">
-                          {card.metricValue || "****"}
+                      {/* Key Insights */}
+                      {card.keyInsights && (
+                        <div className="mt-4">
+                          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Key Insights</span>
+                          <ul className="mt-2 space-y-1.5">
+                            {card.keyInsights.slice(0, 3).map((insight: string, idx: number) => (
+                              <li key={idx} className="text-sm text-white leading-snug flex items-start gap-2">
+                                <span className="text-white/50 font-bold">•</span>
+                                <span>{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <div className="text-[10px] font-medium text-white/50 uppercase tracking-widest">
-                          {card.metricLabel || "Metric"}
+                      )}
+
+                      {/* Brutal Truth */}
+                      {card.brutalTruth && (
+                        <div className="mt-4 p-4 rounded-xl bg-black/30 border border-white/20">
+                          <span className="text-xs font-bold text-yellow-300 uppercase tracking-wider">⚡ Brutal Truth</span>
+                          <p className="text-sm text-white leading-relaxed mt-2">
+                            {card.brutalTruth}
+                          </p>
                         </div>
+                      )}
+
+                      {/* Helps & Hurts */}
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        {card.helps && (
+                          <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/30">
+                            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">What Helps</span>
+                            <ul className="mt-2 space-y-1">
+                              {card.helps.slice(0, 3).map((item: string, idx: number) => (
+                                <li key={idx} className="text-sm text-white leading-snug flex items-start gap-1.5">
+                                  <span className="text-emerald-300 font-bold">+</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {card.hurts && (
+                          <div className="p-3 rounded-xl bg-red-500/20 border border-red-400/30">
+                            <span className="text-xs font-bold text-red-300 uppercase tracking-wider">What Hurts</span>
+                            <ul className="mt-2 space-y-1">
+                              {card.hurts.slice(0, 3).map((item: string, idx: number) => (
+                                <li key={idx} className="text-sm text-white leading-snug flex items-start gap-1.5">
+                                  <span className="text-red-300 font-bold">−</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Description */}
-                      <div className="mt-auto pt-4 border-t border-white/10">
-                        <p className="text-sm font-medium text-white/90 leading-snug">
-                          "{card.description}"
-                        </p>
-                      </div>
                     </div>
                   </CardTransformed>
                 );
