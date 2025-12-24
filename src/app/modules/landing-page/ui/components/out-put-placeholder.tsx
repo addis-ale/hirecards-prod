@@ -120,7 +120,7 @@ export const OutPutPlaceholder = () => {
       <ContainerScroll className="container h-[300svh]">
         <div className="sticky left-0 top-0 h-svh w-full flex items-center justify-center">
           <div className="relative w-full max-w-5xl mx-auto h-[620px]">
-            <CardsContainer className="mx-auto w-[80%] sm:w-full max-w-2xl h-[520px] mt-16">
+            <CardsContainer className="mx-auto w-[76%] sm:w-full max-w-2xl h-[520px] mt-16">
               {heroCards.map((card, index) => {
                 const Icon = card.icon;
                 return (
