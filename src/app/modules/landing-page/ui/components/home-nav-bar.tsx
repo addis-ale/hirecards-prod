@@ -1,6 +1,6 @@
 "use client";
 
-import { NavBar } from "@/app/modules/ui/components/tubelight-navbar";
+import { NavBar } from "@/app/modules/landing-page/ui/components/tubelight-navbar";
 import {
   Sparkles,
   PlayCircle,

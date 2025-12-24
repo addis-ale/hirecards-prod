@@ -1,4 +1,4 @@
-import { HomeView } from "../modules/ui/views/home-view";
+import { HomeView } from "../modules/landing-page/ui/views/home-view";
 
 export default function Home() {
   return (

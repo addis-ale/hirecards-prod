@@ -7,7 +7,7 @@ import {
   CardsContainer,
   ContainerScroll,
   useContainerScrollContext,
-} from "@/app/modules/ui/components/animated-cards-stack";
+} from "@/app/modules/landing-page/ui/components/animated-cards-stack";
 import { heroCards } from "./hero-cards-data";
 import { CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";

@@ -1,6 +1,6 @@
 "use client";
 
-import { FeaturesSectionWithHoverEffects } from "@/app/modules/ui/components/feature-section-with-hover-effects";
+import { FeaturesSectionWithHoverEffects } from "@/app/modules/landing-page/ui/components/feature-section-with-hover-effects";
 import { Rocket, Users, Briefcase, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -38,7 +38,10 @@ export const BuiltFor = () => {
   ];
 
   return (
-    <section id="built-for" className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300 scroll-mt-20">
+    <section
+      id="built-for"
+      className="bg-white dark:bg-slate-950 px-8 py-24 transition-colors duration-300 scroll-mt-20"
+    >
       <div className="mb-12">
         <h2 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
           Built for These
