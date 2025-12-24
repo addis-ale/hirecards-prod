@@ -38,7 +38,6 @@ interface CardStickyProps
   index: number;
   incrementY?: number;
   incrementZ?: number;
-  incrementRotation?: number;
 }
 interface ContainerScrollContextValue {
   scrollYProgress: MotionValue<number>;
@@ -112,7 +111,6 @@ export const CardTransformed = React.forwardRef<
       index,
       incrementY = 10,
       incrementZ = 10,
-      incrementRotation = -index + 90,
       className,
       variant,
       style,

@@ -1,8 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import { Upload, Database, Share2 } from "lucide-react";
-
 const steps = [
   {
     number: "01",
@@ -24,7 +21,12 @@ const steps = [
   },
 ];
 
-const EditorialStepCard = ({ number, description }: any) => {
+interface EditorialStepCardProps {
+  number: string;
+  description: string;
+}
+
+const EditorialStepCard = ({ number, description }: EditorialStepCardProps) => {
   return (
     <div className="flex flex-col group">
       {/* Large index number and Quote style description */}

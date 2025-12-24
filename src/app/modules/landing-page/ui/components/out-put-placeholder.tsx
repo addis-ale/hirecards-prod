@@ -9,7 +9,6 @@ import {
   useContainerScrollContext,
 } from "@/app/modules/landing-page/ui/components/animated-cards-stack";
 import { heroCards } from "./hero-cards-data";
-import { CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   motion,
@@ -20,7 +19,7 @@ import {
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function getSectionClass(theme: string | undefined) {
+function getSectionClass() {
   return "bg-slate-50 dark:bg-slate-950 px-8 py-24 transition-colors duration-300";
 }
 
@@ -78,7 +77,7 @@ const FinalBanner = ({ arrayLength }: { arrayLength: number }) => {
                 <span className="text-primary">WINGING IT?</span>
               </h3>
               <h4 className="text-lg md:text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                LET'S BUILD SOMETHING BETTER.
+                LET&apos;S BUILD SOMETHING BETTER.
               </h4>
             </div>
 
@@ -107,7 +106,7 @@ export const OutPutPlaceholder = () => {
   const { theme } = useTheme();
 
   return (
-    <section className={getSectionClass(theme)} suppressHydrationWarning>
+    <section className={getSectionClass()} suppressHydrationWarning>
       <div className="mb-12">
         <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
           Stop guessing. <br className="hidden sm:block" />

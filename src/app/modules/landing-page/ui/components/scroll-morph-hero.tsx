@@ -1,14 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, memo } from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
 } from "@/components/ui/card";
 
 import { LucideIcon } from "lucide-react";
@@ -30,8 +27,6 @@ interface Card {
 interface FlipCardProps {
   card: Card;
   index: number;
-  total: number;
-  phase: AnimationPhase;
   target: {
     x: number;
     y: number;
@@ -45,9 +40,8 @@ interface FlipCardProps {
 const CARD_WIDTH = 240;
 const CARD_HEIGHT = 330;
 
-function FlipCard({ card, index, total, phase, target }: FlipCardProps) {
+function FlipCard({ card, index, target }: FlipCardProps) {
   const Icon = card.icon;
-  const isLeft = target.x < 0;
 
   return (
     <div
@@ -100,7 +94,7 @@ function FlipCard({ card, index, total, phase, target }: FlipCardProps) {
             <div className="mt-auto">
               {card.description && (
                 <div className="text-sm font-semibold text-white/90 leading-snug line-clamp-2">
-                  "{card.description}"
+                  &quot;{card.description}&quot;
                 </div>
               )}
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/10">
@@ -125,7 +119,6 @@ interface ScrollMorphHeroProps {
 }
 
 function ScrollMorphHero({ cards, title, description }: ScrollMorphHeroProps) {
-  const TOTAL_CARDS = cards.length;
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -184,23 +177,21 @@ function ScrollMorphHero({ cards, title, description }: ScrollMorphHeroProps) {
               // We want them overlapping significantly
               const xStep = isMobile ? 15 : 25;
               const xBase = maxSafeX * 0.95;
-              let x = isLeft
+              const x = isLeft
                 ? -(xBase - positionInSide * xStep)
                 : xBase - positionInSide * xStep;
 
               // Vertical position - stacked and fanned
               const yStep = isMobile ? 30 : 45;
-              let y = positionInSide * yStep;
-
               // Shift down to center/frame the input form
               const verticalOffset = isMobile ? 80 : 100;
-              y += verticalOffset;
+              const y = positionInSide * yStep + verticalOffset;
 
               // Rotation: Creative incline to match the banking image
               // Top card (index 0) is flat or slightly tilted
               // Cards below it tilt more aggressively
               const rotationAngles = [10, 22, 35];
-              let rotation = isLeft
+              const rotation = isLeft
                 ? rotationAngles[positionInSide]
                 : -rotationAngles[positionInSide];
 
@@ -217,8 +208,6 @@ function ScrollMorphHero({ cards, title, description }: ScrollMorphHeroProps) {
                   key={card.id}
                   card={card}
                   index={i}
-                  total={6}
-                  phase="circle"
                   target={target}
                 />
               );
