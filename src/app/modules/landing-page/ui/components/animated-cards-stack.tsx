@@ -1,8 +1,8 @@
-"use client" 
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 
-import { VariantProps, cva } from "class-variance-authority"
+import { VariantProps, cva } from "class-variance-authority";
 import {
   HTMLMotionProps,
   MotionValue,
@@ -11,9 +11,9 @@ import {
   useScroll,
   useSpring,
   useTransform,
-} from "motion/react"
+} from "motion/react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const cardVariants = cva("absolute will-change-transform transform-gpu", {
   variants: {
@@ -26,45 +26,45 @@ const cardVariants = cva("absolute will-change-transform transform-gpu", {
   defaultVariants: {
     variant: "light",
   },
-})
+});
 interface ReviewProps extends React.HTMLAttributes<HTMLDivElement> {
-  rating: number
-  maxRating?: number
+  rating: number;
+  maxRating?: number;
 }
 interface CardStickyProps
   extends HTMLMotionProps<"div">,
     VariantProps<typeof cardVariants> {
-  arrayLength: number
-  index: number
-  incrementY?: number
-  incrementZ?: number
-  incrementRotation?: number
+  arrayLength: number;
+  index: number;
+  incrementY?: number;
+  incrementZ?: number;
+  incrementRotation?: number;
 }
 interface ContainerScrollContextValue {
-  scrollYProgress: MotionValue<number>
+  scrollYProgress: MotionValue<number>;
 }
 
 const ContainerScrollContext = React.createContext<
   ContainerScrollContextValue | undefined
->(undefined)
+>(undefined);
 export function useContainerScrollContext() {
-  const context = React.useContext(ContainerScrollContext)
+  const context = React.useContext(ContainerScrollContext);
   if (context === undefined) {
     throw new Error(
       "useContainerScrollContext must be used within a ContainerScrollContextProvider"
-    )
+    );
   }
-  return context
+  return context;
 }
 
 export const ContainerScroll: React.FC<
   React.HTMLAttributes<HTMLDivElement>
 > = ({ children, style, className, ...props }) => {
-  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: scrollRef,
     offset: ["start center", "end end"],
-  })
+  });
 
   return (
     <ContainerScrollContext.Provider value={{ scrollYProgress }}>
@@ -72,34 +72,36 @@ export const ContainerScroll: React.FC<
         ref={scrollRef}
         className={cn("relative min-h-svh w-full", className)}
         style={{ perspective: "1000px", ...style }}
+        suppressHydrationWarning
         {...props}
       >
         {children}
       </div>
     </ContainerScrollContext.Provider>
-  )
-}
-ContainerScroll.displayName = "ContainerScroll"
+  );
+};
+ContainerScroll.displayName = "ContainerScroll";
 
 export const CardsContainer: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   children,
   className,
   ...props
 }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   return (
     <div
       ref={containerRef}
       className={cn("relative", className)}
       style={{ perspective: "1000px", ...props.style }}
+      suppressHydrationWarning
       {...props}
     >
       {children}
     </div>
-  )
-}
-CardsContainer.displayName = "CardsContainer"
+  );
+};
+CardsContainer.displayName = "CardsContainer";
 export const CardTransformed = React.forwardRef<
   HTMLDivElement,
   CardStickyProps
@@ -118,35 +120,36 @@ export const CardTransformed = React.forwardRef<
     },
     ref
   ) => {
+    const { scrollYProgress } = useContainerScrollContext();
 
-    
-    const { scrollYProgress } = useContainerScrollContext()
-    
     // Add spring physics for smoother animation
     const smoothProgress = useSpring(scrollYProgress, {
       stiffness: 200,
       damping: 40,
-      restDelta: 0.001
-    })
+      restDelta: 0.001,
+    });
 
-    const start = index / (arrayLength + 1)
-    const end = (index + 1) / (arrayLength + 1)
-    const range = React.useMemo(() => [start, end], [start, end])
-    const rotateRange = [range[0], range[1]]
+    const start = index / (arrayLength + 1);
+    const end = (index + 1) / (arrayLength + 1);
+    const range = React.useMemo(() => [start, end], [start, end]);
+    const rotateRange = [range[0], range[1]];
 
-    const y = useTransform(smoothProgress, range, ["0%", "-180%"])
-    
+    const y = useTransform(smoothProgress, range, ["0%", "-180%"]);
+
     // Alternating rotation: odd tilts left, even tilts right
-    const isEven = index % 2 === 0
-    const rotationValue = isEven ? 12 : -12
-    const rotate = useTransform(smoothProgress, rotateRange, [rotationValue, 0])
+    const isEven = index % 2 === 0;
+    const rotationValue = isEven ? 12 : -12;
+    const rotate = useTransform(smoothProgress, rotateRange, [
+      rotationValue,
+      0,
+    ]);
 
     const transform = useMotionTemplate`translateZ(${
       index * incrementZ
-    }px) translateY(${y}) rotate(${rotate}deg)`
+    }px) translateY(${y}) rotate(${rotate}deg)`;
 
     // Removed expensive filter animation for performance
-    const filter = "none"
+    const filter = "none";
 
     const cardStyle = {
       top: index * incrementY,
@@ -155,24 +158,25 @@ export const CardTransformed = React.forwardRef<
       zIndex: (arrayLength - index) * incrementZ,
       filter,
       ...style,
-    }
+    };
     return (
       <motion.div
         ref={ref}
         style={cardStyle}
         className={cn(cardVariants({ variant, className }))}
+        suppressHydrationWarning
         {...props}
       />
-    )
+    );
   }
-)
-CardTransformed.displayName = "CardTransformed"
+);
+CardTransformed.displayName = "CardTransformed";
 
 export const ReviewStars = React.forwardRef<HTMLDivElement, ReviewProps>(
   ({ rating, maxRating = 5, className, ...props }, ref) => {
-    const filledStars = Math.floor(rating)
-    const fractionalPart = rating - filledStars
-    const emptyStars = maxRating - filledStars - (fractionalPart > 0 ? 1 : 0)
+    const filledStars = Math.floor(rating);
+    const fractionalPart = rating - filledStars;
+    const emptyStars = maxRating - filledStars - (fractionalPart > 0 ? 1 : 0);
 
     return (
       <div
@@ -228,7 +232,7 @@ export const ReviewStars = React.forwardRef<HTMLDivElement, ReviewProps>(
         </div>
         <p className="sr-only">{rating}</p>
       </div>
-    )
+    );
   }
-)
-ReviewStars.displayName = "ReviewStars"
+);
+ReviewStars.displayName = "ReviewStars";

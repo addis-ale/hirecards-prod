@@ -59,6 +59,7 @@ const FinalBanner = ({ arrayLength }: { arrayLength: number }) => {
         zIndex: 100,
       }}
       className="max-w-5xl mx-auto px-4 pointer-events-none"
+      suppressHydrationWarning
     >
       <div className="relative group pointer-events-auto overflow-hidden rounded-[48px] border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-12 md:p-20 min-h-[550px] shadow-2xl transition-colors duration-300 flex flex-col items-center justify-center text-center">
         {/* Project DNA: Background Pattern */}
@@ -106,7 +107,7 @@ export const OutPutPlaceholder = () => {
   const { theme } = useTheme();
 
   return (
-    <section className={getSectionClass(theme)}>
+    <section className={getSectionClass(theme)} suppressHydrationWarning>
       <div className="mb-12">
         <h3 className="text-center text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
           Stop guessing. <br className="hidden sm:block" />
