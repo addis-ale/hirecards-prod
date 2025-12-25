@@ -162,15 +162,15 @@ export default function HireCardsDashboard() {
   const totalBoost = filteredCards.reduce((acc, card) => acc + card.boost, 0).toFixed(1)
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#09090b] text-slate-900 dark:text-white overflow-hidden">
       {/* Ambient Background */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.015]"
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.015]"
           style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
             backgroundSize: "40px 40px",
           }}
         />
@@ -183,24 +183,24 @@ export default function HireCardsDashboard() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs uppercase tracking-widest text-zinc-500">Hiring Intelligence</span>
+                <span className="text-xs uppercase tracking-widest text-slate-500 dark:text-zinc-500">Hiring Intelligence</span>
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
-                <span className="text-white">Hire</span>
+                <span className="text-slate-900 dark:text-white">Hire</span>
                 <span className="text-emerald-500">Cards</span>
               </h1>
-              <p className="text-zinc-400 mt-2 max-w-md">
+              <p className="text-slate-600 dark:text-zinc-400 mt-2 max-w-md">
                 Navigate your hiring strategy with precision. Each card unlocks deeper insights.
               </p>
             </div>
 
             {/* Boost Meter */}
-            <div className="flex items-center gap-4 px-5 py-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+            <div className="flex items-center gap-4 px-5 py-3 rounded-2xl bg-slate-100 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-amber-500" />
-                <span className="text-sm text-zinc-400">Total Boost</span>
+                <span className="text-sm text-slate-600 dark:text-zinc-400">Total Boost</span>
               </div>
-              <div className="text-2xl font-bold text-white">+{totalBoost}</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">+{totalBoost}</div>
             </div>
           </div>
 
@@ -212,8 +212,8 @@ export default function HireCardsDashboard() {
                 onClick={() => setActiveCategory(category.id)}
                 className={`px-4 py-2 text-sm rounded-full transition-all duration-300 ${
                   activeCategory === category.id
-                    ? "bg-white text-black font-medium"
-                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800"
+                    ? "bg-slate-900 dark:bg-white text-white dark:text-black font-medium"
+                    : "bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-zinc-800"
                 }`}
               >
                 {category.label}
@@ -248,12 +248,12 @@ export default function HireCardsDashboard() {
                 <div
                   className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
                 />
-                <div className="absolute inset-0 bg-zinc-900 group-hover:bg-zinc-900/20 transition-colors duration-500" />
+                <div className="absolute inset-0 bg-white dark:bg-zinc-900 group-hover:bg-white/20 dark:group-hover:bg-zinc-900/20 transition-colors duration-500" />
 
                 {/* Border Glow */}
                 <div
                   className={`absolute inset-0 rounded-2xl sm:rounded-3xl border transition-colors duration-300 ${
-                    isHovered ? "border-white/20" : "border-zinc-800"
+                    isHovered ? "border-slate-300 dark:border-white/20" : "border-slate-200 dark:border-zinc-800"
                   }`}
                 />
 
@@ -273,7 +273,7 @@ export default function HireCardsDashboard() {
 
                     <div
                       className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                        isHovered ? "bg-white text-black" : "bg-zinc-800 text-zinc-400"
+                        isHovered ? "bg-slate-900 dark:bg-white text-white dark:text-black" : "bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400"
                       }`}
                     >
                       <Sparkles className="w-3 h-3" />
@@ -287,7 +287,7 @@ export default function HireCardsDashboard() {
                       <h3
                         className={`font-semibold transition-colors duration-300 ${
                           card.size === "large" ? "text-xl sm:text-2xl" : "text-base sm:text-lg"
-                        } ${isHovered ? "text-white" : "text-zinc-100"}`}
+                        } ${isHovered ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-zinc-100"}`}
                       >
                         {card.name}
                       </h3>
@@ -302,7 +302,7 @@ export default function HireCardsDashboard() {
 
                     <p
                       className={`text-sm leading-relaxed transition-colors duration-300 ${
-                        isHovered ? "text-white/80" : "text-zinc-500"
+                        isHovered ? "text-slate-700 dark:text-white/80" : "text-slate-600 dark:text-zinc-500"
                       } ${card.size === "small" ? "hidden sm:block" : ""}`}
                     >
                       {card.description}
@@ -310,17 +310,17 @@ export default function HireCardsDashboard() {
 
                     {/* Extra content for large cards */}
                     {card.size === "large" && (
-                      <div className="mt-4 pt-4 border-t border-zinc-800/50 group-hover:border-white/10 transition-colors">
+                      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800/50 group-hover:border-slate-300 dark:group-hover:border-white/10 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="flex-1">
-                            <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                            <div className="h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
                               <div
                                 className={`h-full rounded-full bg-gradient-to-r ${card.gradient} transition-all duration-700`}
                                 style={{ width: `${card.boost * 100}%` }}
                               />
                             </div>
                           </div>
-                          <span className="text-xs text-zinc-500 group-hover:text-white/60">
+                          <span className="text-xs text-slate-600 dark:text-zinc-500 group-hover:text-slate-800 dark:group-hover:text-white/60">
                             {Math.round(card.boost * 100)}% impact
                           </span>
                         </div>
@@ -352,25 +352,25 @@ export default function HireCardsDashboard() {
         </div>
 
         {/* Bottom Stats Bar */}
-        <div className="mt-8 sm:mt-12 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-zinc-900/50 border border-zinc-800 backdrop-blur-sm">
+        <div className="mt-8 sm:mt-12 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-100/50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 backdrop-blur-sm">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             <div className="text-center sm:text-left">
-              <div className="text-2xl sm:text-3xl font-bold text-white">{filteredCards.length}</div>
-              <div className="text-xs sm:text-sm text-zinc-500">Active Cards</div>
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{filteredCards.length}</div>
+              <div className="text-xs sm:text-sm text-slate-600 dark:text-zinc-500">Active Cards</div>
             </div>
             <div className="text-center sm:text-left">
               <div className="text-2xl sm:text-3xl font-bold text-emerald-500">+{totalBoost}</div>
-              <div className="text-xs sm:text-sm text-zinc-500">Combined Boost</div>
+              <div className="text-xs sm:text-sm text-slate-600 dark:text-zinc-500">Combined Boost</div>
             </div>
             <div className="text-center sm:text-left">
-              <div className="text-2xl sm:text-3xl font-bold text-white">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
                 {categories.filter((c) => c.id !== "all").length}
               </div>
-              <div className="text-xs sm:text-sm text-zinc-500">Categories</div>
+              <div className="text-xs sm:text-sm text-slate-600 dark:text-zinc-500">Categories</div>
             </div>
             <div className="text-center sm:text-left">
               <div className="text-2xl sm:text-3xl font-bold text-amber-500">94%</div>
-              <div className="text-xs sm:text-sm text-zinc-500">Completion</div>
+              <div className="text-xs sm:text-sm text-slate-600 dark:text-zinc-500">Completion</div>
             </div>
           </div>
         </div>
