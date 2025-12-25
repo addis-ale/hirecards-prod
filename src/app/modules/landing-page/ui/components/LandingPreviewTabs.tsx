@@ -711,7 +711,7 @@ export const LandingPreviewTabs: React.FC = () => {
         {/* Horizontal scrolling tabs */}
         <div className="overflow-x-auto pb-2 -mx-4 px-4">
           <div className="flex gap-2 min-w-max">
-            {tabs.map((tab, index) => {
+            {tabs.map((tab) => {
               const Icon = tab.Icon;
               return (
                 <motion.button
