@@ -182,6 +182,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
     const commonProps = {
       onNavigateToCard: handleNavigateToCard,
       currentCardId: activeTab,
+      onOpenSuggestions: () => setShowImprovementPanel(true),
     };
 
     switch (activeTab) {
@@ -241,10 +242,10 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
       default:
         return (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">
+            <p className="text-slate-600 dark:text-slate-400 font-bold mb-4 text-lg">
               This card is under construction
             </p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-500 dark:text-slate-500 font-bold">
               More detailed content coming soon...
             </p>
           </div>
@@ -265,8 +266,8 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
   return (
     <div className="w-full">
       {/* Main Content Area - Full Width */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="p-4 md:p-5 min-h-[600px]">
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] overflow-hidden transition-colors duration-300">
+        <div className="p-4 md:p-6 lg:p-8 min-h-[600px]">
           <EditModeProvider isEditMode={isEditMode}>
             {renderCardContent()}
           </EditModeProvider>
@@ -280,7 +281,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowImprovementPanel(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:shadow-xl"
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-full shadow-2xl flex items-center justify-center transition-all hover:shadow-2xl border-2 border-slate-200 dark:border-slate-700"
         title="Get improvement suggestions"
       >
         <MessageSquare className="w-6 h-6" />

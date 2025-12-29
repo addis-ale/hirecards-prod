@@ -35,12 +35,14 @@ interface SkillCardProps {
   };
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
 }
 
 export const EditableSkillCard = ({
   data,
   onNavigateToCard,
   currentCardId,
+  onOpenSuggestions,
 }: SkillCardProps = {}) => {
   // Initialize from data prop, fallback to static example data
   const [technicalSkills, setTechnicalSkills] = useState(
@@ -201,7 +203,9 @@ export const EditableSkillCard = ({
           if (savedData.upskillableSkills !== undefined)
             setUpskillableSkills(savedData.upskillableSkills);
           if (savedData.mustHaveSkills !== undefined) setMustHaveSkills(savedData.mustHaveSkills);
-          if (savedData.scoreImpactRows !== undefined) setScoreImpactRows(savedData.scoreImpactRows);
+          if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+            setScoreImpactRows(savedData.scoreImpactRows);
+          }
         } catch (e) {
           console.error("Failed to load saved data:", e);
         }
@@ -371,10 +375,10 @@ export const EditableSkillCard = ({
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
             >
               {/* Special handling for score-impact: show boxes inline */}
@@ -391,15 +395,16 @@ export const EditableSkillCard = ({
                     cardId="skill"
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "skill"}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : (
                 /* Show all content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>

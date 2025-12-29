@@ -41,6 +41,7 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
   data,
   onNavigateToCard,
   currentCardId,
+  onOpenSuggestions,
 }) => {
   // Initialize from data or use defaults
   const [corePitch, setCorePitch] = useState(
@@ -178,7 +179,9 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
         if (data.template2) setTemplate2(data.template2);
         if (data.template3) setTemplate3(data.template3);
         if (data.scrollStoppers) setScrollStoppers(data.scrollStoppers);
-        if (data.scoreImpactRows) setScoreImpactRows(data.scoreImpactRows);
+        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+          setScoreImpactRows(data.scoreImpactRows);
+        }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
@@ -427,10 +430,10 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 ${isTemplates ? 'cursor-pointer' : ''} border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 ${isTemplates ? 'cursor-pointer' : ''} border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
               onClick={isTemplates ? () => setOpenModal(section.id) : undefined}
             >
@@ -448,6 +451,7 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
                     cardId="message"
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "message"}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : isTemplates ? (
@@ -472,10 +476,10 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
               ) : (
                 /* Show all other content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>
