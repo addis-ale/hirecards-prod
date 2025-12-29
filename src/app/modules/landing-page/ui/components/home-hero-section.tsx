@@ -1,31 +1,77 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
 
+interface ScrapedJobData {
+  title: string;
+  description: string;
+  location?: string;
+  locationType?: string;
+  company?: string;
+  salary?: string;
+  experienceLevel?: string;
+  employmentType?: string;
+  requirements?: string[];
+  responsibilities?: string[];
+  benefits?: string[];
+  skills?: string[];
+  department?: string;
+  rawText: string;
+  source: string;
+  aiEnhanced?: boolean;
+}
+
 export const HomeHeroSection = () => {
   const [roleDescription, setRoleDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [scrapedData, setScrapedData] = useState<ScrapedJobData | null>(null);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!roleDescription.trim()) return;
     
     setIsLoading(true);
+    setError(null);
     
     // Prevent scrolling when loading
     document.body.style.overflow = 'hidden';
     
-    // Show loader for 45 seconds
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/scrape-job", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input: roleDescription.trim() }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to process job input");
+      }
+
+      setScrapedData(result.data);
+      
+      // Show loader for 45 seconds
+      setTimeout(() => {
+        setIsLoading(false);
+        // Restore scrolling
+        document.body.style.overflow = 'auto';
+        // Here you can add logic to show results or navigate to another page
+      }, 45000); // 45 seconds
+    } catch (err: any) {
+      setError(err.message);
       setIsLoading(false);
-      // Restore scrolling
       document.body.style.overflow = 'auto';
-      // Here you can add logic to show results or navigate to another page
-    }, 45000); // 45 seconds
+      console.error("Error scraping job:", err);
+    }
   };
 
   return (
@@ -91,6 +137,248 @@ export const HomeHeroSection = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Panel - Collapsible and Absolutely Positioned */}
+      {scrapedData && (
+        <div className="fixed bottom-4 right-4 z-[100] max-w-md">
+          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setDebugOpen(!debugOpen)}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Bug className="w-4 h-4 text-green-400" />
+                <span className="text-sm font-semibold text-white">
+                  Debug: Scraped Data
+                </span>
+              </div>
+              {debugOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {/* Collapsible Content */}
+            {debugOpen && (
+              <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                <div className="space-y-3 text-xs font-mono">
+                  {/* AI Enhanced Badge */}
+                  {scrapedData.aiEnhanced && (
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-700">
+                      <div className="px-2 py-1 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
+                        ✨ AI ENHANCED
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Source */}
+                  <div>
+                    <div className="text-green-400 font-semibold mb-1">Source:</div>
+                    <div className="text-slate-300">{scrapedData.source}</div>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <div className="text-green-400 font-semibold mb-1">Title:</div>
+                    <div className="text-slate-300">{scrapedData.title}</div>
+                  </div>
+
+                  {/* Company */}
+                  {scrapedData.company && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Company:</div>
+                      <div className="text-slate-300">{scrapedData.company}</div>
+                    </div>
+                  )}
+
+                  {/* Department */}
+                  {scrapedData.department && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Department:</div>
+                      <div className="text-slate-300">{scrapedData.department}</div>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {scrapedData.location && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Location:</div>
+                      <div className="text-slate-300">{scrapedData.location}</div>
+                    </div>
+                  )}
+
+                  {/* Location Type */}
+                  {scrapedData.locationType && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Location Type:</div>
+                      <div className="text-slate-300">{scrapedData.locationType}</div>
+                    </div>
+                  )}
+
+                  {/* Employment Type */}
+                  {scrapedData.employmentType && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Employment Type:</div>
+                      <div className="text-slate-300">{scrapedData.employmentType}</div>
+                    </div>
+                  )}
+
+                  {/* Experience Level */}
+                  {scrapedData.experienceLevel && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Experience Level:</div>
+                      <div className="text-slate-300">{scrapedData.experienceLevel}</div>
+                    </div>
+                  )}
+
+                  {/* Salary */}
+                  {scrapedData.salary && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Salary:</div>
+                      <div className="text-slate-300">{scrapedData.salary}</div>
+                    </div>
+                  )}
+
+                  {/* Skills */}
+                  {scrapedData.skills && scrapedData.skills.length > 0 && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">
+                        Skills ({scrapedData.skills.length}):
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {scrapedData.skills.slice(0, 8).map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px]"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {scrapedData.skills.length > 8 && (
+                          <span className="text-slate-500 text-[10px]">
+                            +{scrapedData.skills.length - 8} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requirements */}
+                  {scrapedData.requirements && scrapedData.requirements.length > 0 && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">
+                        Requirements ({scrapedData.requirements.length}):
+                      </div>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        {scrapedData.requirements.slice(0, 3).map((req, idx) => (
+                          <li key={idx} className="truncate">
+                            {req}
+                          </li>
+                        ))}
+                        {scrapedData.requirements.length > 3 && (
+                          <li className="text-slate-500">
+                            +{scrapedData.requirements.length - 3} more...
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Responsibilities */}
+                  {scrapedData.responsibilities && scrapedData.responsibilities.length > 0 && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">
+                        Responsibilities ({scrapedData.responsibilities.length}):
+                      </div>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        {scrapedData.responsibilities.slice(0, 3).map((resp, idx) => (
+                          <li key={idx} className="truncate">
+                            {resp}
+                          </li>
+                        ))}
+                        {scrapedData.responsibilities.length > 3 && (
+                          <li className="text-slate-500">
+                            +{scrapedData.responsibilities.length - 3} more...
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Benefits */}
+                  {scrapedData.benefits && scrapedData.benefits.length > 0 && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">
+                        Benefits ({scrapedData.benefits.length}):
+                      </div>
+                      <ul className="list-disc list-inside text-slate-300 space-y-1">
+                        {scrapedData.benefits.slice(0, 3).map((benefit, idx) => (
+                          <li key={idx} className="truncate">
+                            {benefit}
+                          </li>
+                        ))}
+                        {scrapedData.benefits.length > 3 && (
+                          <li className="text-slate-500">
+                            +{scrapedData.benefits.length - 3} more...
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Description Preview */}
+                  <div>
+                    <div className="text-green-400 font-semibold mb-1">
+                      Description Preview:
+                    </div>
+                    <div className="text-slate-300 line-clamp-4 text-[10px] leading-relaxed">
+                      {scrapedData.description || scrapedData.rawText}
+                    </div>
+                  </div>
+
+                  {/* Raw Text Length */}
+                  <div>
+                    <div className="text-green-400 font-semibold mb-1">
+                      Raw Text Length:
+                    </div>
+                    <div className="text-slate-300">
+                      {scrapedData.rawText.length} characters
+                    </div>
+                  </div>
+
+                  {/* Close Button */}
+                  <button
+                    onClick={() => setScrapedData(null)}
+                    className="w-full mt-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
+                  >
+                    Clear Data
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="fixed bottom-4 right-4 z-[100] max-w-md">
+          <div className="bg-red-900 border border-red-700 rounded-lg p-4 shadow-2xl">
+            <div className="flex items-start gap-2">
+              <div className="text-red-400 font-semibold text-sm">Error:</div>
+              <div className="text-red-200 text-xs flex-1">{error}</div>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-400 hover:text-red-300 text-xl leading-none"
+              >
+                ×
+              </button>
             </div>
           </div>
         </div>
