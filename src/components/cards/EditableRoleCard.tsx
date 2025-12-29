@@ -24,9 +24,10 @@ interface RoleCardProps {
   };
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
 }
 
-export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCard, currentCardId }) => {
+export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCard, currentCardId, onOpenSuggestions }) => {
   console.log("📋 ============================================");
   console.log("📋 EDITABLE ROLE CARD RENDER");
   console.log("📋 ============================================");
@@ -232,7 +233,9 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
         if (savedData.jdAfter) setJdAfter(savedData.jdAfter);
         if (savedData.fullJdSnippet) setFullJdSnippet(savedData.fullJdSnippet);
         if (savedData.commonFailureModes) setCommonFailureModes(savedData.commonFailureModes);
-        if (savedData.scoreImpactRows) setScoreImpactRows(savedData.scoreImpactRows);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
+        }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
@@ -463,10 +466,10 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''} ${isFullJd ? 'cursor-pointer' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''} ${isFullJd ? 'cursor-pointer' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
               onClick={isFullJd ? () => setOpenModal(section.id) : undefined}
             >
@@ -484,15 +487,16 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
                     cardId="role"
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "role"}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : isFullJd ? (
                 /* Show preview for Full JD with "See More" button */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm text-gray-600 line-clamp-4 mb-3">
+                  <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-4 mb-3">
                     {fullJdSnippet}
                   </div>
                   <button
@@ -511,10 +515,10 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
               ) : (
                 /* Show all content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>

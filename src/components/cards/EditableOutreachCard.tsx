@@ -187,40 +187,40 @@ export const EditableOutreachCard = ({
         </h3>
         <div className="space-y-3">
           {/* Message 1 */}
-          <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+          <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4">
             <h4 className="font-bold text-sm mb-2" style={{ color: "#278f8c" }}>
               Message 1. Relevance First
             </h4>
             <EditableText
               value={message1}
               onChange={setMessage1}
-              className="text-sm text-gray-700"
+              className="text-sm text-slate-700 dark:text-slate-300"
               multiline
             />
           </div>
 
           {/* Message 2 */}
-          <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+          <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4">
             <h4 className="font-bold text-sm mb-2" style={{ color: "#278f8c" }}>
               Message 2. Scope & Product Impact
             </h4>
             <EditableText
               value={message2}
               onChange={setMessage2}
-              className="text-sm text-gray-700"
+              className="text-sm text-slate-700 dark:text-slate-300"
               multiline
             />
           </div>
 
           {/* Message 3 */}
-          <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+          <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4">
             <h4 className="font-bold text-sm mb-2" style={{ color: "#278f8c" }}>
               Message 3. Soft Follow-Up
             </h4>
             <EditableText
               value={message3}
               onChange={setMessage3}
-              className="text-sm text-gray-700"
+              className="text-sm text-slate-700 dark:text-slate-300"
               multiline
             />
           </div>

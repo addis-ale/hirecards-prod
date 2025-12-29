@@ -37,12 +37,14 @@ interface FunnelCardProps {
   };
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
 }
 
 export const EditableFunnelCard = ({
   data,
   onNavigateToCard,
   currentCardId,
+  onOpenSuggestions,
 }: FunnelCardProps = {}) => {
   const [funnelStages, setFunnelStages] = useState(
     data?.funnelStages ?? [
@@ -408,17 +410,17 @@ export const EditableFunnelCard = ({
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
             >
               {/* Special handling for score-impact: show boxes inline */}
               {isScoreImpact ? (
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className={`text-sm font-bold ${colors.accent ? `text-[${colors.accent}]` : 'text-emerald-700'}`} style={{ color: colors.accent }}>
+                    <h3 className={`text-sm font-bold ${colors.accent ? `text-[${colors.accent}]` : 'text-emerald-700 dark:text-emerald-400'}`} style={{ color: colors.accent }}>
                       {section.title}
                     </h3>
                   </div>
@@ -428,15 +430,16 @@ export const EditableFunnelCard = ({
                     cardId="funnel"
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "funnel"}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : (
                 /* Show all content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>

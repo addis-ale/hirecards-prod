@@ -46,6 +46,7 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
   data,
   onNavigateToCard,
   currentCardId,
+  onOpenSuggestions,
 }) => {
   console.log("📊 ============================================");
   console.log("📊 EDITABLE MARKET CARD RENDER");
@@ -247,7 +248,9 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
         if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
         if (data.marketExpansionLevers)
           setMarketExpansionLevers(data.marketExpansionLevers);
-        if (data.scoreImpactRows) setScoreImpactRows(data.scoreImpactRows);
+        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+          setScoreImpactRows(data.scoreImpactRows);
+        }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
@@ -514,10 +517,10 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
             >
               {/* Special handling for score-impact: show boxes inline */}
@@ -534,15 +537,16 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
                     cardId="market"
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "market"}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : (
                 /* Show all content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>

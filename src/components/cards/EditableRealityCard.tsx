@@ -48,6 +48,7 @@ interface RealityCardProps {
   acceptedImprovementsBoost?: number;
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
 }
 
 export const EditableRealityCard = ({
@@ -56,6 +57,7 @@ export const EditableRealityCard = ({
   acceptedImprovementsBoost = 0,
   onNavigateToCard,
   currentCardId,
+  onOpenSuggestions,
 }: RealityCardProps) => {
   const { getTotalImpact } = useAcceptedFixes();
 
@@ -259,7 +261,9 @@ export const EditableRealityCard = ({
           setWhatsReallyGoingOn(data.whatsReallyGoingOn);
         if (data.redFlags) setRedFlags(data.redFlags);
         if (data.donts) setDonts(data.donts);
-        if (data.scoreImpactRows) setScoreImpactRows(data.scoreImpactRows);
+        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+          setScoreImpactRows(data.scoreImpactRows);
+        }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
@@ -506,23 +510,6 @@ export const EditableRealityCard = ({
             </div>
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-white/20">
-          <div className="text-xs opacity-75 mb-2 text-center">
-            Manual Override (Optional)
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <EditableText
-              value={feasibilityScore}
-              onChange={setFeasibilityScore}
-              className="text-sm font-medium text-white bg-white/10 px-3 py-1 rounded"
-              style={{ color: "white" }}
-              placeholder="5.5/10"
-            />
-            <span className="text-xs opacity-75">
-              (Auto-calculated: {calculatedScore.toFixed(1)}/10)
-            </span>
-          </div>
-        </div>
       </div>
 
 
@@ -551,17 +538,17 @@ export const EditableRealityCard = ({
           return (
             <Card
               key={section.id}
-              className={`w-full border-2 border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
+              className={`w-full border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-t-4 ${isScoreImpact ? 'md:col-span-2' : ''}`}
               style={{
                 borderTopColor: colors.accent,
-                backgroundColor: colors.bg,
+                backgroundColor: 'transparent',
               }}
             >
               {/* Special handling for score-impact: show boxes inline */}
               {isScoreImpact ? (
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className={`text-sm font-bold ${colors.accent ? `text-[${colors.accent}]` : 'text-emerald-700'}`} style={{ color: colors.accent }}>
+                    <h3 className={`text-sm font-bold ${colors.accent ? `text-[${colors.accent}]` : 'text-emerald-700 dark:text-emerald-400'}`} style={{ color: colors.accent }}>
                       {section.title}
                     </h3>
                   </div>
@@ -572,15 +559,16 @@ export const EditableRealityCard = ({
                     onNavigateToCard={onNavigateToCard}
                     currentCardId={currentCardId || "reality"}
                     feasibilityScore={feasibilityScore}
+                    onOpenSuggestions={onOpenSuggestions}
                   />
                 </div>
               ) : (
                 /* Show all content directly - no modals */
                 <div className="p-4">
-                  <h3 className="text-sm font-bold mb-3" style={{ color: colors.accent }}>
+                  <h3 className="text-sm font-bold mb-3 text-slate-900 dark:text-white" style={{ color: colors.accent }}>
                     {section.title}
                   </h3>
-                  <div className="text-sm">
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
                     {section.content}
                   </div>
                 </div>
