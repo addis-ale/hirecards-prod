@@ -1,203 +1,202 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useRef, useMemo } from "react"
-import { cn } from "@/lib/utils"
-import {
-  Briefcase,
-  Code2,
-  TrendingUp,
-  Map,
-  DollarSign,
-  Filter,
-  Users,
-  MessageSquare,
-  Mic,
-  ClipboardCheck,
-  Calendar,
-  Target,
-} from "lucide-react"
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
-export default function Home() {
-  const [progress, setProgress] = useState(0)
+export default function Loader1() {
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const totalDuration = 45000 // 45 seconds total
-    const startTime = Date.now()
+    const totalDuration = 45000; // 45 seconds total
+    const startTime = Date.now();
+    let rafId: number;
 
     const updateProgress = () => {
-      const elapsed = Date.now() - startTime
-      const rawProgress = (elapsed / totalDuration) * 100
+      const elapsed = Date.now() - startTime;
+      const rawProgress = (elapsed / totalDuration) * 100;
 
       // Add some variance to make it feel more organic
-      const variance = Math.sin(elapsed / 1000) * 2
-      const newProgress = Math.min(rawProgress + variance, 100)
+      const variance = Math.sin(elapsed / 1000) * 2;
+      const newProgress = Math.min(rawProgress + variance, 100);
 
-      setProgress(newProgress)
+      // Only update state if the change is significant to reduce render depth/frequency
+      setProgress((prev) => {
+        if (Math.abs(newProgress - prev) < 0.1 && newProgress < 100) {
+          return prev;
+        }
+        return newProgress;
+      });
 
       if (newProgress < 100) {
-        requestAnimationFrame(updateProgress)
+        rafId = requestAnimationFrame(updateProgress);
       }
-    }
+    };
 
-    requestAnimationFrame(updateProgress)
-  }, [])
+    rafId = requestAnimationFrame(updateProgress);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
-  return <DynamicLoader progress={progress} />
+  return <DynamicLoader progress={progress} />;
 }
-
 
 interface LoaderBlackProps {
-  progress?: number
-  className?: string
+  progress?: number;
+  className?: string;
 }
 
+const PHASES = [
+  { threshold: 0, text: "Initializing talent radar...", status: "BOOT" },
+  { threshold: 25, text: "Scanning opportunity matrix...", status: "SCAN" },
+  { threshold: 50, text: "Correlating market vectors...", status: "PROC" },
+  { threshold: 75, text: "Finalizing your advantage...", status: "SYNC" },
+];
+
+const CARDS = [
+  {
+    id: "reality",
+    name: "Reality Card",
+    description: "The Truth About Making This Hire",
+    gradient: "from-purple-500 to-pink-600",
+  },
+  {
+    id: "market",
+    name: "Market Card",
+    description: "Addressable Talent Market",
+    gradient: "from-blue-500 to-indigo-600",
+  },
+  {
+    id: "skill",
+    name: "Skill Card",
+    description: "Skills That Predict Success",
+    gradient: "from-emerald-500 to-teal-600",
+  },
+  {
+    id: "pay",
+    name: "Pay Card",
+    description: "What The Market Pays",
+    gradient: "from-amber-500 to-orange-600",
+  },
+  {
+    id: "funnel",
+    name: "Funnel Card",
+    description: "How Much You Actually Need",
+    gradient: "from-sky-500 to-blue-600",
+  },
+  {
+    id: "interview",
+    name: "Interview Card",
+    description: "Loop That Actually Works",
+    gradient: "from-rose-500 to-red-600",
+  },
+  {
+    id: "role",
+    name: "Role Card",
+    description: "Outcome-focused mission & product-led impact",
+    gradient: "from-orange-400 to-amber-600",
+  },
+  {
+    id: "talentmap",
+    name: "Talent Map Card",
+    description: "Pinpointing where top talent is moving next",
+    gradient: "from-fuchsia-500 to-purple-600",
+  },
+  {
+    id: "fit",
+    name: "Fit Card",
+    description: "Psychographic motivators for senior hires",
+    gradient: "from-pink-500 to-rose-600",
+  },
+  {
+    id: "message",
+    name: "Message Card",
+    description: "Specificity-driven outreach hooks & truth",
+    gradient: "from-cyan-400 to-teal-600",
+  },
+  {
+    id: "outreach",
+    name: "Outreach Card",
+    description: "Optimized 3-step high-reply sequence",
+    gradient: "from-orange-500 to-red-600",
+  },
+  {
+    id: "scorecard",
+    name: "Scorecard Card",
+    description: "Standardized criteria to reduce hiring bias",
+    gradient: "from-violet-500 to-fuchsia-600",
+  },
+  {
+    id: "plan",
+    name: "Plan Card",
+    description: "Week-by-week hiring execution roadmap",
+    gradient: "from-slate-500 to-slate-700",
+  },
+];
+
 export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [typedText, setTypedText] = useState("")
-  const [currentPhase, setCurrentPhase] = useState(0)
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number }>>([])
-  const [visibleCards, setVisibleCards] = useState<number[]>([])
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [typedText, setTypedText] = useState("");
+  const [currentPhase, setCurrentPhase] = useState(0);
+  const [particles, setParticles] = useState<
+    Array<{ id: number; x: number; delay: number }>
+  >([]);
+  const [visibleCardsCount, setVisibleCardsCount] = useState(0);
 
-  const phases = useMemo(() => [
-    { threshold: 0, text: "Initializing talent radar...", status: "BOOT" },
-    { threshold: 25, text: "Scanning opportunity matrix...", status: "SCAN" },
-    { threshold: 50, text: "Correlating market vectors...", status: "PROC" },
-    { threshold: 75, text: "Finalizing your advantage...", status: "SYNC" },
-  ], [])
-
-  const cards = useMemo(() => [
-    { id: "reality", name: "Reality", icon: Target, gradient: "from-red-500 to-pink-600" },
-    { id: "role", name: "Role", icon: Briefcase, gradient: "from-amber-500 to-orange-600" },
-    { id: "skills", name: "Skills", icon: Code2, gradient: "from-blue-500 to-cyan-600" },
-    { id: "demand", name: "Demand", icon: TrendingUp, gradient: "from-green-500 to-emerald-600" },
-    { id: "supply", name: "Supply", icon: Map, gradient: "from-purple-500 to-violet-600" },
-    { id: "salary", name: "Salary", icon: DollarSign, gradient: "from-yellow-500 to-amber-600" },
-    { id: "sourcing", name: "Sourcing", icon: Filter, gradient: "from-indigo-500 to-blue-600" },
-    { id: "screening", name: "Screening", icon: Users, gradient: "from-pink-500 to-rose-600" },
-    { id: "assessment", name: "Assessment", icon: MessageSquare, gradient: "from-teal-500 to-cyan-600" },
-    { id: "interview", name: "Interview", icon: Mic, gradient: "from-orange-500 to-red-600" },
-    { id: "evaluation", name: "Evaluation", icon: ClipboardCheck, gradient: "from-lime-500 to-green-600" },
-    { id: "offer", name: "Offer", icon: Calendar, gradient: "from-fuchsia-500 to-purple-600" },
-  ], [])
-
-  // Geometric canvas animation - triangular mesh
+  // Phase detection - only update if different
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const phase = PHASES.findIndex((p, i) => {
+      const next = PHASES[i + 1];
+      return next
+        ? progress >= p.threshold && progress < next.threshold
+        : progress >= p.threshold;
+    });
+    const newPhase = Math.max(0, phase);
+    setCurrentPhase((prev) => (prev !== newPhase ? newPhase : prev));
+  }, [progress]);
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    canvas.width = canvas.offsetWidth * 2
-    canvas.height = canvas.offsetHeight * 2
-    ctx.scale(2, 2)
-
-    let time = 0
-    const points: Array<{ x: number; y: number; baseX: number; baseY: number }> = []
-    const cols = 12
-    const rows = 12
-    const spacing = Math.max(canvas.offsetWidth, canvas.offsetHeight) / 8
-
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        const x = (i - cols / 2) * spacing + canvas.offsetWidth / 4
-        const y = (j - rows / 2) * spacing + canvas.offsetHeight / 4
-        points.push({ x, y, baseX: x, baseY: y })
-      }
-    }
-
-    const animate = () => {
-      // Use white for light mode, black for dark mode
-      const isDark = document.documentElement.classList.contains('dark')
-      ctx.fillStyle = isDark ? "#000000" : "#ffffff"
-      ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
-
-      time += 0.008
-
-      // Update points with wave motion
-      points.forEach((p, i) => {
-        const wave = Math.sin(time + i * 0.1) * 15
-        const wave2 = Math.cos(time * 0.7 + i * 0.05) * 10
-        p.x = p.baseX + wave
-        p.y = p.baseY + wave2
-      })
-
-      // Draw connections
-      points.forEach((p, i) => {
-        points.forEach((p2, j) => {
-          if (i >= j) return
-          const dist = Math.hypot(p.x - p2.x, p.y - p2.y)
-          if (dist < spacing * 1.5) {
-            const alpha = (1 - dist / (spacing * 1.5)) * 0.15
-            ctx.beginPath()
-            ctx.moveTo(p.x, p.y)
-            ctx.lineTo(p2.x, p2.y)
-            ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${alpha})` : `rgba(0, 0, 0, ${alpha})`
-            ctx.lineWidth = 0.5
-            ctx.stroke()
-          }
-        })
-      })
-
-      // Draw points
-      points.forEach((p) => {
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2)
-        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)"
-        ctx.fill()
-      })
-
-      requestAnimationFrame(animate)
-    }
-
-    animate()
-  }, [])
-
-  // Phase detection
+  // Typewriter effect - only start if phase changed
   useEffect(() => {
-    const phase = phases.findIndex((p, i) => {
-      const next = phases[i + 1]
-      return next ? progress >= p.threshold && progress < next.threshold : progress >= p.threshold
-    })
-    setCurrentPhase(Math.max(0, phase))
-  }, [progress, phases])
-
-  // Typewriter effect
-  useEffect(() => {
-    const targetText = phases[currentPhase]?.text || ""
-    setTypedText("")
-    let i = 0
+    const targetText = PHASES[currentPhase]?.text || "";
+    setTypedText("");
+    let i = 0;
     const interval = setInterval(() => {
       if (i < targetText.length) {
-        setTypedText(targetText.slice(0, i + 1))
-        i++
+        setTypedText(targetText.slice(0, i + 1));
+        i++;
       } else {
-        clearInterval(interval)
+        clearInterval(interval);
       }
-    }, 40)
-    return () => clearInterval(interval)
-  }, [currentPhase, phases])
+    }, 40);
+    return () => clearInterval(interval);
+  }, [currentPhase]);
 
   // Generate rising particles
   useEffect(() => {
     const interval = setInterval(() => {
       setParticles((prev) => {
-        const newParticles = [...prev, { id: Date.now(), x: Math.random() * 100, delay: 0 }]
-        return newParticles.slice(-20)
-      })
-    }, 300)
-    return () => clearInterval(interval)
-  }, [])
+        const newParticles = [
+          ...prev,
+          { id: Date.now(), x: Math.random() * 100, delay: 0 },
+        ];
+        return newParticles.slice(-20);
+      });
+    }, 300);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Progressively reveal cards based on progress
+  // Progressively reveal cards based on progress - only update if count changed
   useEffect(() => {
-    const cardsToShow = Math.floor((progress / 100) * cards.length)
-    const newVisibleCards = Array.from({ length: cardsToShow }, (_, i) => i)
-    setVisibleCards(newVisibleCards)
-  }, [progress, cards.length])
+    const cardsToShow = Math.floor((progress / 100) * CARDS.length);
+    setVisibleCardsCount((prev) => (prev !== cardsToShow ? cardsToShow : prev));
+  }, [progress]);
 
   return (
-    <div className={cn("relative w-full min-h-screen bg-white dark:bg-black overflow-hidden", className)}>
+    <div
+      className={cn(
+        "relative w-full min-h-screen bg-white dark:bg-black overflow-hidden",
+        className
+      )}
+    >
       {/* Geometric mesh background */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
@@ -221,79 +220,160 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6">
-        {/* Top status bar */}
-        <div className="absolute top-8 left-8 right-8 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-slate-900 dark:bg-white rounded-full animate-pulse" />
-            <span className="text-slate-600 dark:text-white/40 text-xs font-mono tracking-[0.2em]">HIRECARDS ENGINE</span>
-          </div>
-          <div className="text-slate-500 dark:text-white/30 text-xs font-mono">SYS:{phases[currentPhase]?.status || "INIT"}</div>
-        </div>
+        {/* Central display - Single Card */}
+        <div className="flex flex-col items-center w-full max-w-3xl px-6">
+          {/* Cards showcase - One at a time */}
+          <div className="relative w-56 h-72 md:w-64 md:h-80 mb-12">
+            <AnimatePresence mode="wait">
+              {CARDS.map((card, index) => {
+                const isActive =
+                  index === Math.min(visibleCardsCount, CARDS.length - 1);
 
-        {/* Central display - Cards Grid */}
-        <div className="flex flex-col items-center w-full max-w-4xl px-6">
-          {/* Cards showcase */}
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-3 md:gap-4 mb-8 w-full">
-            {cards.map((card, index) => {
-              const Icon = card.icon
-              const isVisible = visibleCards.includes(index)
-              const delay = index * 0.1
+                if (!isActive) return null;
 
-              return (
-                <div
-                  key={card.id}
-                  className={cn(
-                    "relative aspect-square rounded-xl md:rounded-2xl transition-all duration-700 transform",
-                    isVisible
-                      ? "opacity-100 scale-100 translate-y-0"
-                      : "opacity-0 scale-50 translate-y-10"
-                  )}
-                  style={{
-                    transitionDelay: `${delay}s`,
-                  }}
-                >
-                  {/* Card background with gradient */}
-                  <div className={cn(
-                    "absolute inset-0 rounded-xl md:rounded-2xl bg-gradient-to-br transition-all duration-500",
-                    card.gradient,
-                    isVisible ? "opacity-100" : "opacity-0"
-                  )} />
-                  
-                  {/* Card border */}
-                  <div className="absolute inset-0 rounded-xl md:rounded-2xl border border-white/20" />
-
-                  {/* Card content */}
-                  <div className="relative z-10 p-3 md:p-4 flex flex-col items-center justify-center h-full">
-                    <Icon className="w-6 h-6 md:w-8 md:h-8 text-white mb-2" />
-                    <span className="text-[10px] md:text-xs font-medium text-white text-center leading-tight">
-                      {card.name}
-                    </span>
-                  </div>
-
-                  {/* Shimmer effect */}
-                  {isVisible && (
-                    <div className="absolute inset-0 rounded-xl md:rounded-2xl overflow-hidden">
-                      <div
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                        style={{
-                          animation: "shimmer 2s infinite",
-                          animationDelay: `${delay}s`,
+                return (
+                  <motion.div
+                    key={card.id}
+                    initial={{ opacity: 0, scale: 0.9, rotateY: -10, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, rotateY: 0, y: 0 }}
+                    exit={{ opacity: 0, scale: 1.1, rotateY: 10, y: -20 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 150,
+                      damping: 25,
+                      opacity: { duration: 0.3 },
+                    }}
+                    className="absolute inset-0"
+                  >
+                    {/* Premium Card Design */}
+                    <div className="absolute inset-0 rounded-[2.5rem] bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-white/10 overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)]">
+                      {/* Ambient Background Glow */}
+                      <motion.div
+                        animate={{
+                          opacity: [0.15, 0.25, 0.15],
+                          scale: [1, 1.1, 1],
                         }}
+                        transition={{
+                          duration: 5,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className={cn(
+                          "absolute -inset-[50%] blur-[60px] bg-gradient-to-br",
+                          card.gradient
+                        )}
                       />
+
+                      {/* Subtle Texture Overlay */}
+                      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:20px_20px]" />
+
+                      {/* Content Container */}
+                      <div className="relative z-10 h-full p-8 flex flex-col items-center justify-center">
+                        {/* Status Chip */}
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 }}
+                          className="absolute top-8 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10"
+                        >
+                          <div
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full animate-pulse",
+                              card.gradient
+                                .split(" ")[0]
+                                .replace("from-", "bg-")
+                            )}
+                          />
+                          <span className="text-[9px] font-bold tracking-[0.2em] text-slate-500 dark:text-white/40 uppercase">
+                            Analyzing
+                          </span>
+                        </motion.div>
+
+                        <div className="space-y-4 text-center">
+                          <motion.h3
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-2xl md:text-3xl font-black tracking-tighter text-slate-900 dark:text-white uppercase leading-none"
+                          >
+                            {card.name.split(" ")[0]}
+                            <br />
+                            <span className="text-slate-400 dark:text-white/20">
+                              {card.name.split(" ")[1]}
+                            </span>
+                          </motion.h3>
+
+                          <motion.div
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ delay: 0.3, duration: 0.8 }}
+                            className={cn(
+                              "h-[1px] w-12 mx-auto",
+                              card.gradient
+                                .split(" ")[0]
+                                .replace("from-", "bg-")
+                            )}
+                          />
+
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4 }}
+                            className="text-xs md:text-sm font-medium text-slate-600 dark:text-white/60 leading-relaxed max-w-[160px] mx-auto"
+                          >
+                            {card.description}
+                          </motion.p>
+                        </div>
+
+                        {/* Bottom Metric */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 }}
+                          className="absolute bottom-10 flex flex-col items-center gap-3 w-full px-12"
+                        >
+                          <div className="flex justify-between w-full text-[8px] font-bold tracking-[0.2em] text-slate-400 dark:text-white/20 uppercase">
+                            <span>Precision</span>
+                            <span>99.9%</span>
+                          </div>
+                          <div className="h-[2px] w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                            <motion.div
+                              animate={{ x: ["-100%", "100%"] }}
+                              transition={{
+                                duration: 3,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
+                              className={cn(
+                                "h-full w-1/3 opacity-50",
+                                card.gradient
+                                  .split(" ")[0]
+                                  .replace("from-", "bg-")
+                              )}
+                            />
+                          </div>
+                        </motion.div>
+                      </div>
+
+                      {/* Corner Accents */}
+                      <div className="absolute top-6 left-6 w-4 h-4 border-t-2 border-l-2 border-slate-200 dark:border-white/10 rounded-tl-lg" />
+                      <div className="absolute bottom-6 right-6 w-4 h-4 border-b-2 border-r-2 border-slate-200 dark:border-white/10 rounded-br-lg" />
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
 
           {/* Progress text */}
           <div className="text-center mb-8">
-            <div className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-2">
-              {visibleCards.length}/{cards.length}
+            <div className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">
+              {Math.min(visibleCardsCount + 1, CARDS.length)}
+              <span className="text-slate-300 dark:text-white/20">/</span>
+              {CARDS.length}
             </div>
-            <div className="text-sm text-slate-600 dark:text-white/60">
-             You Will Get
+            <div className="text-xs font-black uppercase tracking-[0.4em] text-slate-500 dark:text-white/40">
+              Building Your Deck
             </div>
           </div>
 
@@ -326,23 +406,24 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
             </div>
           </div>
 
-
           {/* Phase indicators - minimal dots */}
           <div className="flex items-center gap-6">
-            {phases.map((phase, i) => (
+            {PHASES.map((phase, i) => (
               <div key={i} className="flex flex-col items-center gap-2">
                 <div
                   className={cn(
                     "w-3 h-3 rounded-full transition-all duration-500 border",
                     i <= currentPhase
                       ? "bg-slate-900 dark:bg-white border-slate-900 dark:border-white shadow-lg shadow-slate-900/20 dark:shadow-white/20"
-                      : "bg-transparent border-slate-300 dark:border-white/20",
+                      : "bg-transparent border-slate-300 dark:border-white/20"
                   )}
                 />
                 <span
                   className={cn(
                     "text-[9px] font-mono tracking-widest transition-colors duration-500",
-                    i <= currentPhase ? "text-slate-700 dark:text-white/70" : "text-slate-400 dark:text-white/20",
+                    i <= currentPhase
+                      ? "text-slate-700 dark:text-white/70"
+                      : "text-slate-400 dark:text-white/20"
                   )}
                 >
                   {phase.status}
@@ -352,17 +433,7 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
           </div>
         </div>
 
-        {/* Bottom insight */}
-        {progress > 40 && (
-          <div className="absolute bottom-12 left-0 right-0 text-center animate-fade-in">
-            <div className="inline-block px-6 py-4 border border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02]">
-              <p className="text-slate-600 dark:text-white/40 text-xs font-light tracking-wide max-w-md leading-relaxed">
-                Every data point we analyze brings you closer to opportunities others overlook.
-                <span className="text-slate-800 dark:text-white/60"> This is precision hiring.</span>
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Bottom insight removed as requested */}
       </div>
 
       <style jsx>{`
@@ -384,7 +455,8 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
         }
 
         @keyframes morph1 {
-          0%, 100% {
+          0%,
+          100% {
             border-radius: 0;
             transform: rotate(0deg);
           }
@@ -395,7 +467,8 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
         }
 
         @keyframes morph2 {
-          0%, 100% {
+          0%,
+          100% {
             border-radius: 0;
             transform: rotate(0deg) scale(1.05);
           }
@@ -405,26 +478,15 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
           }
         }
 
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fadeIn 0.8s ease-out forwards;
-        }
-
         @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </div>
-  )
+  );
 }
