@@ -26,12 +26,85 @@ interface ScrapedJobData {
   aiEnhanced?: boolean;
 }
 
+interface ApifyJobData {
+  id: string;
+  title: string;
+  linkedinUrl: string;
+  company: {
+    name: string;
+    logo?: string;
+    employeeCount?: number;
+  };
+  location: {
+    linkedinText: string;
+    parsed?: {
+      city?: string;
+      state?: string;
+      country?: string;
+    };
+  };
+  salary?: {
+    text: string;
+    min?: number;
+    max?: number;
+    currency?: string;
+  };
+  employmentType?: string;
+  workplaceType?: string;
+  applicants?: number;
+  views?: number;
+  benefits?: string[];
+  descriptionText?: string;
+}
+
+interface ApifyPeopleData {
+  id: string;
+  publicIdentifier: string;
+  linkedinUrl: string;
+  firstName: string;
+  lastName: string;
+  headline: string;
+  location: {
+    linkedinText: string;
+    countryCode?: string;
+    parsed?: {
+      text?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      countryCode?: string;
+    };
+  };
+  avatar?: string;
+  about?: string;
+  topSkills?: string;
+  connections?: number;
+  followers?: number;
+  premium?: boolean;
+  openToWork?: boolean;
+  currentCompany?: {
+    name: string;
+    company_id?: string;
+    industry?: string;
+    link?: string;
+  };
+  experience?: any[];
+  education?: any[];
+  certifications?: any[];
+  projects?: any[];
+}
+
 export const HomeHeroSection = () => {
   const [roleDescription, setRoleDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedJobData | null>(null);
+  const [similarJobs, setSimilarJobs] = useState<ApifyJobData[]>([]);
+  const [candidates, setCandidates] = useState<ApifyPeopleData[]>([]);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [jobDataOpen, setJobDataOpen] = useState(false);
+  const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const handleSubmit = async () => {
     if (!roleDescription.trim()) return;
@@ -58,14 +131,20 @@ export const HomeHeroSection = () => {
       }
 
       setScrapedData(result.data);
+      setSimilarJobs(result.similarJobs || []);
+      setCandidates(result.candidates || []);
+      setWarnings(result.warnings || []);
       
-      // Show loader for 45 seconds
+      // Keep loader until scraping finishes (minimum 45 seconds)
+      const minLoadTime = 45000; // 45 seconds
+      const elapsedTime = Date.now() - Date.now();
+      const remainingTime = Math.max(0, minLoadTime - elapsedTime);
+      
       setTimeout(() => {
         setIsLoading(false);
         // Restore scrolling
         document.body.style.overflow = 'auto';
-        // Here you can add logic to show results or navigate to another page
-      }, 45000); // 45 seconds
+      }, remainingTime);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
@@ -142,9 +221,10 @@ export const HomeHeroSection = () => {
         </div>
       )}
 
-      {/* Debug Panel - Collapsible and Absolutely Positioned */}
+      {/* Debug Panels - Collapsible and Absolutely Positioned */}
       {scrapedData && (
-        <div className="fixed bottom-4 right-4 z-[100] max-w-md">
+        <div className="fixed bottom-4 right-4 z-[100] max-w-md space-y-2">
+          {/* Debug: Scraped Data Panel */}
           <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
             {/* Header */}
             <button
@@ -362,6 +442,300 @@ export const HomeHeroSection = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Candidates Panel - LinkedIn People Profiles */}
+          {candidates.length > 0 && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+              {/* Header */}
+              <button
+                onClick={() => setCandidatesOpen(!candidatesOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-purple-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-white">
+                    Candidates
+                  </span>
+                  <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
+                    {candidates.length} PEOPLE
+                  </span>
+                </div>
+                {candidatesOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {/* Collapsible Content */}
+              {candidatesOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="space-y-4 text-xs">
+                    {candidates.map((person, index) => (
+                      <div
+                        key={person.id}
+                        className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
+                      >
+                        {/* Person Header */}
+                        <div className="flex items-start gap-3 mb-2">
+                          {person.avatar && (
+                            <img
+                              src={person.avatar}
+                              alt={`${person.firstName} ${person.lastName}`}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold text-sm mb-1">
+                              {person.firstName} {person.lastName}
+                              {person.premium && (
+                                <span className="ml-1 text-yellow-400 text-xs">⭐</span>
+                              )}
+                              {person.openToWork && (
+                                <span className="ml-1 px-1.5 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[9px]">
+                                  OPEN TO WORK
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-slate-400 text-xs line-clamp-2">
+                              {person.headline}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Current Company */}
+                        {person.currentCompany && (
+                          <div className="text-slate-300 text-xs mb-2">
+                            <span className="text-slate-500">Company:</span> {person.currentCompany.name}
+                          </div>
+                        )}
+
+                        {/* Location */}
+                        <div className="flex items-center gap-2 text-slate-300 mb-2">
+                          <span className="text-[10px]">📍</span>
+                          <span className="text-xs">
+                            {person.location.linkedinText}
+                          </span>
+                        </div>
+
+                        {/* Top Skills */}
+                        {person.topSkills && (
+                          <div className="mb-2">
+                            <div className="text-slate-500 text-[10px] mb-1">
+                              Skills:
+                            </div>
+                            <div className="text-slate-300 text-xs">
+                              {person.topSkills}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 text-slate-400 text-[10px] mb-2">
+                          {person.connections !== undefined && (
+                            <span>🤝 {person.connections}+ connections</span>
+                          )}
+                          {person.followers !== undefined && (
+                            <span>👥 {person.followers} followers</span>
+                          )}
+                        </div>
+
+                        {/* Link */}
+                        <a
+                          href={person.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-purple-400 hover:text-purple-300 text-xs underline"
+                        >
+                          View Profile on LinkedIn →
+                        </a>
+                      </div>
+                    ))}
+
+                    {/* Summary */}
+                    <div className="pt-3 border-t border-slate-700">
+                      <div className="text-slate-400 text-xs text-center">
+                        Found {candidates.length} candidates on LinkedIn
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Job Data Panel - Similar Jobs from LinkedIn */}
+          {similarJobs.length > 0 && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+              {/* Header */}
+              <button
+                onClick={() => setJobDataOpen(!jobDataOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-blue-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-white">
+                    Job Data
+                  </span>
+                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
+                    {similarJobs.length} JOBS
+                  </span>
+                </div>
+                {jobDataOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {/* Collapsible Content */}
+              {jobDataOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="space-y-4 text-xs">
+                    {similarJobs.map((job, index) => (
+                      <div
+                        key={job.id}
+                        className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
+                      >
+                        {/* Job Header */}
+                        <div className="flex items-start gap-3 mb-2">
+                          {job.company.logo && (
+                            <img
+                              src={job.company.logo}
+                              alt={job.company.name}
+                              className="w-10 h-10 rounded object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold text-sm mb-1 truncate">
+                              {job.title}
+                            </h3>
+                            <p className="text-slate-400 text-xs">
+                              {job.company.name}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="flex items-center gap-2 text-slate-300 mb-2">
+                          <span className="text-[10px]">📍</span>
+                          <span className="text-xs">
+                            {job.location.linkedinText}
+                          </span>
+                        </div>
+
+                        {/* Job Details */}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {job.workplaceType && (
+                            <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px]">
+                              {job.workplaceType}
+                            </span>
+                          )}
+                          {job.employmentType && (
+                            <span className="px-2 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[10px]">
+                              {job.employmentType.replace("_", "-")}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Salary */}
+                        {job.salary && (
+                          <div className="text-green-400 font-semibold text-xs mb-2">
+                            💰 {job.salary.text}
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 text-slate-400 text-[10px] mb-2">
+                          {job.applicants !== undefined && (
+                            <span>👥 {job.applicants} applicants</span>
+                          )}
+                          {job.views !== undefined && (
+                            <span>👁️ {job.views} views</span>
+                          )}
+                        </div>
+
+                        {/* Benefits */}
+                        {job.benefits && job.benefits.length > 0 && (
+                          <div className="mb-2">
+                            <div className="text-slate-500 text-[10px] mb-1">
+                              Benefits:
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {job.benefits.slice(0, 3).map((benefit, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-300 text-[9px]"
+                                >
+                                  {benefit}
+                                </span>
+                              ))}
+                              {job.benefits.length > 3 && (
+                                <span className="text-slate-500 text-[9px]">
+                                  +{job.benefits.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Link */}
+                        <a
+                          href={job.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-blue-400 hover:text-blue-300 text-xs underline"
+                        >
+                          View on LinkedIn →
+                        </a>
+                      </div>
+                    ))}
+
+                    {/* Summary */}
+                    <div className="pt-3 border-t border-slate-700">
+                      <div className="text-slate-400 text-xs text-center">
+                        Found {similarJobs.length} similar jobs on LinkedIn
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Warnings Display */}
+      {warnings.length > 0 && (
+        <div className="fixed top-4 right-4 z-[100] max-w-md">
+          <div className="bg-yellow-900 border border-yellow-700 rounded-lg p-4 shadow-2xl">
+            <div className="flex items-start gap-2">
+              <div className="text-yellow-400 font-semibold text-sm">⚠️ Warning:</div>
+              <div className="text-yellow-200 text-xs flex-1">
+                {warnings.map((warning, idx) => (
+                  <div key={idx}>{warning}</div>
+                ))}
+              </div>
+              <button
+                onClick={() => setWarnings([])}
+                className="text-yellow-400 hover:text-yellow-300 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       )}
