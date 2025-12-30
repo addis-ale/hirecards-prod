@@ -29,14 +29,18 @@ interface ExtractedJobData {
 interface ApifyJobData {
   id: string;
   title: string;
-  linkedinUrl: string;
+  linkedinUrl?: string; // LinkedIn jobs
+  url?: string; // Indeed jobs
   company: {
     name: string;
     logo?: string;
     employeeCount?: number;
   };
   location: {
-    linkedinText: string;
+    linkedinText?: string; // LinkedIn format
+    city?: string; // Indeed format
+    state?: string;
+    country?: string;
     parsed?: {
       city?: string;
       state?: string;
@@ -44,7 +48,7 @@ interface ApifyJobData {
     };
   };
   salary?: {
-    text: string;
+    text?: string;
     min?: number;
     max?: number;
     currency?: string;
@@ -55,6 +59,8 @@ interface ApifyJobData {
   views?: number;
   benefits?: string[];
   descriptionText?: string;
+  description?: string; // Indeed uses this field
+  platform?: "linkedin" | "indeed"; // Track which platform the job came from
 }
 
 interface ApifyPeopleData {
@@ -98,8 +104,21 @@ interface NormalizedApifyInput {
   jobTitles: string[];
   locations?: string[];
   workplaceType?: ("remote" | "hybrid" | "office")[];
-  employmentType?: ("full-time" | "part-time" | "contract" | "internship" | "temporary")[];
-  experienceLevel?: ("internship" | "entry" | "associate" | "mid-senior" | "director" | "executive")[];
+  employmentType?: (
+    | "full-time"
+    | "part-time"
+    | "contract"
+    | "internship"
+    | "temporary"
+  )[];
+  experienceLevel?: (
+    | "internship"
+    | "entry"
+    | "associate"
+    | "mid-senior"
+    | "director"
+    | "executive"
+  )[];
   salary?: number[]; // [minSalary, maxSalary] - Apify expects an array
   postedLimit?: "1h" | "24h" | "week" | "month";
   maxItems?: number;
@@ -193,43 +212,52 @@ function normalizeJobTitle(title: string): string {
   let normalized = title;
 
   // Remove content in parentheses (e.g., "(back-end)", "(Remote)", "(Contract)")
-  normalized = normalized.replace(/\([^)]*\)/g, '');
+  normalized = normalized.replace(/\([^)]*\)/g, "");
 
   // Remove content after dashes that looks like team/department names
   // e.g., "Sr. Product Engineer - Trips Team" -> "Sr. Product Engineer"
-  normalized = normalized.replace(/\s*-\s*[A-Z][a-zA-Z\s]*Team\s*$/i, '');
-  normalized = normalized.replace(/\s*-\s*[A-Z][a-zA-Z\s]*Department\s*$/i, '');
+  normalized = normalized.replace(/\s*-\s*[A-Z][a-zA-Z\s]*Team\s*$/i, "");
+  normalized = normalized.replace(/\s*-\s*[A-Z][a-zA-Z\s]*Department\s*$/i, "");
 
   // Remove extra location/workplace info at the end
-  normalized = normalized.replace(/\s*-\s*(Remote|Hybrid|On-site|Onsite)\s*$/i, '');
+  normalized = normalized.replace(
+    /\s*-\s*(Remote|Hybrid|On-site|Onsite)\s*$/i,
+    ""
+  );
 
   // Normalize seniority abbreviations
-  normalized = normalized.replace(/\bSr\.\s*/gi, 'Senior ');
-  normalized = normalized.replace(/\bJr\.\s*/gi, 'Junior ');
+  normalized = normalized.replace(/\bSr\.\s*/gi, "Senior ");
+  normalized = normalized.replace(/\bJr\.\s*/gi, "Junior ");
 
   // Clean up extra whitespace
-  normalized = normalized.replace(/\s+/g, ' ').trim();
+  normalized = normalized.replace(/\s+/g, " ").trim();
 
   console.log(`Normalized job title: "${title}" -> "${normalized}"`);
-  
+
   return normalized;
 }
 
-async function normalizeForApify(
-  params: {
-    jobTitle: string;
-    location?: string;
-    workplaceType?: string;
-    employmentType?: string;
-    experienceLevel?: string;
-    salary?: string;
-  }
-): Promise<NormalizedApifyInput> {
+async function normalizeForApify(params: {
+  jobTitle: string;
+  location?: string;
+  workplaceType?: string;
+  employmentType?: string;
+  experienceLevel?: string;
+  salary?: string;
+}): Promise<NormalizedApifyInput> {
   if (!openai) {
     // Fallback: naive mapping if OpenAI not available
-    const naive: NormalizedApifyInput = { jobTitles: [params.jobTitle], maxItems: 50 };
+    const naive: NormalizedApifyInput = {
+      jobTitles: [params.jobTitle],
+      maxItems: 200,
+    }; // Increased from 50 to 200
     if (params.location) {
-      const cleaned = params.location.replace(/\bnull\b,?\s*/gi, "").replace(/\s+,/g, ",").replace(/,{2,}/g, ",").replace(/\s{2,}/g, " ").trim();
+      const cleaned = params.location
+        .replace(/\bnull\b,?\s*/gi, "")
+        .replace(/\s+,/g, ",")
+        .replace(/,{2,}/g, ",")
+        .replace(/\s{2,}/g, " ")
+        .trim();
       if (cleaned) naive.locations = [cleaned];
     }
     return naive;
@@ -260,7 +288,10 @@ Return ONLY valid JSON object matching this TypeScript type:
   const resp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: "Return only valid JSON. No prose. No markdown." },
+      {
+        role: "system",
+        content: "Return only valid JSON. No prose. No markdown.",
+      },
       { role: "user", content: prompt },
     ],
     temperature: 0,
@@ -270,13 +301,350 @@ Return ONLY valid JSON object matching this TypeScript type:
   try {
     const data = JSON.parse(json);
     // Always cap maxItems
-    data.maxItems = 50;
+    data.maxItems = 200; // Increased from 50 to 200
     return data as NormalizedApifyInput;
   } catch (e) {
     console.error("Failed to parse OpenAI normalization response:", json);
     // Fallback minimal input
-    const minimal: NormalizedApifyInput = { jobTitles: [params.jobTitle], maxItems: 50 };
+    const minimal: NormalizedApifyInput = {
+      jobTitles: [params.jobTitle],
+      maxItems: 200,
+    }; // Increased from 50 to 200
     return minimal;
+  }
+}
+
+/**
+ * Search for similar jobs on Indeed using Apify
+ */
+async function searchSimilarJobsOnIndeed(
+  jobTitle: string,
+  location: string,
+  filters: {
+    workplaceType?: string;
+    employmentType?: string;
+    experienceLevel?: string;
+    salary?: string;
+  }
+): Promise<ApifyJobData[]> {
+  if (!apifyClient) {
+    console.warn("Apify API key not configured, skipping Indeed search");
+    return [];
+  }
+
+  try {
+    console.log("Searching Indeed for similar jobs...", {
+      jobTitle,
+      location,
+      filters,
+    });
+
+    // Normalize job title for better search results
+    const normalizedJobTitle = normalizeJobTitle(jobTitle);
+
+    // Clean location to remove any "null" literals
+    const cleanedLocation = location
+      ?.replace(/\bnull\b,?\s*/gi, "")
+      .replace(/\s+,/g, ",")
+      .replace(/,{2,}/g, ",")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    // Detect country from location for Indeed country parameter
+    const detectCountryCode = (location: string): string => {
+      if (!location) return "us"; // Default to US
+
+      const locationLower = location.toLowerCase();
+
+      // Map common country names/codes to Indeed country codes
+      const countryMap: { [key: string]: string } = {
+        // English-speaking countries
+        "united states": "us",
+        usa: "us",
+        us: "us",
+        "united kingdom": "uk",
+        uk: "uk",
+        england: "uk",
+        scotland: "uk",
+        wales: "uk",
+        canada: "ca",
+        australia: "au",
+        "new zealand": "nz",
+        ireland: "ie",
+        singapore: "sg",
+
+        // European countries
+        netherlands: "nl",
+        germany: "de",
+        france: "fr",
+        spain: "es",
+        italy: "it",
+        belgium: "be",
+        switzerland: "ch",
+        austria: "at",
+        sweden: "se",
+        norway: "no",
+        denmark: "dk",
+        finland: "fi",
+        poland: "pl",
+        portugal: "pt",
+        greece: "gr",
+
+        // Asian countries
+        india: "in",
+        japan: "jp",
+        china: "cn",
+        "south korea": "kr",
+        korea: "kr",
+        "hong kong": "hk",
+        taiwan: "tw",
+        malaysia: "my",
+        indonesia: "id",
+        philippines: "ph",
+        thailand: "th",
+        vietnam: "vn",
+
+        // Middle East
+        "united arab emirates": "ae",
+        uae: "ae",
+        dubai: "ae",
+        "saudi arabia": "sa",
+        israel: "il",
+        qatar: "qa",
+        kuwait: "kw",
+        bahrain: "bh",
+        oman: "om",
+
+        // Latin America
+        brazil: "br",
+        mexico: "mx",
+        argentina: "ar",
+        chile: "cl",
+        colombia: "co",
+        peru: "pe",
+
+        // Other
+        "south africa": "za",
+        russia: "ru",
+        ukraine: "ua",
+        turkey: "tr",
+      };
+
+      // Check for country matches in location string
+      for (const [country, code] of Object.entries(countryMap)) {
+        if (locationLower.includes(country)) {
+          return code;
+        }
+      }
+
+      // Default to US if no match found
+      return "us";
+    };
+
+    const countryCode = detectCountryCode(cleanedLocation || "");
+
+    // Build Indeed search input
+    const indeedInput: any = {
+      country: countryCode,
+      query: normalizedJobTitle,
+      maxRows: 200, // Increased from 50 to 200
+    };
+
+    console.log(
+      `Detected country code: ${countryCode} from location: ${cleanedLocation}`
+    );
+
+    if (cleanedLocation) {
+      indeedInput.location = cleanedLocation;
+    }
+
+    // Map filters to Indeed format
+    if (filters.employmentType) {
+      const typeMap: any = {
+        "Full-time": "fulltime",
+        "Part-time": "parttime",
+        Contract: "contract",
+        Internship: "internship",
+        Temporary: "temporary",
+      };
+      indeedInput.jobType =
+        typeMap[filters.employmentType] || filters.employmentType.toLowerCase();
+    }
+
+    if (filters.workplaceType) {
+      const remoteMap: any = {
+        Remote: "remote",
+        Hybrid: "hybrid",
+      };
+      if (remoteMap[filters.workplaceType]) {
+        indeedInput.remote = remoteMap[filters.workplaceType];
+      }
+    }
+
+    // Remove fromDays filter to get more results
+    // indeedInput.fromDays = "7"; // Commented out to get all jobs, not just last 7 days
+    indeedInput.sort = "relevance"; // Changed from "date" to "relevance" for better results
+
+    console.log("Indeed Apify input:", JSON.stringify(indeedInput, null, 2));
+
+    // Run the Indeed Jobs Scraper actor
+    const run = await apifyClient
+      .actor("MXLpngmVpE8WTESQr") // Indeed Job Scraper (PPR)
+      .call(indeedInput, {
+        timeout: 180, // 3 minutes timeout
+      });
+
+    console.log("✅ Indeed Apify run finished:", run.id);
+
+    // Fetch results from dataset
+    const { items } = await apifyClient
+      .dataset(run.defaultDatasetId)
+      .listItems();
+
+    console.log(`✅ Found ${items.length} similar jobs from Indeed`);
+
+    // Normalize Indeed data to match our interface
+    const normalizedJobs = items.map((job: any, idx: number) => ({
+      id: job.id || job.jobKey || `indeed-${Date.now()}-${idx}`,
+      title: job.title || job.jobTitle,
+      url: job.url || job.link,
+      company: {
+        name: job.company?.name || job.companyName || "Unknown Company",
+        logo: job.company?.logo || job.companyLogo,
+        employeeCount: job.company?.employeeCount,
+      },
+      location: {
+        city: job.location?.city || job.city,
+        state: job.location?.state || job.state,
+        country: job.location?.country || job.country,
+        linkedinText: (() => {
+          const text = job.location?.text || job.locationText;
+          if (text) return text;
+
+          // Build location string from available fields
+          const parts = [
+            job.location?.city || job.city,
+            job.location?.state || job.state,
+            job.location?.country || job.country,
+          ].filter(Boolean); // Remove empty/null/undefined values
+
+          return parts.length > 0 ? parts.join(", ") : "Location not specified";
+        })(),
+      },
+      salary: job.salary
+        ? {
+            text:
+              job.salary.salaryText ||
+              job.salary.text ||
+              (typeof job.salary === "string"
+                ? job.salary
+                : `${job.salary.salaryMin || ""} - ${
+                    job.salary.salaryMax || ""
+                  }`),
+            min: job.salary.salaryMin || job.salary.min,
+            max: job.salary.salaryMax || job.salary.max,
+            currency: job.salary.salaryCurrency || job.salary.currency || "USD",
+          }
+        : undefined,
+      employmentType: job.employmentType || job.jobType,
+      workplaceType: job.workplaceType || job.remote,
+      benefits: job.benefits || [],
+      description: job.description || job.descriptionText,
+      descriptionText: job.description || job.descriptionText,
+      platform: "indeed" as const,
+    }));
+
+    return normalizedJobs;
+  } catch (error: any) {
+    console.error("❌ Error searching similar jobs on Indeed:", error);
+
+    if (error.type === "invalid-input") {
+      console.error(
+        "Invalid Indeed Apify input. Trying with minimal parameters..."
+      );
+      try {
+        const normalizedTitle = normalizeJobTitle(jobTitle);
+        const safeInput: any = {
+          country: "us",
+          query: normalizedTitle,
+          maxRows: 200, // Increased from 50 to 200
+        };
+        const cleanedLocation = location?.replace(/\bnull\b,?\s*/gi, "").trim();
+        if (cleanedLocation) safeInput.location = cleanedLocation;
+
+        console.log(
+          "Retrying Indeed with safe input:",
+          JSON.stringify(safeInput, null, 2)
+        );
+        const run = await apifyClient!
+          .actor("MXLpngmVpE8WTESQr")
+          .call(safeInput, { timeout: 180 });
+        const { items } = await apifyClient!
+          .dataset(run.defaultDatasetId)
+          .listItems();
+        console.log(
+          `✅ Fallback found ${items.length} similar jobs from Indeed`
+        );
+
+        // Normalize fallback results
+        const normalizedJobs = items.map((job: any, idx: number) => ({
+          id: job.id || job.jobKey || `indeed-fallback-${Date.now()}-${idx}`,
+          title: job.title || job.jobTitle,
+          url: job.url || job.link,
+          company: {
+            name: job.company?.name || job.companyName || "Unknown Company",
+            logo: job.company?.logo || job.companyLogo,
+          },
+          location: {
+            city: job.location?.city || job.city,
+            state: job.location?.state || job.state,
+            country: job.location?.country || job.country,
+            linkedinText: (() => {
+              const text = job.location?.text || job.locationText;
+              if (text) return text;
+
+              // Build location string from available fields
+              const parts = [
+                job.location?.city || job.city,
+                job.location?.state || job.state,
+                job.location?.country || job.country,
+              ].filter(Boolean); // Remove empty/null/undefined values
+
+              return parts.length > 0
+                ? parts.join(", ")
+                : "Location not specified";
+            })(),
+          },
+          salary: job.salary
+            ? {
+                text:
+                  job.salary.salaryText ||
+                  job.salary.text ||
+                  (typeof job.salary === "string"
+                    ? job.salary
+                    : `${job.salary.salaryMin || ""} - ${
+                        job.salary.salaryMax || ""
+                      }`),
+                min: job.salary.salaryMin || job.salary.min,
+                max: job.salary.salaryMax || job.salary.max,
+                currency:
+                  job.salary.salaryCurrency || job.salary.currency || "USD",
+              }
+            : undefined,
+          employmentType: job.employmentType || job.jobType,
+          workplaceType: job.workplaceType || job.remote,
+          benefits: job.benefits || [],
+          description: job.description || job.descriptionText,
+          platform: "indeed" as const,
+        }));
+
+        return normalizedJobs;
+      } catch (e) {
+        console.error("Indeed fallback search failed:", e);
+      }
+    }
+
+    return [];
   }
 }
 
@@ -296,7 +664,11 @@ async function searchSimilarJobsWithApify(
   }
 
   try {
-    console.log("Searching LinkedIn for similar jobs...", { jobTitle, location, filters });
+    console.log("Searching LinkedIn for similar jobs...", {
+      jobTitle,
+      location,
+      filters,
+    });
 
     // Normalize job title for better search results
     const normalizedJobTitle = normalizeJobTitle(jobTitle);
@@ -314,56 +686,85 @@ async function searchSimilarJobsWithApify(
     // Build Apify input from normalized values
     const apifyInput: any = {
       jobTitles: normalized.jobTitles,
-      maxItems: normalized.maxItems ?? 50,
+      maxItems: normalized.maxItems ?? 200, // Increased from 50 to 200
       // postedLimit removed - search all jobs regardless of posting date
     };
-    if (normalized.locations && normalized.locations.length > 0) apifyInput.locations = normalized.locations;
-    if (normalized.workplaceType && normalized.workplaceType.length > 0) apifyInput.workplaceType = normalized.workplaceType;
-    if (normalized.employmentType && normalized.employmentType.length > 0) apifyInput.employmentType = normalized.employmentType;
-    if (normalized.experienceLevel && normalized.experienceLevel.length > 0) apifyInput.experienceLevel = normalized.experienceLevel;
-    
+    if (normalized.locations && normalized.locations.length > 0)
+      apifyInput.locations = normalized.locations;
+    if (normalized.workplaceType && normalized.workplaceType.length > 0)
+      apifyInput.workplaceType = normalized.workplaceType;
+    if (normalized.employmentType && normalized.employmentType.length > 0)
+      apifyInput.employmentType = normalized.employmentType;
+    if (normalized.experienceLevel && normalized.experienceLevel.length > 0)
+      apifyInput.experienceLevel = normalized.experienceLevel;
+
     // Note: Salary filtering is intentionally excluded to avoid over-filtering results
 
     console.log("Apify input:", JSON.stringify(apifyInput, null, 2));
 
     // Run the LinkedIn Jobs Scraper actor
-    const run = await apifyClient
-      .actor("zn01OAlzP853oqn4Z")
-      .call(apifyInput, {
-        timeout: 180, // 3 minutes timeout
-      });
+    const run = await apifyClient.actor("zn01OAlzP853oqn4Z").call(apifyInput, {
+      timeout: 180, // 3 minutes timeout
+    });
 
     console.log("✅ Apify run finished:", run.id);
 
     // Fetch results from dataset
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const { items } = await apifyClient
+      .dataset(run.defaultDatasetId)
+      .listItems();
 
     console.log(`✅ Found ${items.length} similar jobs from LinkedIn`);
 
+    // Mark all LinkedIn jobs with platform identifier
+    const linkedInJobs = items.map((job: any) => ({
+      ...job,
+      platform: "linkedin" as const,
+    }));
+
     // If no results found, try a broader search without filters
-    if (items.length === 0) {
+    if (linkedInJobs.length === 0) {
       console.log("⚠️ No jobs found with filters, trying broader search...");
       try {
         const normalizedTitle = normalizeJobTitle(jobTitle);
-        const broadInput: any = { 
-          jobTitles: [normalizedTitle], 
-          maxItems: 50
+        const broadInput: any = {
+          jobTitles: [normalizedTitle],
+          maxItems: 200, // Increased from 50 to 200
           // No postedLimit - search all jobs
         };
-        const cleanedLocation = location?.replace(/\bnull\b,?\s*/gi, "").replace(/\s+,/g, ",").replace(/,{2,}/g, ",").replace(/\s{2,}/g, " ").trim();
+        const cleanedLocation = location
+          ?.replace(/\bnull\b,?\s*/gi, "")
+          .replace(/\s+,/g, ",")
+          .replace(/,{2,}/g, ",")
+          .replace(/\s{2,}/g, " ")
+          .trim();
         if (cleanedLocation) broadInput.locations = [cleanedLocation];
-        
-        console.log("Retrying with broader search:", JSON.stringify(broadInput, null, 2));
-        const broadRun = await apifyClient!.actor("zn01OAlzP853oqn4Z").call(broadInput, { timeout: 180 });
-        const { items: broadItems } = await apifyClient!.dataset(broadRun.defaultDatasetId).listItems();
-        console.log(`✅ Broader search found ${broadItems.length} similar jobs`);
-        return broadItems as ApifyJobData[];
+
+        console.log(
+          "Retrying with broader search:",
+          JSON.stringify(broadInput, null, 2)
+        );
+        const broadRun = await apifyClient!
+          .actor("zn01OAlzP853oqn4Z")
+          .call(broadInput, { timeout: 180 });
+        const { items: broadItems } = await apifyClient!
+          .dataset(broadRun.defaultDatasetId)
+          .listItems();
+        console.log(
+          `✅ Broader search found ${broadItems.length} similar jobs`
+        );
+        // Mark all LinkedIn jobs with platform identifier
+        const linkedInJobs = broadItems.map((job: any) => ({
+          ...job,
+          platform: "linkedin" as const,
+        }));
+        return linkedInJobs as ApifyJobData[];
       } catch (e) {
         console.error("Broader search failed:", e);
       }
     }
 
-    return items as ApifyJobData[];
+    return linkedInJobs as ApifyJobData[];
   } catch (error: any) {
     console.error("❌ Error searching similar jobs with Apify:", error);
 
@@ -372,14 +773,31 @@ async function searchSimilarJobsWithApify(
       try {
         // Attempt to re-run without optional filters as a safe fallback
         const normalizedTitle = normalizeJobTitle(jobTitle);
-        const safeInput: any = { jobTitles: [normalizedTitle], maxItems: 50 };
-        const cleanedLocation = location?.replace(/\bnull\b,?\s*/gi, "").replace(/\s+,/g, ",").replace(/,{2,}/g, ",").replace(/\s{2,}/g, " ").trim();
+        const safeInput: any = { jobTitles: [normalizedTitle], maxItems: 200 }; // Increased from 50 to 200
+        const cleanedLocation = location
+          ?.replace(/\bnull\b,?\s*/gi, "")
+          .replace(/\s+,/g, ",")
+          .replace(/,{2,}/g, ",")
+          .replace(/\s{2,}/g, " ")
+          .trim();
         if (cleanedLocation) safeInput.locations = [cleanedLocation];
-        console.log("Retrying Apify with safe input:", JSON.stringify(safeInput, null, 2));
-        const run = await apifyClient!.actor("zn01OAlzP853oqn4Z").call(safeInput, { timeout: 180 });
-        const { items } = await apifyClient!.dataset(run.defaultDatasetId).listItems();
+        console.log(
+          "Retrying Apify with safe input:",
+          JSON.stringify(safeInput, null, 2)
+        );
+        const run = await apifyClient!
+          .actor("zn01OAlzP853oqn4Z")
+          .call(safeInput, { timeout: 180 });
+        const { items } = await apifyClient!
+          .dataset(run.defaultDatasetId)
+          .listItems();
         console.log(`✅ Fallback found ${items.length} similar jobs`);
-        return items as ApifyJobData[];
+        // Mark all LinkedIn jobs with platform identifier
+        const linkedInJobs = items.map((job: any) => ({
+          ...job,
+          platform: "linkedin" as const,
+        }));
+        return linkedInJobs as ApifyJobData[];
       } catch (e) {
         console.error("Fallback search failed:", e);
       }
@@ -425,7 +843,10 @@ async function searchCandidatesWithApify(
       peopleInput.locations = [cleanedLocation];
     }
 
-    console.log("Apify People Search input:", JSON.stringify(peopleInput, null, 2));
+    console.log(
+      "Apify People Search input:",
+      JSON.stringify(peopleInput, null, 2)
+    );
 
     // Run the LinkedIn People Search actor
     const run = await apifyClient
@@ -437,7 +858,9 @@ async function searchCandidatesWithApify(
     console.log("✅ Apify People Search run finished:", run.id);
 
     // Fetch results from dataset
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const { items } = await apifyClient
+      .dataset(run.defaultDatasetId)
+      .listItems();
 
     console.log(`✅ Found ${items.length} candidates from LinkedIn`);
 
@@ -446,7 +869,9 @@ async function searchCandidatesWithApify(
     console.error("❌ Error searching candidates with Apify:", error);
 
     if (error.type === "invalid-input") {
-      console.error("Invalid Apify People Search input. Please check the input format.");
+      console.error(
+        "Invalid Apify People Search input. Please check the input format."
+      );
       try {
         // Attempt a minimal fallback search
         const safeInput: any = {
@@ -455,12 +880,24 @@ async function searchCandidatesWithApify(
           maxItems: 25,
           takePages: 1,
         };
-        const cleanedLocation = location?.replace(/\bnull\b,?\s*/gi, "").replace(/\s+,/g, ",").replace(/,{2,}/g, ",").replace(/\s{2,}/g, " ").trim();
+        const cleanedLocation = location
+          ?.replace(/\bnull\b,?\s*/gi, "")
+          .replace(/\s+,/g, ",")
+          .replace(/,{2,}/g, ",")
+          .replace(/\s{2,}/g, " ")
+          .trim();
         if (cleanedLocation) safeInput.locations = [cleanedLocation];
-        
-        console.log("Retrying Apify People Search with safe input:", JSON.stringify(safeInput, null, 2));
-        const run = await apifyClient!.actor("M2FMdjRVeF1HPGFcc").call(safeInput, { timeout: 180 });
-        const { items } = await apifyClient!.dataset(run.defaultDatasetId).listItems();
+
+        console.log(
+          "Retrying Apify People Search with safe input:",
+          JSON.stringify(safeInput, null, 2)
+        );
+        const run = await apifyClient!
+          .actor("M2FMdjRVeF1HPGFcc")
+          .call(safeInput, { timeout: 180 });
+        const { items } = await apifyClient!
+          .dataset(run.defaultDatasetId)
+          .listItems();
         console.log(`✅ Fallback found ${items.length} candidates`);
         return items as ApifyPeopleData[];
       } catch (e) {
@@ -470,6 +907,16 @@ async function searchCandidatesWithApify(
 
     return [];
   }
+}
+
+/**
+ * Detect the platform (LinkedIn or Indeed) from a URL
+ */
+function detectPlatform(url: string): "linkedin" | "indeed" | "unknown" {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes("linkedin.com")) return "linkedin";
+  if (lowerUrl.includes("indeed.com")) return "indeed";
+  return "unknown";
 }
 
 export async function POST(request: NextRequest) {
@@ -485,8 +932,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if input is a URL
-    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+    const urlPattern =
+      /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
     const isURL = urlPattern.test(input.trim());
+    const platform = isURL ? detectPlatform(input.trim()) : "unknown";
 
     let scrapedData: any;
     let inputType: string;
@@ -498,9 +947,12 @@ export async function POST(request: NextRequest) {
         scrapedData = await scrapeJobURL(input.trim());
         inputType = "url";
       } catch (scrapeError: any) {
-        console.error("Initial scraping failed, will try to continue:", scrapeError.message);
+        console.error(
+          "Initial scraping failed, will try to continue:",
+          scrapeError.message
+        );
         scrapingError = scrapeError.message;
-        
+
         // Create minimal data object to try AI extraction with the URL
         scrapedData = {
           title: "Job Title (extraction failed)",
@@ -550,32 +1002,42 @@ export async function POST(request: NextRequest) {
         employmentType:
           scrapedData.employmentType || aiExtractedData.employmentType,
         requirements:
-          scrapedData.requirements ||
-          aiExtractedData.requirements ||
-          undefined,
+          scrapedData.requirements || aiExtractedData.requirements || undefined,
         responsibilities:
           scrapedData.responsibilities ||
           aiExtractedData.responsibilities ||
           undefined,
-        benefits:
-          scrapedData.benefits || aiExtractedData.benefits || undefined,
+        benefits: scrapedData.benefits || aiExtractedData.benefits || undefined,
         skills: aiExtractedData.skills || undefined,
         department: aiExtractedData.department,
         aiEnhanced: true, // Flag to indicate AI extraction was used
       };
 
-      // Search for similar jobs on LinkedIn using Apify
+      // Search for similar jobs on both LinkedIn and Indeed using Apify
       const jobTitle = scrapedData.title || aiExtractedData.department;
       const location = scrapedData.location || aiExtractedData.location;
 
       if (jobTitle && apifyClient) {
-        console.log("Searching for similar jobs on LinkedIn...");
-        similarJobs = await searchSimilarJobsWithApify(jobTitle, location, {
+        console.log("Searching for similar jobs on LinkedIn and Indeed...");
+
+        const filters = {
           workplaceType: scrapedData.locationType,
           employmentType: scrapedData.employmentType,
           experienceLevel: scrapedData.experienceLevel,
           salary: scrapedData.salary,
-        });
+        };
+
+        // Search both platforms in parallel
+        const [linkedInJobs, indeedJobs] = await Promise.all([
+          searchSimilarJobsWithApify(jobTitle, location, filters),
+          searchSimilarJobsOnIndeed(jobTitle, location, filters),
+        ]);
+
+        // Combine results from both platforms
+        similarJobs = [...linkedInJobs, ...indeedJobs];
+        console.log(
+          `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed = ${similarJobs.length} total`
+        );
       }
     }
 
@@ -589,15 +1051,28 @@ export async function POST(request: NextRequest) {
       candidates = await searchCandidatesWithApify(jobTitle, location);
     }
 
+    // Calculate platform breakdown for response
+    const linkedInJobsCount = similarJobs.filter(
+      (j) => j.platform === "linkedin"
+    ).length;
+    const indeedJobsCount = similarJobs.filter(
+      (j) => j.platform === "indeed"
+    ).length;
+
     return NextResponse.json({
       success: true,
       data: scrapedData,
+      platform: platform, // Which platform was scraped (linkedin/indeed/unknown)
       similarJobs: similarJobs,
       similarJobsCount: similarJobs.length,
+      linkedInJobsCount: linkedInJobsCount,
+      indeedJobsCount: indeedJobsCount,
       candidates: candidates,
       candidatesCount: candidates.length,
       inputType,
-      warnings: scrapingError ? [`Initial scraping failed: ${scrapingError}`] : undefined,
+      warnings: scrapingError
+        ? [`Initial scraping failed: ${scrapingError}`]
+        : undefined,
     });
   } catch (error: any) {
     console.error("Error in scrape-job API:", error);

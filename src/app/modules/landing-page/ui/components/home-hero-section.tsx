@@ -100,8 +100,12 @@ export const HomeHeroSection = () => {
   const [scrapedData, setScrapedData] = useState<ScrapedJobData | null>(null);
   const [similarJobs, setSimilarJobs] = useState<ApifyJobData[]>([]);
   const [candidates, setCandidates] = useState<ApifyPeopleData[]>([]);
+  const [linkedInJobsCount, setLinkedInJobsCount] = useState(0);
+  const [indeedJobsCount, setIndeedJobsCount] = useState(0);
+  const [platform, setPlatform] = useState<string>("unknown");
   const [debugOpen, setDebugOpen] = useState(false);
-  const [jobDataOpen, setJobDataOpen] = useState(false);
+  const [linkedInJobsOpen, setLinkedInJobsOpen] = useState(false);
+  const [indeedJobsOpen, setIndeedJobsOpen] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -133,6 +137,9 @@ export const HomeHeroSection = () => {
       setScrapedData(result.data);
       setSimilarJobs(result.similarJobs || []);
       setCandidates(result.candidates || []);
+      setLinkedInJobsCount(result.linkedInJobsCount || 0);
+      setIndeedJobsCount(result.indeedJobsCount || 0);
+      setPlatform(result.platform || "unknown");
       setWarnings(result.warnings || []);
       
       // Keep loader until scraping finishes (minimum 45 seconds)
@@ -262,6 +269,25 @@ export const HomeHeroSection = () => {
                     <div className="text-green-400 font-semibold mb-1">Source:</div>
                     <div className="text-slate-300">{scrapedData.source}</div>
                   </div>
+
+                  {/* Platform Detected */}
+                  {platform && platform !== "unknown" && (
+                    <div>
+                      <div className="text-green-400 font-semibold mb-1">Platform Detected:</div>
+                      <div className="flex items-center gap-2">
+                        {platform === "linkedin" && (
+                          <span className="px-2 py-1 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
+                            🔵 LINKEDIN
+                          </span>
+                        )}
+                        {platform === "indeed" && (
+                          <span className="px-2 py-1 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[10px] font-bold">
+                            🟠 INDEED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Title */}
                   <div>
@@ -571,12 +597,12 @@ export const HomeHeroSection = () => {
             </div>
           )}
 
-          {/* Job Data Panel - Similar Jobs from LinkedIn */}
-          {similarJobs.length > 0 && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+          {/* LinkedIn Jobs Panel */}
+          {linkedInJobsCount > 0 && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-blue-500/40 overflow-hidden">
               {/* Header */}
               <button
-                onClick={() => setJobDataOpen(!jobDataOpen)}
+                onClick={() => setLinkedInJobsOpen(!linkedInJobsOpen)}
                 className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
               >
                 <div className="flex items-center gap-2">
@@ -587,14 +613,14 @@ export const HomeHeroSection = () => {
                   >
                     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
                   </svg>
-                  <span className="text-sm font-semibold text-white">
-                    Job Data
+                  <span className="text-sm font-semibold text-white flex items-center gap-2">
+                    🔵 LinkedIn Jobs
                   </span>
                   <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
-                    {similarJobs.length} JOBS
+                    {linkedInJobsCount} JOBS
                   </span>
                 </div>
-                {jobDataOpen ? (
+                {linkedInJobsOpen ? (
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 ) : (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -602,12 +628,99 @@ export const HomeHeroSection = () => {
               </button>
 
               {/* Collapsible Content */}
-              {jobDataOpen && (
+              {linkedInJobsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  {/* Raw JSON Display */}
+                  <div className="mb-4">
+                    <div className="text-blue-400 font-semibold text-xs mb-2">
+                      Raw LinkedIn Jobs Array:
+                    </div>
+                    <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                      {JSON.stringify(
+                        similarJobs.filter(job => job.platform === "linkedin"),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Indeed Jobs Panel */}
+          {indeedJobsCount > 0 && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-orange-500/40 overflow-hidden">
+              {/* Header */}
+              <button
+                onClick={() => setIndeedJobsOpen(!indeedJobsOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-orange-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-white flex items-center gap-2">
+                    🟠 Indeed Jobs
+                  </span>
+                  <span className="px-2 py-0.5 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[10px] font-bold">
+                    {indeedJobsCount} JOBS
+                  </span>
+                </div>
+                {indeedJobsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {/* Collapsible Content */}
+              {indeedJobsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  {/* Raw JSON Display */}
+                  <div className="mb-4">
+                    <div className="text-orange-400 font-semibold text-xs mb-2">
+                      Raw Indeed Jobs Array:
+                    </div>
+                    <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                      {JSON.stringify(
+                        similarJobs.filter(job => job.platform === "indeed"),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* OLD Combined View - REMOVED */}
+          {false && similarJobs.length > 0 && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+              {/* Header */}
+              <button
+                onClick={() => {}}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white">
+                    Old View
+                  </span>
+                </div>
+              </button>
+
+              {/* Collapsible Content */}
+              {false && (
                 <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
                   <div className="space-y-4 text-xs">
                     {similarJobs.map((job, index) => (
                       <div
-                        key={job.id}
+                        key={`${job.platform || 'unknown'}-${job.id}-${index}`}
                         className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
                       >
                         {/* Job Header */}
@@ -633,7 +746,7 @@ export const HomeHeroSection = () => {
                         <div className="flex items-center gap-2 text-slate-300 mb-2">
                           <span className="text-[10px]">📍</span>
                           <span className="text-xs">
-                            {job.location.linkedinText}
+                            {job.location.linkedinText || `${job.location.city || ''}${job.location.state ? ', ' + job.location.state : ''}${job.location.country ? ', ' + job.location.country : ''}`}
                           </span>
                         </div>
 
@@ -646,7 +759,7 @@ export const HomeHeroSection = () => {
                           )}
                           {job.employmentType && (
                             <span className="px-2 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[10px]">
-                              {job.employmentType.replace("_", "-")}
+                              {typeof job.employmentType === 'string' ? job.employmentType.replace(/_/g, "-") : job.employmentType}
                             </span>
                           )}
                         </div>
@@ -654,7 +767,7 @@ export const HomeHeroSection = () => {
                         {/* Salary */}
                         {job.salary && (
                           <div className="text-green-400 font-semibold text-xs mb-2">
-                            💰 {job.salary.text}
+                            💰 {typeof job.salary === 'string' ? job.salary : (job.salary.text || job.salary.salaryText || `${job.salary.salaryMin || ''} - ${job.salary.salaryMax || ''}`)}
                           </div>
                         )}
 
@@ -692,22 +805,56 @@ export const HomeHeroSection = () => {
                           </div>
                         )}
 
+                        {/* Platform Badge */}
+                        <div className="mb-2">
+                          {job.platform === "linkedin" && (
+                            <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[9px] font-bold">
+                              LINKEDIN
+                            </span>
+                          )}
+                          {job.platform === "indeed" && (
+                            <span className="px-2 py-0.5 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[9px] font-bold">
+                              INDEED
+                            </span>
+                          )}
+                        </div>
+
                         {/* Link */}
                         <a
-                          href={job.linkedinUrl}
+                          href={job.linkedinUrl || job.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-block text-blue-400 hover:text-blue-300 text-xs underline"
                         >
-                          View on LinkedIn →
+                          {job.platform === "linkedin" ? "View on LinkedIn →" : "View on Indeed →"}
                         </a>
                       </div>
                     ))}
 
                     {/* Summary */}
                     <div className="pt-3 border-t border-slate-700">
-                      <div className="text-slate-400 text-xs text-center">
-                        Found {similarJobs.length} similar jobs on LinkedIn
+                      <div className="text-slate-400 text-xs text-center space-y-1">
+                        <div className="font-semibold text-white">
+                          Found {similarJobs.length} similar jobs total
+                        </div>
+                        <div className="flex items-center justify-center gap-4">
+                          {linkedInJobsCount > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[9px] font-bold">
+                                LINKEDIN
+                              </span>
+                              <span>{linkedInJobsCount}</span>
+                            </div>
+                          )}
+                          {indeedJobsCount > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[9px] font-bold">
+                                INDEED
+                              </span>
+                              <span>{indeedJobsCount}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
