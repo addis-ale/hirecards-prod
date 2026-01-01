@@ -110,6 +110,18 @@ export const HomeHeroSection = () => {
   const [linkedInJobsOpen, setLinkedInJobsOpen] = useState(false);
   const [indeedJobsOpen, setIndeedJobsOpen] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
+  
+  // AI-Generated Card Groups
+  const [jobAnalysisCardsOpen, setJobAnalysisCardsOpen] = useState(false);
+  const [peopleAnalysisCardsOpen, setPeopleAnalysisCardsOpen] = useState(false);
+  const [combinedAnalysisCardsOpen, setCombinedAnalysisCardsOpen] = useState(false);
+  const [derivedStrategyCardsOpen, setDerivedStrategyCardsOpen] = useState(false);
+  
+  const [jobAnalysisCards, setJobAnalysisCards] = useState<any>(null);
+  const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<any>(null);
+  const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<any>(null);
+  const [derivedStrategyCards, setDerivedStrategyCards] = useState<any>(null);
+  
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -217,6 +229,12 @@ export const HomeHeroSection = () => {
       setIndeedJobsCount(result.indeedJobsCount || 0);
       setPlatform(result.platform || "unknown");
       setWarnings(result.warnings || []);
+      
+      // Set AI-generated card groups
+      setJobAnalysisCards(result.jobAnalysisCards || null);
+      setPeopleAnalysisCards(result.peopleAnalysisCards || null);
+      setCombinedAnalysisCards(result.combinedAnalysisCards || null);
+      setDerivedStrategyCards(result.derivedStrategyCards || null);
       setExtractedFields(result.extractedFields || null);
       setMissingFields(result.missingFields || []);
       
@@ -873,6 +891,150 @@ export const HomeHeroSection = () => {
                       )}
                     </pre>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================= */}
+          {/* AI-GENERATED CARD GROUPS */}
+          {/* ========================================= */}
+
+          {/* Group 1: Job Analysis Cards (5 cards) */}
+          {jobAnalysisCards && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-green-500/40 overflow-hidden">
+              <button
+                onClick={() => setJobAnalysisCardsOpen(!jobAnalysisCardsOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🟢</span>
+                  <span className="text-sm font-semibold text-white">
+                    Job Analysis Cards (AI)
+                  </span>
+                  <span className="px-2 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[10px] font-bold">
+                    5 CARDS
+                  </span>
+                </div>
+                {jobAnalysisCardsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+              {jobAnalysisCardsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="text-green-400 font-semibold text-xs mb-2">
+                    Role, Skill, Message, Outreach, Fit Cards:
+                  </div>
+                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                    {JSON.stringify(jobAnalysisCards, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Group 2: People Analysis Cards (1 card) */}
+          {peopleAnalysisCards && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-blue-500/40 overflow-hidden">
+              <button
+                onClick={() => setPeopleAnalysisCardsOpen(!peopleAnalysisCardsOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔵</span>
+                  <span className="text-sm font-semibold text-white">
+                    People Analysis Cards (AI)
+                  </span>
+                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
+                    1 CARD
+                  </span>
+                </div>
+                {peopleAnalysisCardsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+              {peopleAnalysisCardsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="text-blue-400 font-semibold text-xs mb-2">
+                    Talent Map Card:
+                  </div>
+                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                    {JSON.stringify(peopleAnalysisCards, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Group 3: Combined Analysis Cards (4 cards) */}
+          {combinedAnalysisCards && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-amber-500/40 overflow-hidden">
+              <button
+                onClick={() => setCombinedAnalysisCardsOpen(!combinedAnalysisCardsOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🟠</span>
+                  <span className="text-sm font-semibold text-white">
+                    Combined Analysis Cards (AI)
+                  </span>
+                  <span className="px-2 py-0.5 bg-amber-600/20 border border-amber-500/40 rounded text-amber-300 text-[10px] font-bold">
+                    4 CARDS
+                  </span>
+                </div>
+                {combinedAnalysisCardsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+              {combinedAnalysisCardsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="text-amber-400 font-semibold text-xs mb-2">
+                    Market, Pay, Funnel, Reality Cards:
+                  </div>
+                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                    {JSON.stringify(combinedAnalysisCards, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Group 4: Derived Strategy Cards (3 cards) */}
+          {derivedStrategyCards && (
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-purple-500/40 overflow-hidden">
+              <button
+                onClick={() => setDerivedStrategyCardsOpen(!derivedStrategyCardsOpen)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🟣</span>
+                  <span className="text-sm font-semibold text-white">
+                    Derived Strategy Cards (AI)
+                  </span>
+                  <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
+                    3 CARDS
+                  </span>
+                </div>
+                {derivedStrategyCardsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+              {derivedStrategyCardsOpen && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                  <div className="text-purple-400 font-semibold text-xs mb-2">
+                    Interview, Scorecard, Plan Cards:
+                  </div>
+                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
+                    {JSON.stringify(derivedStrategyCards, null, 2)}
+                  </pre>
                 </div>
               )}
             </div>
