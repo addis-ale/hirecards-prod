@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeJobURL } from "@/lib/jobScraper";
 import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
+import * as cardGenerators from "./cardGenerators";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
@@ -820,12 +821,59 @@ async function searchCandidatesWithApify(
     const normalizedJobTitle = normalizeJobTitle(jobTitle);
 
     // Clean location to remove any "null" literals
-    const cleanedLocation = location
+    let cleanedLocation = location
       ?.replace(/\bnull\b,?\s*/gi, "")
       .replace(/\s+,/g, ",")
       .replace(/,{2,}/g, ",")
       .replace(/\s{2,}/g, " ")
       .trim();
+
+    // Fix malformed locations for LinkedIn People Search
+    if (cleanedLocation) {
+      // First, clean up double commas and extra spaces
+      cleanedLocation = cleanedLocation
+        .replace(/,{2,}/g, ",")        // Remove double commas
+        .replace(/\s*,\s*/g, ", ")     // Normalize comma spacing
+        .replace(/\s{2,}/g, " ")       // Remove extra spaces
+        .trim();
+      
+      // Remove duplicate city names with slash separator
+      // Pattern: "City State/City Country" -> "City, State, Country"
+      const slashPattern = /^([^\/]+)\s*\/\s*(.+)$/;
+      if (slashPattern.test(cleanedLocation)) {
+        console.log(`🔧 Fixing malformed location with slash: "${cleanedLocation}"`);
+        
+        const parts = cleanedLocation.split('/');
+        const leftPart = parts[0].trim(); // e.g., "Sydney NSW"
+        const rightPart = parts[1].trim(); // e.g., "Sydney Australia"
+        
+        // Extract unique location components (split by comma or space)
+        const allParts = [
+          ...leftPart.split(/[,\s]+/).filter(Boolean),
+          ...rightPart.split(/[,\s]+/).filter(Boolean)
+        ];
+        const uniqueParts = [...new Set(allParts)]; // Remove duplicates
+        
+        // Join with commas
+        cleanedLocation = uniqueParts.join(", ");
+        console.log(`✅ Fixed location: "${cleanedLocation}"`);
+      }
+      
+      // Final cleanup - ensure proper comma spacing
+      cleanedLocation = cleanedLocation
+        .replace(/,{2,}/g, ",")
+        .replace(/\s*,\s*/g, ", ")
+        .trim();
+      
+      // Simplify to City, Country format for LinkedIn (it doesn't like states/regions)
+      // e.g., "Sydney, NSW, Australia" -> "Sydney, Australia"
+      const locationParts = cleanedLocation.split(',').map(p => p.trim()).filter(Boolean);
+      if (locationParts.length > 2) {
+        // Keep first (city) and last (country) parts only
+        cleanedLocation = `${locationParts[0]}, ${locationParts[locationParts.length - 1]}`;
+        console.log(`🔧 Simplified location for LinkedIn: "${cleanedLocation}"`);
+      }
+    }
 
     // Build input for LinkedIn People Search actor
     const peopleInput: any = {
@@ -838,6 +886,7 @@ async function searchCandidatesWithApify(
     // Add location if available
     if (cleanedLocation) {
       peopleInput.locations = [cleanedLocation];
+      console.log(`📍 LinkedIn People Search location: "${cleanedLocation}"`);
     }
 
     console.log(
@@ -1110,6 +1159,81 @@ export async function POST(request: NextRequest) {
     if (!extractedFields.flexible) missingFields.push("Flexible Requirements");
     if (!extractedFields.timeline) missingFields.push("Timeline");
 
+    // ============================================
+    // AI CARD GENERATION (4 GROUPS)
+    // ============================================
+    console.log("🤖 ============================================");
+    console.log("🤖 STARTING AI CARD GENERATION");
+    console.log("🤖 ============================================");
+
+    let jobAnalysisCards = null;
+    let peopleAnalysisCards = null;
+    let combinedAnalysisCards = null;
+    let derivedStrategyCards = null;
+
+    try {
+      // GROUP 1: JOB ANALYSIS CARDS (5 cards)
+      console.log("🟢 Generating Group 1: Job Analysis Cards...");
+      const [roleCard, skillCard, fitCard] = await Promise.all([
+        cardGenerators.generateRoleCard(scrapedData),
+        cardGenerators.generateSkillCard(scrapedData),
+        cardGenerators.generateFitCard(scrapedData),
+      ]);
+
+      const messageCard = await cardGenerators.generateMessageCard(scrapedData, roleCard);
+      const outreachCard = await cardGenerators.generateOutreachCard(scrapedData, messageCard);
+
+      jobAnalysisCards = {
+        roleCard,
+        skillCard,
+        messageCard,
+        outreachCard,
+        fitCard,
+      };
+      console.log("✅ Job Analysis Cards complete");
+
+      // GROUP 2: PEOPLE ANALYSIS CARDS (1 card)
+      if (candidates.length > 0) {
+        console.log("🔵 Generating Group 2: People Analysis Cards...");
+        const talentMapCard = await cardGenerators.generateTalentMapCard(candidates);
+        peopleAnalysisCards = { talentMapCard };
+        console.log("✅ People Analysis Cards complete");
+      }
+
+      // GROUP 3: COMBINED ANALYSIS CARDS (4 cards)
+      if (similarJobs.length > 0 || candidates.length > 0) {
+        console.log("🟠 Generating Group 3: Combined Analysis Cards...");
+        const marketCard = await cardGenerators.generateMarketCard(scrapedData, similarJobs, candidates);
+        const payCard = await cardGenerators.generatePayCard(scrapedData, similarJobs);
+        const funnelCard = await cardGenerators.generateFunnelCard(marketCard);
+        
+        const allCardsForReality = { roleCard, skillCard, marketCard, payCard, funnelCard };
+        const realityCard = await cardGenerators.generateRealityCard(allCardsForReality);
+
+        combinedAnalysisCards = { marketCard, payCard, funnelCard, realityCard };
+        console.log("✅ Combined Analysis Cards complete");
+      }
+
+      // GROUP 4: DERIVED STRATEGY CARDS (3 cards)
+      console.log("🟣 Generating Group 4: Derived Strategy Cards...");
+      const interviewCard = await cardGenerators.generateInterviewCard(skillCard, roleCard);
+      const scorecardCard = await cardGenerators.generateScorecardCard(skillCard, interviewCard);
+      
+      const allCardsForPlan = {
+        roleCard,
+        skillCard,
+        marketCard: combinedAnalysisCards?.marketCard,
+        realityCard: combinedAnalysisCards?.realityCard,
+      };
+      const planCard = await cardGenerators.generatePlanCard(allCardsForPlan);
+
+      derivedStrategyCards = { interviewCard, scorecardCard, planCard };
+      console.log("✅ Derived Strategy Cards complete");
+      console.log("🎉 All AI card generation complete!");
+    } catch (error) {
+      console.error("❌ Error during AI card generation:", error);
+    }
+
     return NextResponse.json({
       success: true,
       data: scrapedData,
@@ -1127,6 +1251,11 @@ export async function POST(request: NextRequest) {
       extractedFields,
       missingFields,
       hasMissingFields: missingFields.length > 0,
+      // AI-generated card groups
+      jobAnalysisCards,
+      peopleAnalysisCards,
+      combinedAnalysisCards,
+      derivedStrategyCards,
     });
   } catch (error: any) {
     console.error("Error in scrape-job API:", error);
