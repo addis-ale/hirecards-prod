@@ -25,45 +25,57 @@ export default function MissingFieldsModal({
   onGetCardsAnyway,
   onCompleteFields,
 }: MissingFieldsModalProps) {
+  console.log("MissingFieldsModal render:", { open, missingFieldsCount: missingFields.length });
+  
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         side="bottom" 
-        className="sm:max-w-2xl !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 !bottom-auto !inset-x-auto !inset-y-auto h-auto max-h-[90vh] rounded-lg border data-[state=closed]:slide-out-to-bottom-0 data-[state=open]:slide-in-from-bottom-0"
+        className="sm:max-w-2xl mx-auto h-auto max-h-[90vh] rounded-t-lg border-t left-1/2 -translate-x-1/2 fixed bottom-0 z-[10000]"
+        style={{
+          left: '50%',
+          transform: 'translateX(-50%)',
+          maxWidth: '42rem',
+          width: '100%',
+          zIndex: 10000
+        }}
       >
-        <SheetHeader>
+        <SheetHeader className="pb-4">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-amber-500" />
-            <SheetTitle>Missing Fields Detected</SheetTitle>
+            <SheetTitle className="text-lg">Missing Fields Detected</SheetTitle>
           </div>
-          <SheetDescription>
+          <SheetDescription className="text-sm">
             After scraping the job description, we found {missingFields.length} missing field{missingFields.length !== 1 ? "s" : ""} that could improve your HireCard quality.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
-          <div className="bg-muted rounded-md p-4">
-            <p className="text-sm font-medium mb-2 text-foreground">
+        <div className="space-y-4 pb-6">
+          <div className="bg-muted rounded-lg p-4 max-h-[40vh] overflow-y-auto">
+            <p className="text-sm font-semibold mb-3 text-foreground">
               Missing Fields:
             </p>
-            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
               {missingFields.map((field, index) => (
-                <li key={index}>{field}</li>
+                <li key={index} className="flex items-center gap-2">
+                  <span className="text-amber-500">•</span>
+                  {field}
+                </li>
               ))}
             </ul>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={onGetCardsAnyway}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-12 text-base"
             >
               Get My Cards Anyway
             </Button>
             <Button
               onClick={onCompleteFields}
-              className="flex-1"
+              className="flex-1 h-12 text-base font-semibold"
             >
               Complete the Missing Fields
             </Button>

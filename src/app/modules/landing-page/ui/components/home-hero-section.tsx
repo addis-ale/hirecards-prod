@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Bug } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Bug, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
-import MissingFieldsModal from "@/components/MissingFieldsModal";
 import ConversationalChatbotModal from "@/components/ConversationalChatbotModal";
 
 interface ScrapedJobData {
@@ -129,6 +128,7 @@ export const HomeHeroSection = () => {
   }, [missingFieldsModalOpen, missingFields]);
 
   const proceedToResults = () => {
+    console.log("📊 Proceeding to results page");
     // Store data in sessionStorage for results page
     const formData = {
       scrapedData,
@@ -144,16 +144,27 @@ export const HomeHeroSection = () => {
   };
 
   const handleGetCardsAnyway = () => {
+    console.log("🎯 User clicked 'Get My Cards Anyway'");
     setMissingFieldsModalOpen(false);
+    setIsLoading(false);
+    document.body.style.overflow = 'auto';
     proceedToResults();
   };
 
   const handleCompleteFields = () => {
+    console.log("✏️ User clicked 'Complete Missing Fields'");
     setMissingFieldsModalOpen(false);
+    // Keep loading screen visible, just show chatbot instead
     setChatbotModalOpen(true);
   };
 
   const handleChatbotComplete = (completedData: any) => {
+    console.log("✅ Chatbot completed with data:", completedData);
+    // Hide loading screen and chatbot
+    setChatbotModalOpen(false);
+    setIsLoading(false);
+    document.body.style.overflow = 'auto';
+    
     // Merge completed data with extracted fields
     const mergedData = {
       ...extractedFields,
@@ -214,36 +225,36 @@ export const HomeHeroSection = () => {
       const minLoadTime = 45000; // 45 seconds
       
       const checkAndShowModal = () => {
-        setIsLoading(false);
-        // Restore scrolling
-        document.body.style.overflow = 'auto';
-        
         // Show missing fields modal if there are missing fields
         // Check both hasMissingFields flag and actual missingFields array
         const missingFieldsArray = result.missingFields || [];
         const hasMissing = result.hasMissingFields === true || 
                           (Array.isArray(missingFieldsArray) && missingFieldsArray.length > 0);
         
-        console.log("Modal check:", {
-          hasMissingFields: result.hasMissingFields,
-          missingFields: missingFieldsArray,
-          missingFieldsLength: missingFieldsArray.length,
-          hasMissing,
-          extractedFields: result.extractedFields
-        });
+        console.log("=== MODAL CHECK DEBUG ===");
+        console.log("hasMissingFields flag:", result.hasMissingFields);
+        console.log("missingFields array:", missingFieldsArray);
+        console.log("missingFields length:", missingFieldsArray.length);
+        console.log("hasMissing:", hasMissing);
+        console.log("extractedFields:", result.extractedFields);
+        console.log("========================");
         
         // Update state with the actual missing fields array
         setMissingFields(missingFieldsArray);
         
         if (hasMissing && missingFieldsArray.length > 0) {
-          // Small delay to ensure loading screen is fully hidden
+          // Keep loading screen visible and show modal on top
+          console.log("✅ SHOULD OPEN MODAL - Missing", missingFieldsArray.length, "fields");
           setTimeout(() => {
-            console.log("Opening missing fields modal");
+            console.log("🚀 OPENING MISSING FIELDS MODAL NOW (on loading screen)");
             setMissingFieldsModalOpen(true);
+            // Don't hide loading screen yet - it will be hidden when user makes a choice
           }, 100);
         } else {
-          // No missing fields, proceed to results
-          console.log("No missing fields, proceeding to results");
+          // No missing fields, hide loading and proceed to results
+          console.log("⏭️ NO MISSING FIELDS - Proceeding to results");
+          setIsLoading(false);
+          document.body.style.overflow = 'auto';
           proceedToResults();
         }
       };
@@ -286,8 +297,76 @@ export const HomeHeroSection = () => {
 
       {/* Input Section Overlay or Loader */}
       {isLoading && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white dark:bg-slate-950">
-          <Loader1 />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white dark:bg-slate-950 p-4">
+          {/* Show loader only when neither modal is open */}
+          {!missingFieldsModalOpen && !chatbotModalOpen && <Loader1 />}
+          
+          {/* Show Missing Fields Modal on loading screen when ready */}
+          {missingFieldsModalOpen && (
+            <div className="w-full max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-border p-6 animate-in fade-in-0 zoom-in-95 duration-300">
+                <div className="flex items-center gap-3 mb-4">
+                  <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0" />
+                  <h2 className="text-xl font-bold text-foreground">Missing Fields Detected</h2>
+                </div>
+                
+                <p className="text-sm text-muted-foreground mb-6">
+                  After scraping the job description, we found {missingFields.length} missing field{missingFields.length !== 1 ? "s" : ""} that could improve your HireCard quality.
+                </p>
+
+                <div className="bg-muted rounded-lg p-4 mb-6 max-h-[40vh] overflow-y-auto">
+                  <p className="text-sm font-semibold mb-3 text-foreground">
+                    Missing Fields:
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                    {missingFields.map((field, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <span className="text-amber-500">•</span>
+                        {field}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={handleGetCardsAnyway}
+                    variant="outline"
+                    className="flex-1 h-12 text-base"
+                  >
+                    Get My Cards Anyway
+                  </Button>
+                  <Button
+                    onClick={handleCompleteFields}
+                    className="flex-1 h-12 text-base font-semibold"
+                  >
+                    Complete the Missing Fields
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Show Chatbot on loading screen */}
+          {chatbotModalOpen && (
+            <div className="w-full max-w-4xl mx-auto h-[80vh] flex flex-col">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-border flex flex-col h-full overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-border flex-shrink-0">
+                  <h2 className="text-xl font-bold text-foreground">Complete Missing Fields</h2>
+                </div>
+
+                {/* Chatbot Content */}
+                <ConversationalChatbotModal
+                  open={chatbotModalOpen}
+                  onOpenChange={setChatbotModalOpen}
+                  initialData={extractedFields || {}}
+                  onComplete={handleChatbotComplete}
+                  inline={true}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
       {!isLoading && (
@@ -1006,23 +1085,6 @@ export const HomeHeroSection = () => {
       )}
 
       {/* Feature pills - simplified for performance */}
-
-      {/* Missing Fields Modal */}
-      <MissingFieldsModal
-        open={missingFieldsModalOpen}
-        onOpenChange={setMissingFieldsModalOpen}
-        missingFields={missingFields}
-        onGetCardsAnyway={handleGetCardsAnyway}
-        onCompleteFields={handleCompleteFields}
-      />
-
-      {/* Chatbot Modal */}
-      <ConversationalChatbotModal
-        open={chatbotModalOpen}
-        onOpenChange={setChatbotModalOpen}
-        initialData={extractedFields || {}}
-        onComplete={handleChatbotComplete}
-      />
     </section>
   );
 };

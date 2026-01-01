@@ -34,6 +34,7 @@ interface ConversationalChatbotModalProps {
   onOpenChange: (open: boolean) => void;
   initialData?: Partial<ExtractedData>;
   onComplete?: (data: ExtractedData) => void;
+  inline?: boolean; // New prop for inline display
 }
 
 export default function ConversationalChatbotModal({
@@ -41,6 +42,7 @@ export default function ConversationalChatbotModal({
   onOpenChange,
   initialData = {},
   onComplete,
+  inline = false,
 }: ConversationalChatbotModalProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -247,6 +249,118 @@ export default function ConversationalChatbotModal({
       inputRef.current?.focus();
     }
   };
+
+  // If inline mode, render without Sheet wrapper
+  const chatContent = (
+    <div className="flex flex-col flex-1 overflow-hidden h-full">
+      {/* Progress Bar */}
+      <div className="p-4 bg-card border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">
+            Progress: {completeness}%
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {countFilledFields(extractedData)}/{TOTAL_FIELDS} fields
+          </span>
+        </div>
+        <div className="w-full bg-muted rounded-md h-2 overflow-hidden">
+          <div
+            className="bg-primary h-2 rounded-md transition-all duration-300"
+            style={{ width: `${completeness}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={cn(
+              "flex",
+              message.role === "user" ? "justify-end" : "justify-start"
+            )}
+          >
+            <div
+              className={cn(
+                "max-w-[80%] rounded-md p-3 text-sm",
+                message.role === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-foreground"
+              )}
+            >
+              {message.role === "assistant" && (
+                <Bot className="w-4 h-4 inline-block mr-2" />
+              )}
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-muted rounded-md p-3">
+              <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+              <span className="text-sm text-muted-foreground">Thinking...</span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex justify-start">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-md p-3">
+              <AlertCircle className="w-4 h-4 inline-block mr-2" />
+              <span className="text-sm">{error}</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 bg-card border-t border-border flex-shrink-0">
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            type="text"
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Type your message..."
+            className="flex-1"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={isLoading || !currentInput.trim()}
+            size="default"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Send</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span>Send</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (inline) {
+    return chatContent;
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
