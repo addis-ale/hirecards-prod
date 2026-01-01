@@ -1059,6 +1059,55 @@ export async function POST(request: NextRequest) {
       (j) => j.platform === "indeed"
     ).length;
 
+    // Extract salary range if available
+    let minSalary: string | null = null;
+    let maxSalary: string | null = null;
+    if (scrapedData.salary || aiExtractedData.salary) {
+      const salaryText = scrapedData.salary || aiExtractedData.salary || "";
+      // Try to extract salary range (e.g., "$120,000 - $150,000" or "120K-150K")
+      const rangeMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)\s*[-–—]\s*\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
+      if (rangeMatch) {
+        minSalary = rangeMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+        maxSalary = rangeMatch[2].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+      } else {
+        // Try single value
+        const singleMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
+        if (singleMatch) {
+          const value = singleMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+          minSalary = value;
+          maxSalary = value;
+        }
+      }
+    }
+
+    // Check for missing fields (the 10 fields from chatbot)
+    const extractedFields = {
+      roleTitle: scrapedData.title || null,
+      department: scrapedData.department || aiExtractedData.department || null,
+      experienceLevel: scrapedData.experienceLevel || aiExtractedData.experienceLevel || null,
+      location: scrapedData.location || aiExtractedData.location || null,
+      workModel: scrapedData.locationType || aiExtractedData.locationType || null,
+      criticalSkills: scrapedData.skills || aiExtractedData.skills || null,
+      minSalary: minSalary,
+      maxSalary: maxSalary,
+      nonNegotiables: scrapedData.requirements?.join(", ") || aiExtractedData.requirements?.join(", ") || null,
+      flexible: scrapedData.benefits?.join(", ") || aiExtractedData.benefits?.join(", ") || null,
+      timeline: null, // Timeline is rarely in job descriptions
+    };
+
+    // Count missing fields
+    const missingFields = [];
+    if (!extractedFields.roleTitle) missingFields.push("Role Title");
+    if (!extractedFields.department) missingFields.push("Department");
+    if (!extractedFields.experienceLevel) missingFields.push("Experience Level");
+    if (!extractedFields.location) missingFields.push("Location");
+    if (!extractedFields.workModel) missingFields.push("Work Model");
+    if (!extractedFields.criticalSkills || (Array.isArray(extractedFields.criticalSkills) && extractedFields.criticalSkills.length === 0)) missingFields.push("Critical Skills");
+    if (!extractedFields.minSalary || !extractedFields.maxSalary) missingFields.push("Salary Range");
+    if (!extractedFields.nonNegotiables) missingFields.push("Non-Negotiables");
+    if (!extractedFields.flexible) missingFields.push("Flexible Requirements");
+    if (!extractedFields.timeline) missingFields.push("Timeline");
+
     return NextResponse.json({
       success: true,
       data: scrapedData,
@@ -1073,6 +1122,9 @@ export async function POST(request: NextRequest) {
       warnings: scrapingError
         ? [`Initial scraping failed: ${scrapingError}`]
         : undefined,
+      extractedFields,
+      missingFields,
+      hasMissingFields: missingFields.length > 0,
     });
   } catch (error: any) {
     console.error("Error in scrape-job API:", error);

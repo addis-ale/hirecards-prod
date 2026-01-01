@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ChevronDown, ChevronUp, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
+import MissingFieldsModal from "@/components/MissingFieldsModal";
+import ConversationalChatbotModal from "@/components/ConversationalChatbotModal";
 
 interface ScrapedJobData {
   title: string;
@@ -95,6 +98,7 @@ interface ApifyPeopleData {
 }
 
 export const HomeHeroSection = () => {
+  const router = useRouter();
   const [roleDescription, setRoleDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedJobData | null>(null);
@@ -109,6 +113,67 @@ export const HomeHeroSection = () => {
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [extractedFields, setExtractedFields] = useState<any>(null);
+  const [missingFieldsModalOpen, setMissingFieldsModalOpen] = useState(false);
+  const [chatbotModalOpen, setChatbotModalOpen] = useState(false);
+
+  // Debug: Log when modal state changes
+  useEffect(() => {
+    if (missingFieldsModalOpen) {
+      console.log("Missing fields modal opened:", {
+        missingFieldsCount: missingFields.length,
+        missingFields: missingFields
+      });
+    }
+  }, [missingFieldsModalOpen, missingFields]);
+
+  const proceedToResults = () => {
+    // Store data in sessionStorage for results page
+    const formData = {
+      scrapedData,
+      similarJobs,
+      candidates,
+      linkedInJobsCount,
+      indeedJobsCount,
+      platform,
+      extractedFields,
+    };
+    sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+    router.push("/results");
+  };
+
+  const handleGetCardsAnyway = () => {
+    setMissingFieldsModalOpen(false);
+    proceedToResults();
+  };
+
+  const handleCompleteFields = () => {
+    setMissingFieldsModalOpen(false);
+    setChatbotModalOpen(true);
+  };
+
+  const handleChatbotComplete = (completedData: any) => {
+    // Merge completed data with extracted fields
+    const mergedData = {
+      ...extractedFields,
+      ...completedData,
+    };
+    setExtractedFields(mergedData);
+    
+    // Store merged data
+    const formData = {
+      scrapedData,
+      similarJobs,
+      candidates,
+      linkedInJobsCount,
+      indeedJobsCount,
+      platform,
+      extractedFields: mergedData,
+    };
+    sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+    router.push("/results");
+  };
 
   const handleSubmit = async () => {
     if (!roleDescription.trim()) return;
@@ -141,17 +206,52 @@ export const HomeHeroSection = () => {
       setIndeedJobsCount(result.indeedJobsCount || 0);
       setPlatform(result.platform || "unknown");
       setWarnings(result.warnings || []);
+      setExtractedFields(result.extractedFields || null);
+      setMissingFields(result.missingFields || []);
       
       // Keep loader until scraping finishes (minimum 45 seconds)
+      const startTime = Date.now();
       const minLoadTime = 45000; // 45 seconds
-      const elapsedTime = Date.now() - Date.now();
-      const remainingTime = Math.max(0, minLoadTime - elapsedTime);
       
-      setTimeout(() => {
+      const checkAndShowModal = () => {
         setIsLoading(false);
         // Restore scrolling
         document.body.style.overflow = 'auto';
-      }, remainingTime);
+        
+        // Show missing fields modal if there are missing fields
+        // Check both hasMissingFields flag and actual missingFields array
+        const missingFieldsArray = result.missingFields || [];
+        const hasMissing = result.hasMissingFields === true || 
+                          (Array.isArray(missingFieldsArray) && missingFieldsArray.length > 0);
+        
+        console.log("Modal check:", {
+          hasMissingFields: result.hasMissingFields,
+          missingFields: missingFieldsArray,
+          missingFieldsLength: missingFieldsArray.length,
+          hasMissing,
+          extractedFields: result.extractedFields
+        });
+        
+        // Update state with the actual missing fields array
+        setMissingFields(missingFieldsArray);
+        
+        if (hasMissing && missingFieldsArray.length > 0) {
+          // Small delay to ensure loading screen is fully hidden
+          setTimeout(() => {
+            console.log("Opening missing fields modal");
+            setMissingFieldsModalOpen(true);
+          }, 100);
+        } else {
+          // No missing fields, proceed to results
+          console.log("No missing fields, proceeding to results");
+          proceedToResults();
+        }
+      };
+      
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minLoadTime - elapsedTime);
+      
+      setTimeout(checkAndShowModal, remainingTime);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
@@ -906,6 +1006,23 @@ export const HomeHeroSection = () => {
       )}
 
       {/* Feature pills - simplified for performance */}
+
+      {/* Missing Fields Modal */}
+      <MissingFieldsModal
+        open={missingFieldsModalOpen}
+        onOpenChange={setMissingFieldsModalOpen}
+        missingFields={missingFields}
+        onGetCardsAnyway={handleGetCardsAnyway}
+        onCompleteFields={handleCompleteFields}
+      />
+
+      {/* Chatbot Modal */}
+      <ConversationalChatbotModal
+        open={chatbotModalOpen}
+        onOpenChange={setChatbotModalOpen}
+        initialData={extractedFields || {}}
+        onComplete={handleChatbotComplete}
+      />
     </section>
   );
 };
