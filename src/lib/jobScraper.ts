@@ -412,12 +412,25 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
     const current = lines[i];
     const next = lines[i + 1];
 
-    if (current === "Location" && !location) {
+    // Try to extract location even if "Location" label is missing
+    // Look for common location patterns
+    const locationPatterns = [
+      /^Location$/i,
+      /^Where$/i,
+      /^Office Location$/i,
+      /^Job Location$/i,
+    ];
+    
+    const isLocationLabel = locationPatterns.some(pattern => pattern.test(current));
+    
+    if (isLocationLabel && !location) {
+      console.log(`🔍 Found Location field, next line: "${next}"`);
       // Handle multiple locations (could be comma-separated on one line or multiple lines)
       // Check if next line contains comma-separated locations
       if (next && next.includes(",")) {
         // All locations on one line: "Mexico, Colombia, Peru, Ecuador"
         location = next;
+        console.log(`✅ Location extracted (comma-separated): "${location}"`);
       } else {
         // Multiple lines for locations
         let locations = [next];
@@ -446,6 +459,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
         }
 
         location = locations.join(", ");
+        console.log(`✅ Location extracted (multi-line): "${location}"`);
       }
     } else if (current === "Employment Type") {
       employmentType = next;
@@ -546,15 +560,67 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
   // The AI is smart enough to extract the relevant parts
   const description = rawText;
 
+  // If location still not found, try to extract from meta tags or structured data
+  if (!location) {
+    console.log("🔍 Trying alternative location extraction methods...");
+    
+    // Get HTML from Cheerio
+    const pageHtml = $.html();
+    
+    // Try Open Graph tags
+    const ogLocationMeta = $('meta[property="og:location"]').attr('content');
+    if (ogLocationMeta) {
+      location = ogLocationMeta;
+      console.log(`✅ Location extracted from Open Graph: "${location}"`);
+    }
+    
+    // Try JSON-LD structured data
+    if (!location) {
+      $('script[type="application/ld+json"]').each((_, elem) => {
+        if (location) return; // Already found
+        try {
+          const jsonData = JSON.parse($(elem).html() || "{}");
+          if (jsonData.jobLocation?.address?.addressCountry || jsonData.jobLocation?.address?.addressLocality) {
+            const parts = [
+              jsonData.jobLocation?.address?.addressLocality,
+              jsonData.jobLocation?.address?.addressRegion,
+              jsonData.jobLocation?.address?.addressCountry
+            ].filter(Boolean);
+            location = parts.join(", ");
+            console.log(`✅ Location extracted from JSON-LD: "${location}"`);
+          }
+        } catch (e) {
+          // JSON parse failed, continue
+        }
+      });
+    }
+    
+    // Try searching for country names in raw text
+    if (!location) {
+      const countries = ["Sweden", "United States", "United Kingdom", "Canada", "Germany", "France", "Spain", "Italy", "Netherlands", "Australia", "India", "Singapore", "Japan", "Brazil", "Mexico"];
+      for (const country of countries) {
+        if (rawText.includes(country)) {
+          location = country;
+          console.log(`✅ Location extracted from text search: "${location}"`);
+          break;
+        }
+      }
+    }
+  }
+  
   console.log("🔍 Ashby scrape result:", {
     title: title.substring(0, 50),
     company,
-    location,
+    location: location || "❌ NOT FOUND",
     locationType,
     department,
     salary: salary.substring(0, 50),
     textLength: description.length,
   });
+  
+  if (!location) {
+    console.warn("⚠️ Location NOT extracted from Ashby page! Check if page structure changed or use AI extraction.");
+  }
 
   return {
     title: title || "Job Position",
