@@ -203,7 +203,57 @@ Format example:
 }
 
 /**
- * Normalize job title for better LinkedIn search results
+ * Use OpenAI to extract the core job title without qualifiers
+ * e.g., "Account Executive - French and English Bilingual" -> "Account Executive"
+ */
+async function normalizeJobTitleWithAI(title: string): Promise<string> {
+  if (!openai) {
+    console.warn("OpenAI not configured, using simple normalization");
+    return normalizeJobTitle(title);
+  }
+
+  try {
+    console.log(`🤖 Normalizing job title with AI: "${title}"`);
+    
+    const prompt = `Extract the core job title from the following job title. Remove language requirements, seniority levels, specializations, and other qualifiers. Return ONLY the core job title, nothing else.
+
+Examples:
+- "Account Executive - French and English Bilingual" -> "Account Executive"
+- "Senior Software Engineer - Backend Python" -> "Software Engineer"
+- "Sales Development Representative (SDR)" -> "Sales Development Representative"
+- "Lead Product Manager - SaaS B2B" -> "Product Manager"
+
+Job title to normalize:
+"${title}"
+
+Core job title:`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a job title extraction expert. Extract only the core job title, removing all qualifiers, specializations, language requirements, and seniority levels. Return ONLY the core title, no explanation." 
+        },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0,
+      max_tokens: 50,
+    });
+
+    const normalized = response.choices[0]?.message?.content?.trim() || title;
+    
+    console.log(`✅ AI normalized: "${title}" -> "${normalized}"`);
+    
+    return normalized;
+  } catch (error) {
+    console.error("Error normalizing job title with AI:", error);
+    return normalizeJobTitle(title);
+  }
+}
+
+/**
+ * Normalize job title for better LinkedIn search results (simple fallback)
  * Removes company-specific details, team names, and simplifies the title
  */
 function normalizeJobTitle(title: string): string {
@@ -350,112 +400,53 @@ async function searchSimilarJobsOnIndeed(
       .replace(/\s{2,}/g, " ")
       .trim();
 
-    // Detect country from location for Indeed country parameter
-    const detectCountryCode = (location: string): string => {
-      if (!location) return "us"; // Default to US
-
-      const locationLower = location.toLowerCase();
-
-      // Map common country names/codes to Indeed country codes
-      const countryMap: { [key: string]: string } = {
-        // English-speaking countries
-        "united states": "us",
-        usa: "us",
-        us: "us",
-        "united kingdom": "uk",
-        uk: "uk",
-        england: "uk",
-        scotland: "uk",
-        wales: "uk",
-        canada: "ca",
-        australia: "au",
-        "new zealand": "nz",
-        ireland: "ie",
-        singapore: "sg",
-
-        // European countries
-        netherlands: "nl",
-        germany: "de",
-        france: "fr",
-        spain: "es",
-        italy: "it",
-        belgium: "be",
-        switzerland: "ch",
-        austria: "at",
-        sweden: "se",
-        norway: "no",
-        denmark: "dk",
-        finland: "fi",
-        poland: "pl",
-        portugal: "pt",
-        greece: "gr",
-
-        // Asian countries
-        india: "in",
-        japan: "jp",
-        china: "cn",
-        "south korea": "kr",
-        korea: "kr",
-        "hong kong": "hk",
-        taiwan: "tw",
-        malaysia: "my",
-        indonesia: "id",
-        philippines: "ph",
-        thailand: "th",
-        vietnam: "vn",
-
-        // Middle East
-        "united arab emirates": "ae",
-        uae: "ae",
-        dubai: "ae",
-        "saudi arabia": "sa",
-        israel: "il",
-        qatar: "qa",
-        kuwait: "kw",
-        bahrain: "bh",
-        oman: "om",
-
-        // Latin America
-        brazil: "br",
-        mexico: "mx",
-        argentina: "ar",
-        chile: "cl",
-        colombia: "co",
-        peru: "pe",
-
-        // Other
-        "south africa": "za",
-        russia: "ru",
-        ukraine: "ua",
-        turkey: "tr",
-      };
-
-      // Check for country matches in location string
-      for (const [country, code] of Object.entries(countryMap)) {
-        if (locationLower.includes(country)) {
-          return code;
-        }
-      }
-
-      // Default to US if no match found
+    // Extract country from location for Indeed (required parameter)
+    // Indeed API requires country code, but we'll use location for filtering
+    const extractCountryFromLocation = (loc: string): string => {
+      if (!loc) return "us"; // Default to US if no location
+      
+      const locationLower = loc.toLowerCase();
+      
+      // Simple country detection for Indeed's required country parameter
+      if (locationLower.includes("sweden") || locationLower.includes("sverige")) return "se";
+      if (locationLower.includes("united kingdom") || locationLower.includes("uk") || locationLower.includes("england") || locationLower.includes("scotland") || locationLower.includes("wales")) return "uk";
+      if (locationLower.includes("canada")) return "ca";
+      if (locationLower.includes("australia")) return "au";
+      if (locationLower.includes("germany") || locationLower.includes("deutschland")) return "de";
+      if (locationLower.includes("france")) return "fr";
+      if (locationLower.includes("netherlands") || locationLower.includes("holland")) return "nl";
+      if (locationLower.includes("spain") || locationLower.includes("espana")) return "es";
+      if (locationLower.includes("italy") || locationLower.includes("italia")) return "it";
+      if (locationLower.includes("india")) return "in";
+      if (locationLower.includes("singapore")) return "sg";
+      if (locationLower.includes("ireland")) return "ie";
+      if (locationLower.includes("new zealand")) return "nz";
+      if (locationLower.includes("brazil")) return "br";
+      if (locationLower.includes("mexico")) return "mx";
+      if (locationLower.includes("japan")) return "jp";
+      if (locationLower.includes("china")) return "cn";
+      
+      // Default to US
       return "us";
     };
 
-    const countryCode = detectCountryCode(cleanedLocation || "");
+    const countryCode = extractCountryFromLocation(cleanedLocation || "");
 
-    // Build Indeed search input
+    // Build Indeed search input - country is REQUIRED by Indeed API
     const indeedInput: any = {
       country: countryCode,
       query: normalizedJobTitle,
-      maxRows: 200, // Increased from 50 to 200
+      maxRows: 200,
     };
 
-    console.log(
-      `Detected country code: ${countryCode} from location: ${cleanedLocation}`
-    );
+    console.log(`Indeed search for: "${normalizedJobTitle}" in country: "${countryCode}", location: "${cleanedLocation}"`);
 
+    // Always add location if available
     if (cleanedLocation) {
       indeedInput.location = cleanedLocation;
+      console.log(`✅ Using location for Indeed search: "${cleanedLocation}"`);
+    } else {
+      console.warn(`⚠️ No location provided for Indeed search`);
     }
 
     // Map filters to Indeed format
@@ -564,13 +555,19 @@ async function searchSimilarJobsOnIndeed(
       );
       try {
         const normalizedTitle = normalizeJobTitle(jobTitle);
+        const locationForFallback = location?.replace(/\bnull\b,?\s*/gi, "").trim();
+        const fallbackCountry = extractCountryFromLocation(locationForFallback || "");
         const safeInput: any = {
-          country: "us",
+          country: fallbackCountry, // Required by Indeed
           query: normalizedTitle,
-          maxRows: 200, // Increased from 50 to 200
+          maxRows: 200,
         };
-        const cleanedLocation = location?.replace(/\bnull\b,?\s*/gi, "").trim();
-        if (cleanedLocation) safeInput.location = cleanedLocation;
+        if (locationForFallback) {
+          safeInput.location = locationForFallback;
+          console.log(`📍 Fallback Indeed search with country: "${fallbackCountry}", location: "${locationForFallback}"`);
+        } else {
+          console.log(`📍 Fallback Indeed search with country: "${fallbackCountry}", no specific location`);
+        }
 
         console.log(
           "Retrying Indeed with safe input:",
@@ -993,6 +990,8 @@ export async function POST(request: NextRequest) {
 
       // Merge AI-extracted data with scraped data
       // Only add AI data if the field doesn't already exist
+      console.log(`📍 Location data - Scraped: "${scrapedData.location}", AI extracted: "${aiExtractedData.location}"`);
+      
       scrapedData = {
         ...scrapedData,
         location: scrapedData.location || aiExtractedData.location,
@@ -1020,6 +1019,9 @@ export async function POST(request: NextRequest) {
       if (jobTitle && apifyClient) {
         console.log("Searching for similar jobs on LinkedIn and Indeed...");
 
+        // Normalize job title with AI for better search results
+        const normalizedJobTitle = await normalizeJobTitleWithAI(jobTitle);
+
         const filters = {
           workplaceType: scrapedData.locationType,
           employmentType: scrapedData.employmentType,
@@ -1027,10 +1029,10 @@ export async function POST(request: NextRequest) {
           salary: scrapedData.salary,
         };
 
-        // Search both platforms in parallel
+        // Search both platforms in parallel with normalized title
         const [linkedInJobs, indeedJobs] = await Promise.all([
-          searchSimilarJobsWithApify(jobTitle, location, filters),
-          searchSimilarJobsOnIndeed(jobTitle, location, filters),
+          searchSimilarJobsWithApify(normalizedJobTitle, location, filters),
+          searchSimilarJobsOnIndeed(normalizedJobTitle, location, filters),
         ]);
 
         // Combine results from both platforms
