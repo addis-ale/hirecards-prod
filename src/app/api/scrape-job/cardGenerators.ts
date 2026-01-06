@@ -1,9 +1,34 @@
 import OpenAI from "openai";
+import type { 
+  GlassdoorSalaryData, 
+  LevelsFyiSalaryData, 
+  CrunchbaseCompanyData,
+  GitHubTalentData,
+  IndustryBenchmarks,
+  AggregatedDataSources 
+} from "./dataSources";
+import { analyzeMarket, formatMarketAnalysis, type MarketAnalysisInput } from "./marketAnalysis";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
+
+// Data sources mapping for each card type
+const CARD_DATA_SOURCES: Record<string, string> = {
+  roleCard: "Manual intake from HM; internal job descriptions (if they have it)",
+  marketCard: "LinkedIn X-ray, Github, StackOverflow, public job boards, Crunchbase",
+  payCard: "Glassdoor/Indeed scraping, Levels.fyi, Salary Project (open), job ads etc...",
+  realityCard: "Derived from MarketCard/PayCard + benchmarks; Quality of Hire data",
+  funnelCard: "Benchmarks, open reports, agency funnel datasets",
+  fitCard: "Public persona research; DISC, industry reports, Psychometrics, Similar to https://www.crystalknows",
+  messageCard: "Public hiring research, EVP docs, competitor career pages",
+  interviewCard: "Interview playbooks best practices + industry frameworks",
+  planCard: "Public Industry frameworks, best practices, recruiter knowledge",
+  skillCard: "Manual intake from HM; competency frameworks; reference JDs from similar companies.",
+  scoreCard: "Interview guides; external interview frameworks; recruiter inputs.",
+  talentMapCard: "LinkedIn X-ray, job boards, Crunchbase, public org charts, funding databases.",
+};
 
 /**
  * GROUP 1: JOB ANALYSIS CARDS
@@ -59,6 +84,9 @@ Be specific to THIS job. Avoid generic advice. Focus on what's actually in the d
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
     const roleCard = JSON.parse(content);
+    
+    // Add data sources
+    roleCard.dataSources = CARD_DATA_SOURCES.roleCard;
     
     console.log("✅ Role Card generated successfully");
     return roleCard;
@@ -125,6 +153,9 @@ Extract from the actual job description above. If not explicitly mentioned, infe
     const content = response.choices[0]?.message?.content?.trim() || "{}";
     const skillCard = JSON.parse(content);
     
+    // Add data sources
+    skillCard.dataSources = CARD_DATA_SOURCES.skillCard;
+    
     console.log("✅ Skill Card generated successfully");
     return skillCard;
   } catch (error) {
@@ -172,7 +203,12 @@ Make it specific to THIS role and company.`;
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const messageCard = JSON.parse(content);
+    
+    // Add data sources
+    messageCard.dataSources = CARD_DATA_SOURCES.messageCard;
+    
+    return messageCard;
   } catch (error) {
     console.error("❌ Error generating Message Card:", error);
     return null;
@@ -224,7 +260,12 @@ Templates should be professional but conversational. Mention specific role detai
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const outreachCard = JSON.parse(content);
+    
+    // Add data sources (same as messageCard since it's derived from it)
+    outreachCard.dataSources = CARD_DATA_SOURCES.messageCard;
+    
+    return outreachCard;
   } catch (error) {
     console.error("❌ Error generating Outreach Card:", error);
     return null;
@@ -272,7 +313,12 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const fitCard = JSON.parse(content);
+    
+    // Add data sources
+    fitCard.dataSources = CARD_DATA_SOURCES.fitCard;
+    
+    return fitCard;
   } catch (error) {
     console.error("❌ Error generating Fit Card:", error);
     return null;
@@ -281,20 +327,27 @@ Return ONLY valid JSON:
 
 /**
  * GROUP 2: PEOPLE ANALYSIS CARDS
- * Generated from candidate profile data
+ * Generated from candidate profile data + GitHub talent
  */
 
 /**
  * Generate Talent Map Card - Where candidates come from
+ * Uses LinkedIn candidates + GitHub talent data
  */
-export async function generateTalentMapCard(candidates: any[]): Promise<any> {
-  if (!openai || !candidates || candidates.length === 0) return null;
+export async function generateTalentMapCard(
+  candidates: any[],
+  githubTalent?: GitHubTalentData[],
+  companyData?: CrunchbaseCompanyData | null
+): Promise<any> {
+  if (!openai || (!candidates || candidates.length === 0) && (!githubTalent || githubTalent.length === 0)) return null;
 
   try {
     console.log("🤖 Generating Talent Map Card with AI...");
+    console.log("   📊 LinkedIn candidates:", candidates?.length || 0);
+    console.log("   📊 GitHub talent:", githubTalent?.length || 0);
 
-    // Extract company data from candidates
-    const companies = candidates
+    // Extract company data from LinkedIn candidates
+    const companies = (candidates || [])
       .map(c => c.currentCompany?.name || c.company)
       .filter(Boolean);
     
@@ -311,23 +364,54 @@ export async function generateTalentMapCard(candidates: any[]): Promise<any> {
 
     console.log(`📊 Candidate company analysis: ${topCompanies.join(", ")}`);
 
-    const prompt = `Analyze where the best candidates for this role come from.
+    // Build GitHub talent context
+    let githubContext = "";
+    if (githubTalent && githubTalent.length > 0) {
+      const topGithubDevs = githubTalent.slice(0, 5).map(g => 
+        `- ${g.name} (@${g.username}): ${g.followers} followers, ${g.publicRepos} repos, ${g.company || 'Independent'}`
+      ).join("\n");
+      githubContext = `
+GITHUB TALENT DATA (${githubTalent.length} developers):
+${topGithubDevs}`;
+    }
 
-REAL DATA FROM ${candidates.length} CANDIDATES:
+    // Build Crunchbase context
+    let companyContext = "";
+    if (companyData) {
+      companyContext = `
+TARGET COMPANY DATA (Crunchbase):
+- Company: ${companyData.name}
+- Employees: ${companyData.employeeCount}
+- Funding: $${(companyData.funding.totalRaised / 1000000).toFixed(1)}M raised
+- Industry: ${companyData.industry.join(", ")}
+- Competitors: ${companyData.competitors.join(", ")}`;
+    }
+
+    const prompt = `Analyze where the best candidates for this role come from using REAL DATA.
+
+LINKEDIN DATA (${candidates?.length || 0} CANDIDATES):
 Top Companies (with candidate counts): ${topCompanies.join(", ")}
-
 All Unique Companies: ${uniqueCompanies.slice(0, 30).join(", ")}
+${githubContext}
+${companyContext}
 
-IMPORTANT: Use ONLY the REAL company names listed above. Do NOT make up "Company A", "Company B", etc.
+IMPORTANT: Use ONLY the REAL company names and data listed above. Do NOT make up fake data.
 
-Return ONLY valid JSON using ACTUAL company names from the data:
+Return ONLY valid JSON using ACTUAL data:
 {
   "primaryFeeders": ["List 6-8 ACTUAL companies from the data above with most candidates"],
   "secondaryFeeders": ["List 4-6 ACTUAL companies from the data above with fewer candidates"],
-  "avoidList": ["List 3 companies that might not be good fits - use real names or write 'Unknown startups', etc."],
+  "githubTalent": ${githubTalent && githubTalent.length > 0 ? JSON.stringify(githubTalent.slice(0, 5).map(g => ({
+    name: g.name,
+    username: g.username,
+    followers: g.followers,
+    company: g.company || "Independent",
+    profileUrl: g.profileUrl
+  }))) : "[]"},
+  "avoidList": ["List 3 companies that might not be good fits"],
   "talentFlowMap": [
     {
-      "flow": "Company A → Industry/Stage",
+      "flow": "Real Company → Industry/Stage",
       "path": "Career progression pattern",
       "note": "Why this path matters"
     }
@@ -340,11 +424,16 @@ Return ONLY valid JSON using ACTUAL company names from the data:
       "hates": "What they avoid"
     }
   ],
-  "brutalTruth": "Honest insight about sourcing strategy",
+  "brutalTruth": "Honest insight about sourcing strategy based on data",
   "redFlags": ["3 sourcing mistakes"],
   "donts": ["3 things to avoid"],
   "fixes": ["3 sourcing improvements"],
-  "hiddenBottleneck": "What limits talent pool"
+  "hiddenBottleneck": "What limits talent pool",
+  "dataSourcesSummary": {
+    "linkedin": "${candidates?.length || 0} candidates analyzed",
+    "github": "${githubTalent?.length || 0} developers found",
+    "crunchbase": "${companyData ? 'Company data available' : 'Not available'}"
+  }
 }`;
 
     const response = await openai.chat.completions.create({
@@ -358,7 +447,12 @@ Return ONLY valid JSON using ACTUAL company names from the data:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const talentMapCard = JSON.parse(content);
+    
+    // Add data sources
+    talentMapCard.dataSources = CARD_DATA_SOURCES.talentMapCard;
+    
+    return talentMapCard;
   } catch (error) {
     console.error("❌ Error generating Talent Map Card:", error);
     return null;
@@ -376,7 +470,9 @@ Return ONLY valid JSON using ACTUAL company names from the data:
 export async function generateMarketCard(
   jobData: any,
   similarJobs: any[],
-  candidates: any[]
+  candidates: any[],
+  candidateSearchResult?: { totalResultCount?: number; sampleSize: number; source?: string },
+  multiSourceResult?: { linkedIn: any; github: any; totalCandidates: number; totalResultCount?: number } | null
 ): Promise<any> {
   if (!openai) return null;
 
@@ -387,43 +483,80 @@ export async function generateMarketCard(
     const indeedJobs = similarJobs.filter(j => j.platform === "indeed").length;
     const totalJobs = linkedInJobs + indeedJobs;
     const candidateCount = candidates.length;
+    
+    // Get source breakdown if available
+    const linkedInCandidates = multiSourceResult?.linkedIn?.candidates?.length || 
+      candidates.filter((c: any) => c.platform !== "github").length;
+    const githubCandidates = multiSourceResult?.github?.count || 
+      candidates.filter((c: any) => c.platform === "github").length;
 
-    const ratio = candidateCount > 0 ? (totalJobs / candidateCount).toFixed(1) : "N/A";
-    const tightness = candidateCount < totalJobs * 0.3 ? "Very tight" : 
-                      candidateCount < totalJobs * 0.7 ? "Tight" :
-                      candidateCount < totalJobs * 1.2 ? "Balanced" : "Loose";
+    // Use market analysis algorithm
+    const marketInput: MarketAnalysisInput = {
+      sampleCandidates: candidateCount,
+      sampleJobs: totalJobs,
+      totalResultCount: candidateSearchResult?.totalResultCount,
+      sampleSize: candidateSearchResult?.sampleSize || 100,
+    };
+
+    const marketAnalysis = analyzeMarket(marketInput);
+    const formattedAnalysis = formatMarketAnalysis(marketAnalysis);
+
+    console.log("📊 Market Analysis:", {
+      tightness: marketAnalysis.marketTightness,
+      estimatedCandidates: marketAnalysis.estimatedTotalCandidates,
+      estimatedJobs: marketAnalysis.estimatedTotalJobs,
+      confidence: marketAnalysis.confidenceLevel,
+      method: marketAnalysis.extrapolationMethod,
+    });
 
     const prompt = `Analyze the talent market for this role.
 
 Job: ${jobData.title}
 Location: ${jobData.location}
 Similar Jobs Found: ${totalJobs} (LinkedIn: ${linkedInJobs}, Indeed: ${indeedJobs})
-Available Candidates: ${candidateCount}
-Supply/Demand Ratio: ${ratio} jobs per candidate
-Market Tightness: ${tightness}
+Sample Candidates: ${candidateCount} (LinkedIn: ${linkedInCandidates}, GitHub: ${githubCandidates})
+Estimated Total Candidates: ${marketAnalysis.estimatedTotalCandidates.toLocaleString()} (${marketAnalysis.candidateConfidenceInterval.min.toLocaleString()}-${marketAnalysis.candidateConfidenceInterval.max.toLocaleString()})
+Estimated Total Jobs: ${marketAnalysis.estimatedTotalJobs.toLocaleString()}
+Candidates per Job: ${marketAnalysis.candidatesPerJob.toFixed(2)}
+Market Tightness: ${marketAnalysis.marketTightness} (${formattedAnalysis.summary})
+Confidence Level: ${marketAnalysis.confidenceLevel}
+${formattedAnalysis.details}
 
 Return ONLY valid JSON:
 {
   "talentAvailability": {
-    "total": ${candidateCount},
-    "qualified": ${Math.round(candidateCount * 0.7)},
-    "currentlyEmployed": ${Math.round(candidateCount * 0.85)},
-    "openToWork": ${Math.round(candidateCount * 0.15)}
+    "total": ${marketAnalysis.estimatedTotalCandidates},
+    "qualified": ${Math.round(marketAnalysis.estimatedTotalCandidates * 0.7)},
+    "currentlyEmployed": ${Math.round(marketAnalysis.estimatedTotalCandidates * 0.85)},
+    "openToWork": ${Math.round(marketAnalysis.estimatedTotalCandidates * 0.15)},
+    "confidenceInterval": {
+      "min": ${marketAnalysis.candidateConfidenceInterval.min},
+      "max": ${marketAnalysis.candidateConfidenceInterval.max}
+    },
+    "sampleSize": ${candidateCount},
+    "confidenceLevel": "${marketAnalysis.confidenceLevel}"
   },
   "supplyDemand": {
-    "openJobs": ${totalJobs},
-    "availableCandidates": ${candidateCount},
-    "ratio": "${ratio}:1",
-    "marketTightness": "${tightness}"
+    "openJobs": ${marketAnalysis.estimatedTotalJobs},
+    "availableCandidates": ${marketAnalysis.estimatedTotalCandidates},
+    "candidatesPerJob": ${marketAnalysis.candidatesPerJob.toFixed(2)},
+    "jobsPerCandidate": ${marketAnalysis.jobsPerCandidate.toFixed(2)},
+    "marketTightness": "${marketAnalysis.marketTightness}",
+    "marketTightnessScore": ${marketAnalysis.marketTightnessScore},
+    "sampleJobs": ${totalJobs},
+    "sampleCandidates": ${candidateCount}
   },
   "talentSupply": {
     "midLevel": "High/Medium/Low based on analysis",
     "senior": "High/Medium/Low based on analysis",
     "productMinded": "High/Medium/Low based on role"
   },
-  "insights": ["3-4 market observations"],
-  "redFlags": ["3 market challenges"],
+  "insights": ["3-4 market observations based on the analysis"],
+  "redFlags": ["3 market challenges based on tightness"],
   "opportunities": ["3 market advantages"],
+  "recommendations": ${JSON.stringify(formattedAnalysis.recommendations)},
+  "extrapolationMethod": "${marketAnalysis.extrapolationMethod}",
+  "hasTotalCount": ${marketAnalysis.hasTotalCount},
   "geographic": {
     "primaryLocations": ["Top 3 locations from candidates"],
     "remoteAvailability": 60
@@ -442,7 +575,26 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const marketCard = JSON.parse(content);
+    
+    // Add market analysis data and data sources
+    marketCard.marketAnalysis = {
+      estimatedTotalCandidates: marketAnalysis.estimatedTotalCandidates,
+      estimatedTotalJobs: marketAnalysis.estimatedTotalJobs,
+      candidateConfidenceInterval: marketAnalysis.candidateConfidenceInterval,
+      candidatesPerJob: marketAnalysis.candidatesPerJob,
+      jobsPerCandidate: marketAnalysis.jobsPerCandidate,
+      marketTightness: marketAnalysis.marketTightness,
+      marketTightnessScore: marketAnalysis.marketTightnessScore,
+      confidenceLevel: marketAnalysis.confidenceLevel,
+      extrapolationMethod: marketAnalysis.extrapolationMethod,
+      hasTotalCount: marketAnalysis.hasTotalCount,
+      formattedSummary: formattedAnalysis.summary,
+      formattedDetails: formattedAnalysis.details,
+    };
+    marketCard.dataSources = CARD_DATA_SOURCES.marketCard;
+    
+    return marketCard;
   } catch (error) {
     console.error("❌ Error generating Market Card:", error);
     return null;
@@ -451,15 +603,20 @@ Return ONLY valid JSON:
 
 /**
  * Generate Pay Card - Compensation analysis
+ * Uses real data from Glassdoor, Levels.fyi, and Indeed
  */
 export async function generatePayCard(
   jobData: any,
-  similarJobs: any[]
+  similarJobs: any[],
+  glassdoorData?: GlassdoorSalaryData[],
+  levelsFyiData?: LevelsFyiSalaryData[]
 ): Promise<any> {
   if (!openai) return null;
 
   try {
     console.log("🤖 Generating Pay Card with AI...");
+    console.log("   📊 Glassdoor entries:", glassdoorData?.length || 0);
+    console.log("   📊 Levels.fyi entries:", levelsFyiData?.length || 0);
 
     // Extract salary data from similar jobs
     const salariesWithData = similarJobs
@@ -478,30 +635,65 @@ export async function generatePayCard(
       ? Math.round(salariesWithData.reduce((sum, s) => sum + (s.max || 0), 0) / salariesWithData.filter(s => s.max).length)
       : null;
 
-    const prompt = `Analyze compensation for this role.
+    // Build comprehensive salary context from all sources
+    let glassdoorContext = "";
+    if (glassdoorData && glassdoorData.length > 0) {
+      const gd = glassdoorData[0];
+      glassdoorContext = `
+Glassdoor Data (${gd.sampleSize} reports):
+- Salary Range: $${gd.baseSalary.min.toLocaleString()} - $${gd.baseSalary.max.toLocaleString()}
+- Median: $${gd.baseSalary.median.toLocaleString()}
+- Source: ${gd.source}`;
+    }
+
+    let levelsFyiContext = "";
+    if (levelsFyiData && levelsFyiData.length > 0) {
+      const topCompanies = levelsFyiData.slice(0, 3).map(l => 
+        `${l.company}: $${l.totalCompensation.toLocaleString()} total comp (base: $${l.baseSalary.toLocaleString()}, stock: $${l.stockGrant.toLocaleString()})`
+      ).join("\n");
+      levelsFyiContext = `
+Levels.fyi Data (Tech Companies):
+${topCompanies}`;
+    }
+
+    const prompt = `Analyze compensation for this role using REAL MARKET DATA.
 
 Job: ${jobData.title}
 Location: ${jobData.location}
-Your Salary: ${jobData.salary || "Not disclosed"}
-Market Data: ${salariesWithData.length} jobs with salary info
-Average Range: ${avgMin ? `$${avgMin}k-$${avgMax}k` : "Insufficient data"}
+Posted Salary: ${jobData.salary || "Not disclosed"}
 
-Return ONLY valid JSON:
+REAL MARKET DATA:
+${glassdoorContext || "No Glassdoor data available"}
+${levelsFyiContext || "No Levels.fyi data available"}
+
+Similar Jobs Data: ${salariesWithData.length} jobs with salary info
+Average Range from Jobs: ${avgMin ? `$${avgMin.toLocaleString()}-$${avgMax?.toLocaleString()}` : "Insufficient data"}
+
+Based on this REAL DATA, return ONLY valid JSON:
 {
   "marketCompensation": [
-    { "label": "Base (P50)", "value": "Market 50th percentile" },
-    { "label": "Base (P75)", "value": "Market 75th percentile" },
-    { "label": "Total comp", "value": "With equity/bonus" }
+    { "label": "Base (P25)", "value": "25th percentile from data" },
+    { "label": "Base (P50)", "value": "50th percentile (median)" },
+    { "label": "Base (P75)", "value": "75th percentile" },
+    { "label": "Base (P90)", "value": "90th percentile for top talent" },
+    { "label": "Total Comp (Big Tech)", "value": "Include equity/bonus" }
   ],
-  "recommendedRange": "Suggested competitive range",
+  "recommendedRange": "Competitive range based on real data",
   "location": "${jobData.location}",
-  "currency": "USD or EUR or GBP",
-  "brutalTruth": "Honest assessment of compensation competitiveness",
-  "redFlags": ["3 compensation issues"],
+  "currency": "USD",
+  "glassdoorMedian": ${glassdoorData?.[0]?.baseSalary.median || "null"},
+  "levelsFyiAverage": ${levelsFyiData?.length ? Math.round(levelsFyiData.reduce((sum, l) => sum + l.totalCompensation, 0) / levelsFyiData.length) : "null"},
+  "brutalTruth": "Honest assessment based on real market data",
+  "redFlags": ["3 compensation issues based on data"],
   "donts": ["3 compensation mistakes"],
-  "fixes": ["3 ways to improve offer"],
+  "fixes": ["3 ways to improve offer based on market"],
   "hiddenBottleneck": "What really limits hiring on comp",
-  "timelineToFailure": "When comp kills offers"
+  "timelineToFailure": "When comp kills offers",
+  "dataSourcesSummary": {
+    "glassdoor": "${glassdoorData?.[0]?.source || 'Not available'}",
+    "levelsFyi": "${levelsFyiData?.[0]?.source || 'Not available'}",
+    "jobBoards": "${salariesWithData.length} jobs analyzed"
+  }
 }`;
 
     const response = await openai.chat.completions.create({
@@ -515,7 +707,12 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const payCard = JSON.parse(content);
+    
+    // Add data sources
+    payCard.dataSources = CARD_DATA_SOURCES.payCard;
+    
+    return payCard;
   } catch (error) {
     console.error("❌ Error generating Pay Card:", error);
     return null;
@@ -524,50 +721,101 @@ Return ONLY valid JSON:
 
 /**
  * Generate Funnel Card - Outreach volume needed
+ * Uses real industry benchmarks data
  */
-export async function generateFunnelCard(marketCard: any): Promise<any> {
+export async function generateFunnelCard(
+  marketCard: any,
+  benchmarks?: IndustryBenchmarks
+): Promise<any> {
   if (!openai) return null;
 
   try {
     console.log("🤖 Generating Funnel Card with AI...");
+    console.log("   📊 Using industry benchmarks:", benchmarks?.source || "None");
 
     const tightness = marketCard?.supplyDemand?.marketTightness || "Balanced";
 
-    const prompt = `Calculate hiring funnel metrics.
+    // Build real benchmarks context
+    let benchmarksContext = "";
+    if (benchmarks) {
+      const fm = benchmarks.funnelMetrics;
+      benchmarksContext = `
+REAL INDUSTRY BENCHMARKS (${benchmarks.source}):
+- Applicants per hire: ${fm.applicantsPerHire}
+- Phone screen pass rate: ${(fm.phoneScreenPassRate * 100).toFixed(0)}%
+- Onsite pass rate: ${(fm.onsitePassRate * 100).toFixed(0)}%
+- Offer accept rate: ${(fm.offerAcceptRate * 100).toFixed(0)}%
+- Average time to hire: ${fm.averageTimeToHire} days
+
+QUALITY METRICS:
+- Average tenure: ${benchmarks.qualityMetrics.averageTenure} years
+- Performance rating: ${benchmarks.qualityMetrics.performanceRating}/5
+- Promotion rate: ${(benchmarks.qualityMetrics.promotionRate * 100).toFixed(0)}%`;
+    }
+
+    // Calculate funnel based on real benchmarks
+    const applicantsPerHire = benchmarks?.funnelMetrics.applicantsPerHire || 150;
+    const phoneScreenRate = benchmarks?.funnelMetrics.phoneScreenPassRate || 0.25;
+    const onsiteRate = benchmarks?.funnelMetrics.onsitePassRate || 0.40;
+    const offerAcceptRate = benchmarks?.funnelMetrics.offerAcceptRate || 0.85;
+
+    const outreach = Math.round(applicantsPerHire * 1.5);
+    const replies = Math.round(outreach * 0.20);
+    const screens = Math.round(replies * phoneScreenRate);
+    const interviews = Math.round(screens * onsiteRate);
+    const offers = Math.max(2, Math.round(interviews * 0.4));
+    const hires = 1;
+
+    const prompt = `Calculate hiring funnel metrics using REAL BENCHMARK DATA.
 
 Market Tightness: ${tightness}
 Talent Pool: ${marketCard?.talentAvailability?.qualified || "Unknown"}
+${benchmarksContext}
 
-Return ONLY valid JSON:
+PRE-CALCULATED FUNNEL (based on real benchmarks):
+- Outreach: ${outreach}
+- Replies: ${replies}
+- Screens: ${screens}
+- Interviews: ${interviews}
+- Offers: ${offers}
+- Hires: ${hires}
+
+Using this REAL DATA, return ONLY valid JSON:
 {
   "funnelStages": [
-    { "label": "Outreach", "value": "150" },
-    { "label": "Replies", "value": "30" },
-    { "label": "Screens", "value": "15" },
-    { "label": "Interviews", "value": "5" },
-    { "label": "Offers", "value": "2" },
-    { "label": "Hires", "value": "1" }
+    { "label": "Outreach", "value": "${outreach}" },
+    { "label": "Replies", "value": "${replies}" },
+    { "label": "Screens", "value": "${screens}" },
+    { "label": "Interviews", "value": "${interviews}" },
+    { "label": "Offers", "value": "${offers}" },
+    { "label": "Hires", "value": "${hires}" }
   ],
   "benchmarks": [
     { "label": "Reply rate", "value": "20%" },
-    { "label": "Screen rate", "value": "50%" },
-    { "label": "Offer rate", "value": "33%" },
-    { "label": "Accept rate", "value": "50%" }
+    { "label": "Screen pass rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.phoneScreenPassRate * 100).toFixed(0) : 25}%" },
+    { "label": "Onsite pass rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.onsitePassRate * 100).toFixed(0) : 40}%" },
+    { "label": "Offer accept rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.offerAcceptRate * 100).toFixed(0) : 85}%" }
   ],
+  "timeToHire": "${benchmarks?.funnelMetrics.averageTimeToHire || 45} days",
   "funnelHealthComparison": [
-    { "type": "Weak funnel", "outcome": "Result if metrics poor" },
-    { "type": "Average funnel", "outcome": "Result if metrics okay" },
-    { "type": "Strong funnel", "outcome": "Result if metrics good" }
+    { "type": "Weak funnel", "outcome": "Result if metrics 30% below benchmark" },
+    { "type": "Average funnel", "outcome": "Result matching industry benchmark" },
+    { "type": "Strong funnel", "outcome": "Result if metrics 20% above benchmark" }
   ],
-  "brutalTruth": "Reality about hiring volume",
-  "redFlags": ["3 funnel warning signs"],
+  "brutalTruth": "Reality based on real benchmark data",
+  "redFlags": ["3 funnel warning signs based on data"],
   "donts": ["3 funnel mistakes"],
-  "fixes": ["3 funnel improvements"],
-  "hiddenBottleneck": "What kills conversion",
-  "bottomLine": "Key takeaway about volume"
+  "fixes": ["3 funnel improvements based on benchmarks"],
+  "hiddenBottleneck": "What kills conversion based on data",
+  "bottomLine": "Key takeaway based on real metrics",
+  "dataSourcesSummary": {
+    "benchmarkSource": "${benchmarks?.source || 'Industry average'}",
+    "applicantsPerHire": ${applicantsPerHire},
+    "timeToHire": ${benchmarks?.funnelMetrics.averageTimeToHire || 45}
+  }
 }
 
-Adjust numbers based on market tightness.`;
+Analyze the funnel based on the real benchmarks provided.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -580,7 +828,12 @@ Adjust numbers based on market tightness.`;
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const funnelCard = JSON.parse(content);
+    
+    // Add data sources
+    funnelCard.dataSources = CARD_DATA_SOURCES.funnelCard;
+    
+    return funnelCard;
   } catch (error) {
     console.error("❌ Error generating Funnel Card:", error);
     return null;
@@ -637,7 +890,12 @@ Score 0-10 where:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const realityCard = JSON.parse(content);
+    
+    // Add data sources
+    realityCard.dataSources = CARD_DATA_SOURCES.realityCard;
+    
+    return realityCard;
   } catch (error) {
     console.error("❌ Error generating Reality Card:", error);
     return null;
@@ -697,7 +955,12 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const interviewCard = JSON.parse(content);
+    
+    // Add data sources
+    interviewCard.dataSources = CARD_DATA_SOURCES.interviewCard;
+    
+    return interviewCard;
   } catch (error) {
     console.error("❌ Error generating Interview Card:", error);
     return null;
@@ -751,7 +1014,12 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const scoreCard = JSON.parse(content);
+    
+    // Add data sources
+    scoreCard.dataSources = CARD_DATA_SOURCES.scoreCard;
+    
+    return scoreCard;
   } catch (error) {
     console.error("❌ Error generating Scorecard Card:", error);
     return null;
@@ -807,7 +1075,12 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    return JSON.parse(content);
+    const planCard = JSON.parse(content);
+    
+    // Add data sources
+    planCard.dataSources = CARD_DATA_SOURCES.planCard;
+    
+    return planCard;
   } catch (error) {
     console.error("❌ Error generating Plan Card:", error);
     return null;

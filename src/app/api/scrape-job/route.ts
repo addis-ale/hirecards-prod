@@ -3,6 +3,7 @@ import { scrapeJobURL } from "@/lib/jobScraper";
 import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
 import * as cardGenerators from "./cardGenerators";
+import { fetchAllDataSources, getIndustryBenchmarks, searchGitHubCandidatesByTitle } from "./dataSources";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
@@ -805,13 +806,27 @@ async function searchSimilarJobsWithApify(
   }
 }
 
+interface CandidateSearchResult {
+  candidates: ApifyPeopleData[];
+  totalResultCount?: number; // LinkedIn's total result count if available
+  sampleSize: number; // How many we requested
+  source: "linkedin" | "github" | "combined";
+}
+
+interface MultiSourceCandidateResult {
+  linkedIn: CandidateSearchResult;
+  github: { candidates: any[]; count: number };
+  totalCandidates: number;
+  totalResultCount?: number;
+}
+
 async function searchCandidatesWithApify(
   jobTitle: string,
   location: string
-): Promise<ApifyPeopleData[]> {
+): Promise<CandidateSearchResult> {
   if (!apifyClient) {
     console.warn("Apify API key not configured, skipping candidate search");
-    return [];
+    return { candidates: [], sampleSize: 0 };
   }
 
   try {
@@ -879,8 +894,8 @@ async function searchCandidatesWithApify(
     const peopleInput: any = {
       profileScraperMode: "Short", // Use "Short" mode for cost efficiency
       currentJobTitles: [normalizedJobTitle],
-      maxItems: 50, // Limit to 50 candidates
-      takePages: 2, // 2 pages = up to 50 profiles (25 per page)
+      maxItems: 100, // Increased from 50 to 100 for better candidate coverage
+      takePages: 4, // 4 pages = up to 100 profiles (25 per page)
     };
 
     // Add location if available
@@ -910,7 +925,25 @@ async function searchCandidatesWithApify(
 
     console.log(`✅ Found ${items.length} candidates from LinkedIn`);
 
-    return items as ApifyPeopleData[];
+    // Try to get total result count from dataset metadata or run stats
+    let totalResultCount: number | undefined;
+    try {
+      const dataset = await apifyClient.dataset(run.defaultDatasetId).get();
+      // Some Apify actors include total count in metadata
+      if ((dataset as any).itemCount) {
+        totalResultCount = (dataset as any).itemCount;
+        console.log(`📊 Total results available: ${totalResultCount}`);
+      }
+    } catch (e) {
+      // Metadata not available, that's okay - we'll use ratio-based estimation
+      console.log("ℹ️ Total result count not available, will use ratio-based estimation");
+    }
+
+    return {
+      candidates: items as ApifyPeopleData[],
+      totalResultCount,
+      sampleSize: peopleInput.maxItems || 100,
+    };
   } catch (error: any) {
     console.error("❌ Error searching candidates with Apify:", error);
 
@@ -923,8 +956,8 @@ async function searchCandidatesWithApify(
         const safeInput: any = {
           profileScraperMode: "Short",
           currentJobTitles: [jobTitle],
-          maxItems: 25,
-          takePages: 1,
+          maxItems: 50, // Fallback: reduced from 100 to 50 for error recovery
+          takePages: 2,
         };
         const cleanedLocation = location
           ?.replace(/\bnull\b,?\s*/gi, "")
@@ -945,14 +978,123 @@ async function searchCandidatesWithApify(
           .dataset(run.defaultDatasetId)
           .listItems();
         console.log(`✅ Fallback found ${items.length} candidates`);
-        return items as ApifyPeopleData[];
+        return {
+          candidates: items as ApifyPeopleData[],
+          sampleSize: safeInput.maxItems || 50,
+        };
       } catch (e) {
         console.error("Fallback candidate search failed:", e);
       }
     }
 
-    return [];
+    return { candidates: [], sampleSize: 0, source: "linkedin" };
   }
+}
+
+/**
+ * Search GitHub for candidates by job title
+ * Converts GitHub data to ApifyPeopleData format for consistency
+ */
+async function searchGitHubCandidates(
+  jobTitle: string,
+  location: string,
+  maxResults: number = 50
+): Promise<{ candidates: any[]; count: number }> {
+  try {
+    console.log("🔍 Searching GitHub for candidates...");
+    
+    const githubCandidates = await searchGitHubCandidatesByTitle(
+      jobTitle,
+      location,
+      maxResults
+    );
+
+    // Convert GitHub format to ApifyPeopleData-like format for consistency
+    const convertedCandidates = githubCandidates.map((gh) => ({
+      id: `github-${gh.username}`,
+      publicIdentifier: gh.username,
+      linkedinUrl: gh.profileUrl, // Use GitHub URL as primary link
+      firstName: gh.name.split(" ")[0] || gh.username,
+      lastName: gh.name.split(" ").slice(1).join(" ") || "",
+      headline: gh.headline || gh.bio?.substring(0, 100) || jobTitle,
+      location: {
+        linkedinText: gh.location,
+        parsed: {
+          text: gh.location,
+        },
+      },
+      avatar: `https://github.com/${gh.username}.png`,
+      about: gh.bio,
+      topSkills: gh.topLanguages.join(", "),
+      followers: gh.followers,
+      connections: 0, // GitHub doesn't have connections
+      premium: false,
+      openToWork: false, // GitHub doesn't have this field
+      currentCompany: gh.currentCompany,
+      experience: [],
+      education: [],
+      certifications: [],
+      projects: [],
+      source: "GitHub",
+      platform: "github" as const,
+    }));
+
+    console.log(`✅ Found ${convertedCandidates.length} candidates from GitHub`);
+    return {
+      candidates: convertedCandidates,
+      count: convertedCandidates.length,
+    };
+  } catch (error: any) {
+    console.error("❌ GitHub candidate search error:", error.message);
+    return { candidates: [], count: 0 };
+  }
+}
+
+/**
+ * Search candidates from multiple sources (LinkedIn + GitHub)
+ */
+async function searchCandidatesMultiSource(
+  jobTitle: string,
+  location: string
+): Promise<MultiSourceCandidateResult> {
+  console.log("🔍 Searching candidates from multiple sources...");
+
+  // Search both sources in parallel
+  const [linkedInResult, githubResult] = await Promise.allSettled([
+    apifyClient
+      ? searchCandidatesWithApify(jobTitle, location)
+      : Promise.resolve({ candidates: [], sampleSize: 0, source: "linkedin" as const }),
+    searchGitHubCandidates(jobTitle, location, 50), // Get 50 from GitHub
+  ]);
+
+  const linkedIn = linkedInResult.status === "fulfilled" 
+    ? linkedInResult.value 
+    : { candidates: [], sampleSize: 0, source: "linkedin" as const };
+  
+  const github = githubResult.status === "fulfilled"
+    ? githubResult.value
+    : { candidates: [], count: 0 };
+
+  // Combine candidates (deduplicate by identifier if possible)
+  const allCandidates = [
+    ...linkedIn.candidates,
+    ...github.candidates,
+  ];
+
+  // Estimate total result count (combine if both have counts)
+  let totalResultCount: number | undefined;
+  if (linkedIn.totalResultCount) {
+    totalResultCount = linkedIn.totalResultCount + (github.count * 5); // Estimate GitHub total
+  }
+
+  console.log(`✅ Combined results: ${linkedIn.candidates.length} LinkedIn + ${github.count} GitHub = ${allCandidates.length} total candidates`);
+
+  return {
+    linkedIn,
+    github,
+    totalCandidates: allCandidates.length,
+    totalResultCount,
+  };
 }
 
 /**
@@ -1089,17 +1231,40 @@ export async function POST(request: NextRequest) {
         console.log(
           `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed = ${similarJobs.length} total`
         );
+      } else if (!apifyClient) {
+        console.warn("⚠️ Apify API key not configured - skipping job search");
+        similarJobs = [];
+      } else {
+        console.warn("⚠️ No job title available - skipping job search");
+        similarJobs = [];
       }
     }
 
-    // Search for candidates with matching job title and location
+    // Search for candidates with matching job title and location from multiple sources
     let candidates: ApifyPeopleData[] = [];
+    let candidateSearchResult: CandidateSearchResult = { candidates: [], sampleSize: 0, source: "linkedin" };
+    let multiSourceResult: MultiSourceCandidateResult | null = null;
     const jobTitle = scrapedData.title || aiExtractedData.department;
     const location = scrapedData.location || aiExtractedData.location;
 
-    if (jobTitle && apifyClient) {
-      console.log("Searching for candidates on LinkedIn...");
-      candidates = await searchCandidatesWithApify(jobTitle, location);
+    if (jobTitle) {
+      console.log("🔍 Searching for candidates from multiple sources (LinkedIn + GitHub)...");
+      multiSourceResult = await searchCandidatesMultiSource(jobTitle, location);
+      candidates = [
+        ...multiSourceResult.linkedIn.candidates,
+        ...multiSourceResult.github.candidates,
+      ];
+      
+      // Update candidateSearchResult with combined data for market analysis
+      candidateSearchResult = {
+        candidates: multiSourceResult.linkedIn.candidates, // Keep LinkedIn for primary analysis
+        totalResultCount: multiSourceResult.totalResultCount,
+        sampleSize: multiSourceResult.linkedIn.sampleSize + multiSourceResult.github.count,
+        source: "combined",
+      };
+    } else {
+      console.warn("⚠️ No job title available - skipping candidate search");
+      candidates = [];
     }
 
     // Calculate platform breakdown for response
@@ -1160,6 +1325,42 @@ export async function POST(request: NextRequest) {
     if (!extractedFields.timeline) missingFields.push("Timeline");
 
     // ============================================
+    // ============================================
+    // FETCH ADDITIONAL DATA SOURCES
+    // ============================================
+    console.log("📊 ============================================");
+    console.log("📊 FETCHING ADDITIONAL DATA SOURCES");
+    console.log("📊 ============================================");
+
+    let dataSources = null;
+    try {
+      // Extract skills from job data
+      const skills = scrapedData.skills || extractedFields?.skills || [];
+      const company = scrapedData.company || extractedFields?.company || "Unknown";
+      const location = scrapedData.location || extractedFields?.location || "Remote";
+      const jobTitle = scrapedData.title || extractedFields?.roleTitle || "Software Engineer";
+      
+      // Fetch all data sources in parallel (Glassdoor, Levels.fyi, Crunchbase, GitHub)
+      dataSources = await fetchAllDataSources(
+        jobTitle,
+        company,
+        location,
+        Array.isArray(skills) ? skills : [skills],
+        "technology" // Default to technology industry
+      );
+      
+      console.log("✅ Additional data sources fetched");
+    } catch (error) {
+      console.error("⚠️ Error fetching additional data sources:", error);
+      // Continue without additional data sources
+    }
+
+    // Get industry benchmarks
+    const benchmarks = getIndustryBenchmarks(
+      scrapedData.title || extractedFields?.roleTitle || "Engineer",
+      "technology"
+    );
+
     // AI CARD GENERATION (4 GROUPS)
     // ============================================
     console.log("🤖 ============================================");
@@ -1193,19 +1394,40 @@ export async function POST(request: NextRequest) {
       console.log("✅ Job Analysis Cards complete");
 
       // GROUP 2: PEOPLE ANALYSIS CARDS (1 card)
-      if (candidates.length > 0) {
+      // Now includes GitHub talent data
+      if (candidates.length > 0 || (dataSources?.githubTalent && dataSources.githubTalent.length > 0)) {
         console.log("🔵 Generating Group 2: People Analysis Cards...");
-        const talentMapCard = await cardGenerators.generateTalentMapCard(candidates);
+        const talentMapCard = await cardGenerators.generateTalentMapCard(
+          candidates,
+          dataSources?.githubTalent,
+          dataSources?.companyData
+        );
         peopleAnalysisCards = { talentMapCard };
         console.log("✅ People Analysis Cards complete");
       }
 
       // GROUP 3: COMBINED ANALYSIS CARDS (4 cards)
-      if (similarJobs.length > 0 || candidates.length > 0) {
+      // Now includes Glassdoor/Levels.fyi salary data and industry benchmarks
+      if (similarJobs.length > 0 || candidates.length > 0 || dataSources) {
         console.log("🟠 Generating Group 3: Combined Analysis Cards...");
-        const marketCard = await cardGenerators.generateMarketCard(scrapedData, similarJobs, candidates);
-        const payCard = await cardGenerators.generatePayCard(scrapedData, similarJobs);
-        const funnelCard = await cardGenerators.generateFunnelCard(marketCard);
+        const marketCard = await cardGenerators.generateMarketCard(
+          scrapedData, 
+          similarJobs, 
+          candidates,
+          candidateSearchResult,
+          multiSourceResult // Pass multi-source data for better analysis
+        );
+        
+        // PayCard now uses Glassdoor and Levels.fyi data
+        const payCard = await cardGenerators.generatePayCard(
+          scrapedData,
+          similarJobs,
+          dataSources?.glassdoorSalaries,
+          dataSources?.levelsFyiSalaries
+        );
+        
+        // FunnelCard now uses industry benchmarks
+        const funnelCard = await cardGenerators.generateFunnelCard(marketCard, benchmarks);
         
         const allCardsForReality = { roleCard, skillCard, marketCard, payCard, funnelCard };
         const realityCard = await cardGenerators.generateRealityCard(allCardsForReality);
@@ -1256,6 +1478,15 @@ export async function POST(request: NextRequest) {
       peopleAnalysisCards,
       combinedAnalysisCards,
       derivedStrategyCards,
+      // Additional data sources
+      dataSources: dataSources ? {
+        glassdoorSalaries: dataSources.glassdoorSalaries,
+        levelsFyiSalaries: dataSources.levelsFyiSalaries,
+        companyData: dataSources.companyData,
+        githubTalent: dataSources.githubTalent,
+        benchmarks: benchmarks,
+        fetchedAt: dataSources.fetchedAt,
+      } : null,
     });
   } catch (error: any) {
     console.error("Error in scrape-job API:", error);

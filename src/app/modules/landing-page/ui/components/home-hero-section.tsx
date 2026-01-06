@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Bug, AlertCircle } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Bug, AlertCircle, X, Bot, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
 import ConversationalChatbotModal from "@/components/ConversationalChatbotModal";
+import MissingFieldsModal from "@/components/MissingFieldsModal";
 
 interface ScrapedJobData {
   title: string;
@@ -116,11 +117,18 @@ export const HomeHeroSection = () => {
   const [peopleAnalysisCardsOpen, setPeopleAnalysisCardsOpen] = useState(false);
   const [combinedAnalysisCardsOpen, setCombinedAnalysisCardsOpen] = useState(false);
   const [derivedStrategyCardsOpen, setDerivedStrategyCardsOpen] = useState(false);
+  const [apifyResultsOpen, setApifyResultsOpen] = useState(false);
+  const [apifyJobsOpen, setApifyJobsOpen] = useState(false);
+  const [apifyCandidatesOpen, setApifyCandidatesOpen] = useState(false);
   
   const [jobAnalysisCards, setJobAnalysisCards] = useState<any>(null);
   const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<any>(null);
   const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<any>(null);
   const [derivedStrategyCards, setDerivedStrategyCards] = useState<any>(null);
+  
+  // Additional data sources state
+  const [additionalDataSources, setAdditionalDataSources] = useState<any>(null);
+  const [dataSourcesOpen, setDataSourcesOpen] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -128,6 +136,12 @@ export const HomeHeroSection = () => {
   const [extractedFields, setExtractedFields] = useState<any>(null);
   const [missingFieldsModalOpen, setMissingFieldsModalOpen] = useState(false);
   const [chatbotModalOpen, setChatbotModalOpen] = useState(false);
+  
+  // Quick scrape state for real-time scraping
+  const [quickScrapeData, setQuickScrapeData] = useState<any>(null);
+  const [quickScrapeLoading, setQuickScrapeLoading] = useState(false);
+  const [quickScrapeError, setQuickScrapeError] = useState<string | null>(null);
+  const [quickScrapeDebugOpen, setQuickScrapeDebugOpen] = useState(false);
 
   // Debug: Log when modal state changes
   useEffect(() => {
@@ -138,6 +152,55 @@ export const HomeHeroSection = () => {
       });
     }
   }, [missingFieldsModalOpen, missingFields]);
+
+  // Real-time scraping when URL is pasted
+  useEffect(() => {
+    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+    const isURL = urlPattern.test(roleDescription.trim());
+    
+    if (isURL && roleDescription.trim().length > 10) {
+      // Debounce the scraping
+      const timer = setTimeout(async () => {
+        setQuickScrapeLoading(true);
+        setQuickScrapeError(null);
+        
+        try {
+          const response = await fetch("/api/quick-scrape", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ url: roleDescription.trim() }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to scrape URL");
+          }
+
+          setQuickScrapeData(result);
+          setQuickScrapeDebugOpen(true);
+          console.log("✅ Quick scrape successful:", result);
+          console.log("📊 Extracted Fields:", result.extractedFields);
+          console.log("❌ Missing Fields:", result.missingFields);
+        } catch (err: any) {
+          setQuickScrapeError(err.message);
+          console.error("Quick scrape error:", err);
+        } finally {
+          setQuickScrapeLoading(false);
+        }
+      }, 1500); // Wait 1.5 seconds after user stops typing
+
+      return () => clearTimeout(timer);
+    } else {
+      // Clear data if not a URL
+      if (quickScrapeData) {
+        setQuickScrapeData(null);
+      }
+      // Keep panel open but collapsed
+    }
+  }, [roleDescription]);
 
   const proceedToResults = () => {
     console.log("📊 Proceeding to results page");
@@ -157,10 +220,19 @@ export const HomeHeroSection = () => {
 
   const handleGetCardsAnyway = () => {
     console.log("🎯 User clicked 'Get My Cards Anyway'");
-    setMissingFieldsModalOpen(false);
-    setIsLoading(false);
-    document.body.style.overflow = 'auto';
-    proceedToResults();
+    // Store data first
+    const formData = {
+      scrapedData,
+      similarJobs,
+      candidates,
+      linkedInJobsCount,
+      indeedJobsCount,
+      platform,
+      extractedFields,
+    };
+    sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+    // Use window.location for immediate navigation without React re-renders
+    window.location.href = "/results";
   };
 
   const handleCompleteFields = () => {
@@ -168,6 +240,25 @@ export const HomeHeroSection = () => {
     setMissingFieldsModalOpen(false);
     // Keep loading screen visible, just show chatbot instead
     setChatbotModalOpen(true);
+  };
+
+  const handleBackToLanding = () => {
+    console.log("🏠 User clicked 'Back to Landing Page'");
+    // Reset all state
+    setMissingFieldsModalOpen(false);
+    setIsLoading(false);
+    setChatbotModalOpen(false);
+    setRoleDescription("");
+    setScrapedData(null);
+    setSimilarJobs([]);
+    setCandidates([]);
+    setMissingFields([]);
+    setExtractedFields(null);
+    setError(null);
+    setWarnings([]);
+    document.body.style.overflow = 'auto';
+    // Navigate to landing page
+    router.push("/");
   };
 
   const handleChatbotComplete = (completedData: any) => {
@@ -208,6 +299,48 @@ export const HomeHeroSection = () => {
     document.body.style.overflow = 'hidden';
     
     try {
+      // Scraping enabled - using real API
+      const SKIP_SCRAPING = false; // Set to true to bypass scraping for testing
+      
+      let result;
+      
+      if (SKIP_SCRAPING) {
+        // Mock data for testing
+        console.log("🧪 TESTING MODE: Using mock data (skipping scraping)");
+        result = {
+          data: {
+            title: "Senior React Developer",
+            description: "We are looking for a Senior React Developer...",
+            company: "Tech Corp",
+            location: "San Francisco, CA",
+            locationType: "Remote",
+            employmentType: "Full-time",
+            experienceLevel: "Senior",
+            salary: "$120,000 - $150,000",
+            rawText: roleDescription.trim(),
+            source: "mock",
+            aiEnhanced: false,
+          },
+          similarJobs: [],
+          candidates: [],
+          linkedInJobsCount: 0,
+          indeedJobsCount: 0,
+          platform: "unknown",
+          warnings: [],
+          jobAnalysisCards: null,
+          peopleAnalysisCards: null,
+          combinedAnalysisCards: null,
+          derivedStrategyCards: null,
+          extractedFields: {
+            title: "Senior React Developer",
+            company: "Tech Corp",
+            location: "San Francisco, CA",
+          },
+          missingFields: ["Salary Range", "Benefits", "Required Skills", "Experience Level"],
+          hasMissingFields: true,
+        };
+      } else {
+        // Real scraping
       const response = await fetch("/api/scrape-job", {
         method: "POST",
         headers: {
@@ -216,10 +349,11 @@ export const HomeHeroSection = () => {
         body: JSON.stringify({ input: roleDescription.trim() }),
       });
 
-      const result = await response.json();
+        result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.error || "Failed to process job input");
+        }
       }
 
       setScrapedData(result.data);
@@ -238,9 +372,12 @@ export const HomeHeroSection = () => {
       setExtractedFields(result.extractedFields || null);
       setMissingFields(result.missingFields || []);
       
-      // Keep loader until scraping finishes (minimum 45 seconds)
+      // Set additional data sources (Glassdoor, Levels.fyi, Crunchbase, GitHub)
+      setAdditionalDataSources(result.dataSources || null);
+      
+      // For testing: Show modal immediately (skip 45 second wait)
       const startTime = Date.now();
-      const minLoadTime = 45000; // 45 seconds
+      const minLoadTime = SKIP_SCRAPING ? 500 : 45000; // 0.5 seconds for testing, 45 seconds for real
       
       const checkAndShowModal = () => {
         // Show missing fields modal if there are missing fields
@@ -290,7 +427,7 @@ export const HomeHeroSection = () => {
   };
 
   return (
-    <section className="relative h-screen flex flex-col overflow-x-hidden bg-linear-to-b from-white via-gray-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <section id="hero-input" className="relative h-screen flex flex-col overflow-x-hidden bg-linear-to-b from-white via-gray-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Static background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-[120px] animate-pulse" />
@@ -320,67 +457,26 @@ export const HomeHeroSection = () => {
           {!missingFieldsModalOpen && !chatbotModalOpen && <Loader1 />}
           
           {/* Show Missing Fields Modal on loading screen when ready */}
-          {missingFieldsModalOpen && (
-            <div className="w-full max-w-2xl mx-auto">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-border p-6 animate-in fade-in-0 zoom-in-95 duration-300">
-                <div className="flex items-center gap-3 mb-4">
-                  <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0" />
-                  <h2 className="text-xl font-bold text-foreground">Missing Fields Detected</h2>
-                </div>
-                
-                <p className="text-sm text-muted-foreground mb-6">
-                  After scraping the job description, we found {missingFields.length} missing field{missingFields.length !== 1 ? "s" : ""} that could improve your HireCard quality.
-                </p>
-
-                <div className="bg-muted rounded-lg p-4 mb-6 max-h-[40vh] overflow-y-auto">
-                  <p className="text-sm font-semibold mb-3 text-foreground">
-                    Missing Fields:
-                  </p>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                    {missingFields.map((field, index) => (
-                      <li key={index} className="flex items-center gap-2">
-                        <span className="text-amber-500">•</span>
-                        {field}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    onClick={handleGetCardsAnyway}
-                    variant="outline"
-                    className="flex-1 h-12 text-base"
-                  >
-                    Get My Cards Anyway
-                  </Button>
-                  <Button
-                    onClick={handleCompleteFields}
-                    className="flex-1 h-12 text-base font-semibold"
-                  >
-                    Complete the Missing Fields
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <MissingFieldsModal
+            open={missingFieldsModalOpen}
+            onOpenChange={setMissingFieldsModalOpen}
+            missingFields={missingFields}
+            onGetCardsAnyway={handleGetCardsAnyway}
+            onCompleteFields={handleCompleteFields}
+            onBackToLanding={handleBackToLanding}
+          />
           
           {/* Show Chatbot on loading screen */}
           {chatbotModalOpen && (
-            <div className="w-full max-w-4xl mx-auto h-[80vh] flex flex-col">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-border flex flex-col h-full overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-border flex-shrink-0">
-                  <h2 className="text-xl font-bold text-foreground">Complete Missing Fields</h2>
-                </div>
-
-                {/* Chatbot Content */}
+            <div className="w-full max-w-3xl mx-auto">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-border p-6 animate-in fade-in-0 zoom-in-95 duration-300 min-h-[500px] max-h-[85vh] flex flex-col">
                 <ConversationalChatbotModal
                   open={chatbotModalOpen}
                   onOpenChange={setChatbotModalOpen}
                   initialData={extractedFields || {}}
                   onComplete={handleChatbotComplete}
                   inline={true}
+                  onBackToLanding={handleBackToLanding}
                 />
               </div>
             </div>
@@ -388,7 +484,7 @@ export const HomeHeroSection = () => {
         </div>
       )}
       {!isLoading && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 pb-16">
+        <div id="hero-input-section" className="absolute bottom-0 left-0 right-0 z-50 pb-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div>
               {/* Label above input */}
@@ -399,13 +495,27 @@ export const HomeHeroSection = () => {
 
                 <div className="relative bg-white dark:bg-slate-900 rounded-3xl p-1.5 border border-slate-200 dark:border-slate-800 shadow-2xl">
                   <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-inner">
+                    <div className="relative">
                     <textarea
+                        id="role-description-input"
                       value={roleDescription}
                       onChange={(e) => setRoleDescription(e.target.value)}
                       placeholder="Paste a LinkedIn JD link or describe the role (e.g., 'Senior React Dev for a Fintech startup in London')..."
                       className="w-full bg-transparent border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:outline-none focus:border-0 resize-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 min-h-[80px] font-medium"
                       style={{ outline: "none", boxShadow: "none" }}
                     />
+                      {quickScrapeLoading && (
+                        <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-blue-500">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Scraping...</span>
+                        </div>
+                      )}
+                      {quickScrapeData && !quickScrapeLoading && (
+                        <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-green-500">
+                          <span>✅ Scraped</span>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-0 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <Button
@@ -424,6 +534,611 @@ export const HomeHeroSection = () => {
           </div>
         </div>
       )}
+
+      {/* Generated Cards Debug Panel - Shows all AI-generated cards */}
+      {(jobAnalysisCards || peopleAnalysisCards || combinedAnalysisCards || derivedStrategyCards) && (
+        <div className="fixed top-20 right-4 z-[10000] max-w-md">
+          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-purple-500 overflow-hidden">
+            <button
+              onClick={() => {
+                const allOpen = jobAnalysisCardsOpen && peopleAnalysisCardsOpen && combinedAnalysisCardsOpen && derivedStrategyCardsOpen;
+                setJobAnalysisCardsOpen(!allOpen);
+                setPeopleAnalysisCardsOpen(!allOpen);
+                setCombinedAnalysisCardsOpen(!allOpen);
+                setDerivedStrategyCardsOpen(!allOpen);
+              }}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-purple-950/30"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎴</span>
+                <span className="text-sm font-semibold text-white">
+                  Generated Cards
+                </span>
+                <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
+                  {[
+                    jobAnalysisCards ? 5 : 0,
+                    peopleAnalysisCards ? 1 : 0,
+                    combinedAnalysisCards ? 4 : 0,
+                    derivedStrategyCards ? 3 : 0,
+                  ].reduce((a, b) => a + b, 0)} CARDS
+                </span>
+              </div>
+              {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) && (
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
+                {/* Group 1: Job Analysis Cards */}
+                {jobAnalysisCards && (
+                  <div className="border border-green-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setJobAnalysisCardsOpen(!jobAnalysisCardsOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-green-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🟢</span>
+                        <span className="text-xs font-semibold text-white">
+                          Job Analysis (5 cards)
+                        </span>
+                      </div>
+                      {jobAnalysisCardsOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {jobAnalysisCardsOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(jobAnalysisCards, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Group 2: People Analysis Cards */}
+                {peopleAnalysisCards && (
+                  <div className="border border-blue-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setPeopleAnalysisCardsOpen(!peopleAnalysisCardsOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-blue-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🔵</span>
+                        <span className="text-xs font-semibold text-white">
+                          People Analysis (1 card)
+                        </span>
+                      </div>
+                      {peopleAnalysisCardsOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {peopleAnalysisCardsOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(peopleAnalysisCards, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Group 3: Combined Analysis Cards */}
+                {combinedAnalysisCards && (
+                  <div className="border border-amber-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setCombinedAnalysisCardsOpen(!combinedAnalysisCardsOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-amber-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🟠</span>
+                        <span className="text-xs font-semibold text-white">
+                          Combined Analysis (4 cards)
+                        </span>
+                      </div>
+                      {combinedAnalysisCardsOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {combinedAnalysisCardsOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(combinedAnalysisCards, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Group 4: Derived Strategy Cards */}
+                {derivedStrategyCards && (
+                  <div className="border border-purple-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setDerivedStrategyCardsOpen(!derivedStrategyCardsOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-purple-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🟣</span>
+                        <span className="text-xs font-semibold text-white">
+                          Derived Strategy (3 cards)
+                        </span>
+                      </div>
+                      {derivedStrategyCardsOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {derivedStrategyCardsOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(derivedStrategyCards, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Apify Results Debug Panel - Shows similar jobs and candidates */}
+      {(similarJobs.length > 0 || candidates.length > 0) && (
+        <div className="fixed right-4 z-[10000] max-w-md" style={{ 
+          top: jobAnalysisCards ? 'calc(20px + 520px)' : '80px' 
+        }}>
+          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-cyan-500 overflow-hidden">
+            <button
+              onClick={() => setApifyResultsOpen(!apifyResultsOpen)}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-cyan-950/30"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔷</span>
+                <span className="text-sm font-semibold text-white">
+                  Apify Results
+                </span>
+                {similarJobs.length > 0 && (
+                  <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[10px] font-bold">
+                    {similarJobs.length} JOBS
+                  </span>
+                )}
+                {candidates.length > 0 && (
+                  <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[10px] font-bold">
+                    {candidates.length} CANDIDATES
+                  </span>
+                )}
+              </div>
+              {apifyResultsOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {apifyResultsOpen && (
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
+                {/* Similar Jobs Section */}
+                {similarJobs.length > 0 && (
+                  <div className="border border-cyan-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setApifyJobsOpen(!apifyJobsOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-cyan-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">💼</span>
+                        <span className="text-xs font-semibold text-white">
+                          Similar Jobs ({similarJobs.length})
+                        </span>
+                        <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[9px] font-bold">
+                          LI: {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} | IN: {similarJobs.filter(j => j.platform === "indeed").length}
+                        </span>
+                      </div>
+                      {apifyJobsOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {apifyJobsOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(similarJobs, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Candidates Section */}
+                {candidates.length > 0 && (
+                  <div className="border border-cyan-500/40 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setApifyCandidatesOpen(!apifyCandidatesOpen)}
+                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-cyan-950/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">👥</span>
+                        <span className="text-xs font-semibold text-white">
+                          Candidates ({candidates.length})
+                        </span>
+                      </div>
+                      {apifyCandidatesOpen ? (
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                      ) : (
+                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                      )}
+                    </button>
+                    {apifyCandidatesOpen && (
+                      <div className="p-3 bg-slate-900">
+                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                          {JSON.stringify(candidates, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Additional Data Sources Debug Panel - Glassdoor, Levels.fyi, Crunchbase, GitHub */}
+      {additionalDataSources && (
+        <div className="fixed left-4 z-[10000] max-w-md" style={{ 
+          top: '80px' 
+        }}>
+          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-emerald-500 overflow-hidden">
+            <button
+              onClick={() => setDataSourcesOpen(!dataSourcesOpen)}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-emerald-950/30"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📊</span>
+                <span className="text-sm font-semibold text-white">
+                  Data Sources
+                </span>
+                {additionalDataSources.glassdoorSalaries?.length > 0 && (
+                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
+                    GD
+                  </span>
+                )}
+                {additionalDataSources.levelsFyiSalaries?.length > 0 && (
+                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
+                    LVL
+                  </span>
+                )}
+                {additionalDataSources.companyData && (
+                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
+                    CB
+                  </span>
+                )}
+                {additionalDataSources.githubTalent?.length > 0 && (
+                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
+                    GH
+                  </span>
+                )}
+              </div>
+              {dataSourcesOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {dataSourcesOpen && (
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
+                {/* Glassdoor Salaries */}
+                {additionalDataSources.glassdoorSalaries?.length > 0 && (
+                  <div className="border border-emerald-500/40 rounded-lg overflow-hidden">
+                    <div className="p-2 bg-emerald-950/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">💰</span>
+                        <span className="text-xs font-semibold text-white">
+                          Glassdoor Salaries ({additionalDataSources.glassdoorSalaries.length})
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900">
+                      {additionalDataSources.glassdoorSalaries.map((salary: any, idx: number) => (
+                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
+                          <div className="text-emerald-400 font-semibold">{salary.jobTitle}</div>
+                          <div>Range: ${salary.baseSalary?.min?.toLocaleString()} - ${salary.baseSalary?.max?.toLocaleString()}</div>
+                          <div>Median: ${salary.baseSalary?.median?.toLocaleString()}</div>
+                          <div className="text-slate-500">Source: {salary.source}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Levels.fyi Salaries */}
+                {additionalDataSources.levelsFyiSalaries?.length > 0 && (
+                  <div className="border border-blue-500/40 rounded-lg overflow-hidden">
+                    <div className="p-2 bg-blue-950/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">📈</span>
+                        <span className="text-xs font-semibold text-white">
+                          Levels.fyi ({additionalDataSources.levelsFyiSalaries.length} companies)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900">
+                      {additionalDataSources.levelsFyiSalaries.map((salary: any, idx: number) => (
+                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
+                          <div className="text-blue-400 font-semibold">{salary.company}</div>
+                          <div>Total Comp: ${salary.totalCompensation?.toLocaleString()}</div>
+                          <div>Base: ${salary.baseSalary?.toLocaleString()} | Stock: ${salary.stockGrant?.toLocaleString()}</div>
+                          <div className="text-slate-500">Source: {salary.source}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Crunchbase Company Data */}
+                {additionalDataSources.companyData && (
+                  <div className="border border-purple-500/40 rounded-lg overflow-hidden">
+                    <div className="p-2 bg-purple-950/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🏢</span>
+                        <span className="text-xs font-semibold text-white">
+                          Crunchbase: {additionalDataSources.companyData.name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900 text-[10px] text-slate-300">
+                      <div>Employees: {additionalDataSources.companyData.employeeCount}</div>
+                      <div>Funding: ${(additionalDataSources.companyData.funding?.totalRaised / 1000000).toFixed(1)}M</div>
+                      <div>Last Round: {additionalDataSources.companyData.funding?.lastRound}</div>
+                      <div>Industry: {additionalDataSources.companyData.industry?.join(", ")}</div>
+                      <div className="text-slate-500">Source: {additionalDataSources.companyData.source}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* GitHub Talent */}
+                {additionalDataSources.githubTalent?.length > 0 && (
+                  <div className="border border-orange-500/40 rounded-lg overflow-hidden">
+                    <div className="p-2 bg-orange-950/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">👨‍💻</span>
+                        <span className="text-xs font-semibold text-white">
+                          GitHub Talent ({additionalDataSources.githubTalent.length})
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900">
+                      {additionalDataSources.githubTalent.slice(0, 5).map((dev: any, idx: number) => (
+                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
+                          <div className="text-orange-400 font-semibold">{dev.name} (@{dev.username})</div>
+                          <div>Followers: {dev.followers} | Repos: {dev.publicRepos}</div>
+                          <div className="text-slate-500">{dev.location || "Location unknown"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Industry Benchmarks */}
+                {additionalDataSources.benchmarks && (
+                  <div className="border border-amber-500/40 rounded-lg overflow-hidden">
+                    <div className="p-2 bg-amber-950/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">📉</span>
+                        <span className="text-xs font-semibold text-white">
+                          Industry Benchmarks
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-900 text-[10px] text-slate-300">
+                      <div>Applicants/Hire: {additionalDataSources.benchmarks.funnelMetrics?.applicantsPerHire}</div>
+                      <div>Phone Screen Pass: {(additionalDataSources.benchmarks.funnelMetrics?.phoneScreenPassRate * 100).toFixed(0)}%</div>
+                      <div>Onsite Pass: {(additionalDataSources.benchmarks.funnelMetrics?.onsitePassRate * 100).toFixed(0)}%</div>
+                      <div>Time to Hire: {additionalDataSources.benchmarks.funnelMetrics?.averageTimeToHire} days</div>
+                      <div className="text-slate-500">Source: {additionalDataSources.benchmarks.source}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Scrape Debug Panel - Shows 10 extracted fields */}
+      <div className="fixed top-20 left-4 z-[10000] max-w-md" style={{ marginTop: additionalDataSources ? '60px' : '0' }}>
+          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-blue-500 overflow-hidden">
+            <button
+              onClick={() => setQuickScrapeDebugOpen(!quickScrapeDebugOpen)}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-blue-950/30"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔵</span>
+                <span className="text-sm font-semibold text-white">
+                  Quick Scrape: 10 Fields
+                </span>
+                {quickScrapeData?.hasMissingFields && (
+                  <span className="px-2 py-0.5 bg-amber-600/20 border border-amber-500/40 rounded text-amber-300 text-[10px] font-bold">
+                    {quickScrapeData.missingFields?.length || 0} MISSING
+                  </span>
+                )}
+                {quickScrapeLoading && (
+                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
+                    SCRAPING...
+                  </span>
+                )}
+                {quickScrapeError && (
+                  <span className="px-2 py-0.5 bg-red-600/20 border border-red-500/40 rounded text-red-300 text-[10px] font-bold">
+                    ERROR
+                  </span>
+                )}
+              </div>
+              {quickScrapeDebugOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
+            {quickScrapeDebugOpen && (
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
+                <div className="space-y-3 text-xs font-mono">
+                  {/* Show error if scraping failed */}
+                  {quickScrapeError && (
+                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded">
+                      <div className="text-red-400 font-semibold mb-1">❌ Scraping Error:</div>
+                      <div className="text-red-300 text-xs">{quickScrapeError}</div>
+                    </div>
+                  )}
+
+                  {/* Show loading state */}
+                  {quickScrapeLoading && !quickScrapeData && (
+                    <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded text-center">
+                      <div className="text-blue-400 font-semibold">🔄 Scraping in progress...</div>
+                    </div>
+                  )}
+
+                  {/* 10 Required Fields - Only show if we have data */}
+                  {quickScrapeData ? (
+                    <>
+                      <div className="pb-2 border-b border-slate-700">
+                        <div className="text-blue-400 font-semibold mb-2">10 Required Fields:</div>
+                      </div>
+
+                      {/* Role Title */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">1. Role Title:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.roleTitle ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.roleTitle || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Department */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">2. Department:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.department ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.department || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Experience Level */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">3. Experience Level:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.experienceLevel ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.experienceLevel || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Location */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">4. Location:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.location ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.location || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Work Model */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">5. Work Model:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.workModel ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.workModel || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Critical Skills */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">6. Critical Skills:</div>
+                        {quickScrapeData.extractedFields?.criticalSkills && Array.isArray(quickScrapeData.extractedFields.criticalSkills) && quickScrapeData.extractedFields.criticalSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {quickScrapeData.extractedFields.criticalSkills.map((skill: string, idx: number) => (
+                              <span key={idx} className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px]">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-red-400">❌ Missing</div>
+                        )}
+                      </div>
+
+                      {/* Salary Range */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">7. Salary Range:</div>
+                        {quickScrapeData.extractedFields?.minSalary && quickScrapeData.extractedFields?.maxSalary ? (
+                          <div className="text-slate-300">
+                            ${parseInt(quickScrapeData.extractedFields.minSalary).toLocaleString()} - ${parseInt(quickScrapeData.extractedFields.maxSalary).toLocaleString()}
+                          </div>
+                        ) : (
+                          <div className="text-red-400">❌ Missing</div>
+                        )}
+                      </div>
+
+                      {/* Non-Negotiables */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">8. Non-Negotiables:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.nonNegotiables ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.nonNegotiables || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Flexible Requirements */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">9. Flexible Requirements:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.flexible ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.flexible || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Timeline */}
+                      <div>
+                        <div className="text-green-400 font-semibold mb-1">10. Timeline:</div>
+                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.timeline ? '' : 'text-red-400'}`}>
+                          {quickScrapeData.extractedFields?.timeline || "❌ Missing"}
+                        </div>
+                      </div>
+
+                      {/* Missing Fields Summary */}
+                      {quickScrapeData.missingFields && quickScrapeData.missingFields.length > 0 && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <div className="text-amber-400 font-semibold mb-2">
+                            Missing Fields ({quickScrapeData.missingFields.length}):
+                          </div>
+                          <ul className="list-disc list-inside text-amber-300 space-y-1">
+                            {quickScrapeData.missingFields.map((field: string, idx: number) => (
+                              <li key={idx}>{field}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Show message if no data yet */
+                    !quickScrapeLoading && !quickScrapeError && (
+                      <div className="text-slate-400 text-center py-4">
+                        <div className="mb-2">📋 Paste a job URL in the input field</div>
+                        <div className="text-[10px] text-slate-500">
+                          The panel will automatically scrape and show the 10 required fields
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       {/* Debug Panels - Collapsible and Absolutely Positioned */}
       {scrapedData && (

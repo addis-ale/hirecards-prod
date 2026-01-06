@@ -21,297 +21,86 @@ interface ScrapedJobData {
   source: string;
 }
 
-/**
- * Scrape a job description from a URL using Puppeteer
- * Works for both static HTML and JavaScript-rendered pages
- */
-
-interface ScrapedJobData {
-  title: string;
-  description: string;
-  location?: string;
-  company?: string;
-  salary?: string;
-  requirements?: string[];
-  responsibilities?: string[];
-  benefits?: string[];
-  rawText: string;
-  source: string;
-}
-
 const SCRAPINGBEE_API_KEY = process.env.SCRAPINGBEE_API_KEY;
 
 /**
  * Scrape a job description from a URL using ScrapingBee
  */
 export async function scrapeJobURL(url: string): Promise<ScrapedJobData> {
-  // Helper: fetch HTML via ScrapingBee with retry logic
-  const fetchViaBee = async (retryCount = 0): Promise<string> => {
+  try {
+    console.log("🚀 ScrapingBee scrape:", url);
+
     if (!SCRAPINGBEE_API_KEY) {
       throw new Error("SCRAPINGBEE_API_KEY not configured");
     }
 
-    const maxRetries = 2;
-    const waitTimes = ["10000", "15000"]; // Progressive wait times
-
-    try {
-      console.log(`🐝 Calling ScrapingBee with render_js... (attempt ${retryCount + 1}/${maxRetries + 1})`);
-
-      const response = await axios.get("https://app.scrapingbee.com/api/v1", {
-        params: {
-          api_key: SCRAPINGBEE_API_KEY,
-          url: url,
-          render_js: "true",
-          premium_proxy: "true",
-          wait: waitTimes[retryCount] || "10000", // Progressive wait times
-          wait_for: "body,main,article,[class*='job'],[class*='description'],[id*='job']", // Wait for content elements
-          block_ads: "true",
-          block_resources: "image,media,font", // Block unnecessary resources for faster loading
-          country_code: "us", // Use US proxy for better compatibility
-        },
-        timeout: 60000, // Increased timeout to 60 seconds
-        maxRedirects: 5,
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`ScrapingBee returned status ${response.status}`);
-      }
-
-      const html = response.data as string;
-      
-      // Validate that we got actual content
-      if (!html || html.length < 500) {
-        throw new Error("ScrapingBee returned insufficient content");
-      }
-
-      // Check if we got a JS shell
-      if (isJavaScriptShell(html) && retryCount < maxRetries) {
-        console.warn(`⚠️ ScrapingBee returned JS shell, retrying with longer wait time...`);
-        return fetchViaBee(retryCount + 1);
-      }
-
-      console.log(`✅ ScrapingBee successful (${html.length} bytes)`);
-      return html;
-    } catch (error: any) {
-      if (retryCount < maxRetries) {
-        console.warn(`⚠️ ScrapingBee attempt ${retryCount + 1} failed, retrying...`, error.message);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
-        return fetchViaBee(retryCount + 1);
-      }
-      throw error;
-    }
-  };
-
-  // Helper: fetch HTML directly (best-effort)
-  const fetchDirect = async () => {
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
+    const response = await axios.get("https://app.scrapingbee.com/api/v1/", {
+      params: {
+        api_key: SCRAPINGBEE_API_KEY,
+        url,
+        // Important: enable JS rendering
+        render_js: "true",
+        premium_proxy: "true",
+        wait: "5000", // wait extra for React pages
       },
-      timeout: 20000,
-      maxRedirects: 5,
-      validateStatus: (s: any) => s >= 200 && s < 400,
     });
-    return response.data as string;
-  };
 
-  // Puppeteer removed - not compatible with serverless deployments
-  // ScrapingBee handles JavaScript rendering
-
-  // Helper: detect if HTML is a React/JS shell that needs rendering
-  const isJavaScriptShell = (html: string): boolean => {
-    const lowerHtml = html.toLowerCase();
-    return (
-      lowerHtml.includes("you need to enable javascript") ||
-      lowerHtml.includes("enable javascript to run this app") ||
-      (lowerHtml.includes('<div id="root"></div>') && html.length < 5000) ||
-      (lowerHtml.includes('<div id="app"></div>') && html.length < 5000)
-    );
-  };
-
-  try {
-    console.log("🚀 scrapeJobURL:", url);
-
-    let html: string | null = null;
-    let usedPuppeteer = false;
-
-    // Strategy 1: Try ScrapingBee if configured
-    if (SCRAPINGBEE_API_KEY) {
-      try {
-        html = await fetchViaBee();
-
-        // Check if we got a JS shell (after all retries)
-        if (isJavaScriptShell(html)) {
-          console.warn(
-            "⚠️ ScrapingBee returned JS shell after retries, page may need more rendering time"
-          );
-          // Still use it - might have some content
-        }
-      } catch (err: any) {
-        const status = err?.response?.status;
-        const message = err?.response?.data?.message || err?.message || "";
-
-        // Check if it's a credits/limit issue (don't retry these)
-        if (
-          status === 401 ||
-          message.includes("limit reached") ||
-          message.includes("credit") ||
-          message.includes("quota")
-        ) {
-          console.error(`❌ ScrapingBee: Out of credits or limit reached`);
-          console.error(`   Message: ${message}`);
-          console.warn(
-            `⚠️ Falling back to direct fetch (may not work for JS-heavy sites)`
-          );
-          // Fall through to direct fetch
-        } else {
-          console.error(
-            `❌ ScrapingBee failed after retries${
-              status ? ` (status ${status})` : ""
-            }: ${message}`
-          );
-          // Don't throw - fall through to direct fetch as backup
-          console.warn(`⚠️ Falling back to direct fetch...`);
-        }
-      }
-    }
-
-    // Strategy 2: Try direct fetch if ScrapingBee didn't work
-    if (!html) {
-      try {
-        console.log("🔄 Trying direct fetch...");
-        html = await fetchDirect();
-        console.log("✅ Direct fetch successful");
-      } catch (err) {
-        console.error("❌ All scraping methods failed");
-        throw new Error(
-          "Unable to fetch page content. Please ensure SCRAPINGBEE_API_KEY is configured."
-        );
-      }
-    }
-
-    if (!html || typeof html !== "string" || html.length < 100) {
-      throw new Error("Empty or invalid HTML fetched");
-    }
-
+    const html = response.data;
     const $ = cheerio.load(html);
+
     const hostname = new URL(url).hostname.toLowerCase();
 
     let scrapedData: ScrapedJobData;
-    try {
-      if (hostname.includes("linkedin.com")) {
-        scrapedData = scrapeLinkedIn($, url);
-      } else if (hostname.includes("indeed.com")) {
-        scrapedData = scrapeIndeed($, url);
-      } else if (hostname.includes("greenhouse.io")) {
-        scrapedData = scrapeGreenhouse($, url);
-      } else if (hostname.includes("lever.co")) {
-        scrapedData = scrapeLever($, url);
-      } else if (hostname.includes("workday.com")) {
-        scrapedData = scrapeWorkday($, url);
-      } else if (hostname.includes("myworkdayjobs.com")) {
-        scrapedData = scrapeWorkday($, url);
-      } else if (hostname.includes("ashbyhq.com")) {
-        scrapedData = scrapeAshby($, url);
-      } else {
-        scrapedData = scrapeGenericJobBoard($, url);
-      }
 
-      // Validate that we got at least a title and description
-      if (!scrapedData.title || scrapedData.title.length < 3) {
-        console.warn("⚠️ Title extraction may have failed, trying fallback...");
-        scrapedData.title = scrapedData.title || $("title").text().split("|")[0].split("-")[0].trim() || "Job Position";
-      }
-
-      if (!scrapedData.description || scrapedData.description.length < 50) {
-        console.warn("⚠️ Description extraction may have failed, using raw text...");
-        scrapedData.description = scrapedData.description || scrapedData.rawText || "";
-      }
-
-      console.log("✅ Scraped data:", {
-        title: scrapedData.title?.substring(0, 50),
-        company: scrapedData.company?.substring(0, 30),
-        location: scrapedData.location?.substring(0, 30),
-        descriptionLength: scrapedData.description?.length || 0,
-        hasSalary: !!scrapedData.salary,
-      });
-
-      return scrapedData;
-    } catch (parseError: any) {
-      console.error("❌ Error parsing scraped HTML:", parseError);
-      // Return minimal data structure
-      return {
-        title: $("title").text().split("|")[0].split("-")[0].trim() || "Job Position",
-        description: $("body").text().replace(/\s+/g, " ").trim().substring(0, 5000),
-        rawText: $("body").text().replace(/\s+/g, " ").trim(),
-        source: hostname,
-      };
+    if (hostname.includes("linkedin.com")) {
+      scrapedData = scrapeLinkedIn($, url);
+    } else if (hostname.includes("indeed.com")) {
+      scrapedData = scrapeIndeed($, url);
+    } else if (hostname.includes("greenhouse.io")) {
+      scrapedData = scrapeGreenhouse($, url);
+    } else if (hostname.includes("lever.co")) {
+      scrapedData = scrapeLever($, url);
+    } else if (hostname.includes("workday.com")) {
+      scrapedData = scrapeWorkday($, url);
+    } else if (hostname.includes("myworkdayjobs.com")) {
+      scrapedData = scrapeWorkday($, url);
+    } else if (hostname.includes("ashbyhq.com")) {
+      scrapedData = scrapeAshby($, url);
+    } else {
+      scrapedData = scrapeGenericJobBoard($, url);
     }
-  } catch (error) {
-    console.error("❌ scrapeJobURL error:", error);
-    throw new Error("Failed to scrape job URL");
+
+    console.log("✅ ScrapingBee success");
+    return scrapedData;
+  } catch (error: any) {
+    console.error("❌ ScrapingBee error:", error?.message || error);
+    throw new Error("Failed to scrape job URL using ScrapingBee");
   }
 }
-
-// Puppeteer helper removed - using ScrapingBee for all rendering
 
 /**
  * Scrape LinkedIn job postings
  */
 function scrapeLinkedIn($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  // Try multiple selectors for title
-  let title = $("h1.top-card-layout__title, h1.topcard__title, h1.job-details-jobs-unified-top-card__job-title, h1[data-test-id='job-title']")
+  const title = $("h1.top-card-layout__title, h1.topcard__title")
     .first()
     .text()
     .trim();
-  if (!title) {
-    title = $("h1").first().text().trim();
-  }
-  if (!title) {
-    title = $('meta[property="og:title"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for company
-  let company = $("a.topcard__org-name-link, .topcard__flavor--black-link, a.job-details-jobs-unified-top-card__company-name, [data-test-id='company-name']")
+  const company = $("a.topcard__org-name-link, .topcard__flavor--black-link")
     .first()
     .text()
     .trim();
-  if (!company) {
-    company = $('meta[property="og:description"]').attr("content")?.split("·")[0]?.trim() || "";
-  }
-
-  // Try multiple selectors for location
-  let location = $("span.topcard__flavor--bullet, .topcard__flavor, .job-details-jobs-unified-top-card__primary-description, [data-test-id='job-location']")
+  const location = $("span.topcard__flavor--bullet, .topcard__flavor")
     .first()
     .text()
     .trim();
-  if (!location) {
-    location = $('meta[property="og:description"]').attr("content")?.split("·")[1]?.trim() || "";
-  }
 
-  // Try multiple selectors for description
-  let description = $(".description__text, .show-more-less-html__markup, .jobs-description-content__text, [data-test-id='job-description']")
+  const description = $(".description__text, .show-more-less-html__markup")
     .text()
     .trim();
-  if (!description || description.length < 100) {
-    description = $("main, article, [class*='description'], [class*='content']")
-      .first()
-      .text()
-      .trim();
-  }
 
-  // Extract salary if available - try multiple selectors
-  let salary = $(".salary, .compensation, [class*='salary'], [data-test-id='salary']").text().trim();
-  if (!salary) {
-    // Try to find salary in description or metadata
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
+  // Extract salary if available
+  const salary = $(".salary, .compensation").text().trim();
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -333,54 +122,27 @@ function scrapeLinkedIn($: cheerio.CheerioAPI, url: string): ScrapedJobData {
  * Scrape Indeed job postings
  */
 function scrapeIndeed($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  // Try multiple selectors for title
-  let title = $("h1.jobsearch-JobInfoHeader-title, h1[data-testid='job-title'], h1").first().text().trim();
-  if (!title) {
-    title = $('meta[property="og:title"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for company
-  let company = $(
-    ".jobsearch-InlineCompanyRating-companyHeader, .jobsearch-CompanyInfoContainer, [data-testid='company-name'], a[data-testid='inlineHeader-companyName']"
+  const title = $("h1.jobsearch-JobInfoHeader-title, h1").first().text().trim();
+  const company = $(
+    ".jobsearch-InlineCompanyRating-companyHeader, .jobsearch-CompanyInfoContainer"
   )
     .first()
     .text()
     .trim();
-  if (!company) {
-    company = $('meta[property="og:description"]').attr("content")?.split("·")[0]?.trim() || "";
-  }
-
-  // Try multiple selectors for location
-  let location = $(
-    ".jobsearch-JobInfoHeader-subtitle div, .jobsearch-JobComponent-location, [data-testid='job-location']"
+  const location = $(
+    ".jobsearch-JobInfoHeader-subtitle div, .jobsearch-JobComponent-location"
   )
     .first()
     .text()
     .trim();
-  if (!location) {
-    location = $('meta[property="og:description"]').attr("content")?.split("·")[1]?.trim() || "";
-  }
 
-  // Try multiple selectors for description
-  let description = $("#jobDescriptionText, .jobsearch-jobDescriptionText, [data-testid='job-description']")
+  const description = $("#jobDescriptionText, .jobsearch-jobDescriptionText")
     .text()
     .trim();
-  if (!description || description.length < 100) {
-    description = $("main, article, [id*='description'], [class*='description']")
-      .first()
-      .text()
-      .trim();
-  }
 
-  // Try multiple selectors for salary
-  let salary = $(".jobsearch-JobMetadataHeader-item, .salary-snippet, [data-testid='job-salary']").text().trim();
-  if (!salary) {
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
+  const salary = $(".jobsearch-JobMetadataHeader-item, .salary-snippet")
+    .text()
+    .trim();
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -402,39 +164,11 @@ function scrapeIndeed($: cheerio.CheerioAPI, url: string): ScrapedJobData {
  * Scrape Greenhouse job postings
  */
 function scrapeGreenhouse($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  // Try multiple selectors for title
-  let title = $("#header .app-title, h1.app-title, h1, [class*='title']").first().text().trim();
-  if (!title) {
-    title = $('meta[property="og:title"]').attr("content") || "";
-  }
+  const title = $("#header .app-title, h1.app-title").first().text().trim();
+  const company = $(".company-name").first().text().trim();
+  const location = $(".location").first().text().trim();
 
-  // Try multiple selectors for company
-  let company = $(".company-name, [class*='company'], [data-company]").first().text().trim();
-  if (!company) {
-    company = $('meta[property="og:site_name"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for location
-  let location = $(".location, [class*='location'], [data-location]").first().text().trim();
-  if (!location) {
-    location = $('meta[property="og:description"]').attr("content")?.split("·")[1]?.trim() || "";
-  }
-
-  // Try multiple selectors for description
-  let description = $("#content, .content, [class*='description'], [id*='content']").text().trim();
-  if (!description || description.length < 100) {
-    description = $("main, article").first().text().trim();
-  }
-
-  // Extract salary if available
-  let salary = $('[class*="salary"], [class*="compensation"]').text().trim();
-  if (!salary) {
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
+  const description = $("#content, .content").text().trim();
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -455,45 +189,17 @@ function scrapeGreenhouse($: cheerio.CheerioAPI, url: string): ScrapedJobData {
  * Scrape Lever job postings
  */
 function scrapeLever($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  // Try multiple selectors for title
-  let title = $(".posting-headline h2, h2, h1, [class*='title']").first().text().trim();
-  if (!title) {
-    title = $('meta[property="og:title"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for company
-  let company = $(".main-header-text-item-company, .company-name, [class*='company']")
+  const title = $(".posting-headline h2, h2").first().text().trim();
+  const company = $(".main-header-text-item-company, .company-name")
     .first()
     .text()
     .trim();
-  if (!company) {
-    company = $('meta[property="og:site_name"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for location
-  let location = $(".posting-categories .location, .workplaceTypes, [class*='location']")
+  const location = $(".posting-categories .location, .workplaceTypes")
     .first()
     .text()
     .trim();
-  if (!location) {
-    location = $('meta[property="og:description"]').attr("content")?.split("·")[1]?.trim() || "";
-  }
 
-  // Try multiple selectors for description
-  let description = $(".section-wrapper, .posting-description, [class*='description'], [class*='content']").text().trim();
-  if (!description || description.length < 100) {
-    description = $("main, article").first().text().trim();
-  }
-
-  // Extract salary if available
-  let salary = $('[class*="salary"], [class*="compensation"]').text().trim();
-  if (!salary) {
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
+  const description = $(".section-wrapper, .posting-description").text().trim();
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -514,52 +220,20 @@ function scrapeLever($: cheerio.CheerioAPI, url: string): ScrapedJobData {
  * Scrape Workday job postings
  */
 function scrapeWorkday($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  // Try multiple selectors for title
-  let title = $('h1[data-automation-id="jobPostingHeader"], h1, [class*="title"]')
+  const title = $('h1[data-automation-id="jobPostingHeader"], h1')
     .first()
     .text()
     .trim();
-  if (!title) {
-    title = $('meta[property="og:title"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for location
-  let location = $('[data-automation-id="locations"], .jobLocation, [class*="location"]')
+  const location = $('[data-automation-id="locations"], .jobLocation')
     .first()
     .text()
     .trim();
-  if (!location) {
-    location = $('meta[property="og:description"]').attr("content")?.split("·")[1]?.trim() || "";
-  }
 
-  // Try to find company
-  let company = $('[data-automation-id="companyName"], [class*="company"]')
-    .first()
-    .text()
-    .trim();
-  if (!company) {
-    company = $('meta[property="og:site_name"]').attr("content") || "";
-  }
-
-  // Try multiple selectors for description
-  let description = $(
-    '[data-automation-id="jobPostingDescription"], .jobDescription, [class*="description"], [id*="description"]'
+  const description = $(
+    '[data-automation-id="jobPostingDescription"], .jobDescription'
   )
     .text()
     .trim();
-  if (!description || description.length < 100) {
-    description = $("main, article").first().text().trim();
-  }
-
-  // Extract salary if available
-  let salary = $('[data-automation-id="compensation"], [class*="salary"]').text().trim();
-  if (!salary) {
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -586,7 +260,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
   let title = "";
 
   // Look through all headings and get the first substantial one
-  $("h1, h2, h3").each((_: any, elem: any) => {
+  $("h1, h2, h3").each((_, elem) => {
     const text = $(elem).text().trim();
     if (text && text.length > 5 && text.length < 100 && !title) {
       title = text;
@@ -611,8 +285,8 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
   // Look for patterns like "Location\nSydney Office" or "Department\nCommercial"
   const lines = rawText
     .split("\n")
-    .map((l: any) => l.trim())
-    .filter((l: any) => l);
+    .map((l) => l.trim())
+    .filter((l) => l);
 
   for (let i = 0; i < lines.length - 1; i++) {
     const current = lines[i];
@@ -626,9 +300,11 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
       /^Office Location$/i,
       /^Job Location$/i,
     ];
-    
-    const isLocationLabel = locationPatterns.some(pattern => pattern.test(current));
-    
+
+    const isLocationLabel = locationPatterns.some((pattern) =>
+      pattern.test(current)
+    );
+
     if (isLocationLabel && !location) {
       console.log(`🔍 Found Location field, next line: "${next}"`);
       // Handle multiple locations (could be comma-separated on one line or multiple lines)
@@ -693,7 +369,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
 
     if (!salary) {
       const compLabel = $("*")
-        .filter((_: any, el: any) => $(el).text().trim() === "Compensation")
+        .filter((_, el) => $(el).text().trim() === "Compensation")
         .first();
 
       if (compLabel.length) {
@@ -747,7 +423,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
       "On-site",
     ];
     if (!company) {
-      $("*").each((_: any, elem: any) => {
+      $("*").each((_, elem) => {
         const text = $(elem).text().trim();
         if (
           text.match(/^[A-Z][a-zA-Z\s]+$/) &&
@@ -769,28 +445,28 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
   // If location still not found, try to extract from meta tags or structured data
   if (!location) {
     console.log("🔍 Trying alternative location extraction methods...");
-    
-    // Get HTML from Cheerio
-    const pageHtml = $.html();
-    
+
     // Try Open Graph tags
-    const ogLocationMeta = $('meta[property="og:location"]').attr('content');
+    const ogLocationMeta = $('meta[property="og:location"]').attr("content");
     if (ogLocationMeta) {
       location = ogLocationMeta;
       console.log(`✅ Location extracted from Open Graph: "${location}"`);
     }
-    
+
     // Try JSON-LD structured data
     if (!location) {
       $('script[type="application/ld+json"]').each((_, elem) => {
         if (location) return; // Already found
         try {
           const jsonData = JSON.parse($(elem).html() || "{}");
-          if (jsonData.jobLocation?.address?.addressCountry || jsonData.jobLocation?.address?.addressLocality) {
+          if (
+            jsonData.jobLocation?.address?.addressCountry ||
+            jsonData.jobLocation?.address?.addressLocality
+          ) {
             const parts = [
               jsonData.jobLocation?.address?.addressLocality,
               jsonData.jobLocation?.address?.addressRegion,
-              jsonData.jobLocation?.address?.addressCountry
+              jsonData.jobLocation?.address?.addressCountry,
             ].filter(Boolean);
             location = parts.join(", ");
             console.log(`✅ Location extracted from JSON-LD: "${location}"`);
@@ -800,10 +476,26 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
         }
       });
     }
-    
+
     // Try searching for country names in raw text
     if (!location) {
-      const countries = ["Sweden", "United States", "United Kingdom", "Canada", "Germany", "France", "Spain", "Italy", "Netherlands", "Australia", "India", "Singapore", "Japan", "Brazil", "Mexico"];
+      const countries = [
+        "Sweden",
+        "United States",
+        "United Kingdom",
+        "Canada",
+        "Germany",
+        "France",
+        "Spain",
+        "Italy",
+        "Netherlands",
+        "Australia",
+        "India",
+        "Singapore",
+        "Japan",
+        "Brazil",
+        "Mexico",
+      ];
       for (const country of countries) {
         if (rawText.includes(country)) {
           location = country;
@@ -813,7 +505,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
       }
     }
   }
-  
+
   console.log("🔍 Ashby scrape result:", {
     title: title.substring(0, 50),
     company,
@@ -823,9 +515,11 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
     salary: salary.substring(0, 50),
     textLength: description.length,
   });
-  
+
   if (!location) {
-    console.warn("⚠️ Location NOT extracted from Ashby page! Check if page structure changed or use AI extraction.");
+    console.warn(
+      "⚠️ Location NOT extracted from Ashby page! Check if page structure changed or use AI extraction."
+    );
   }
 
   return {
@@ -849,71 +543,36 @@ function scrapeGenericJobBoard(
   $: cheerio.CheerioAPI,
   url: string
 ): ScrapedJobData {
-  // Try to find title using common patterns - check meta tags first
-  let title = $('meta[property="og:title"]').attr("content") || "";
-  if (!title) {
-    title = $('meta[name="title"]').attr("content") || "";
-  }
-  if (!title) {
-    title = $(
-      'h1, [class*="title" i], [class*="job" i] h1, [class*="position" i], [data-testid*="title" i]'
-    )
-      .first()
-      .text()
-      .trim();
-  }
-  if (!title) {
-    title = $("title").text().split("|")[0].split("-")[0].trim();
-  }
+  // Try to find title using common patterns
+  const title = $(
+    'h1, [class*="title" i], [class*="job" i] h1, [class*="position" i]'
+  )
+    .first()
+    .text()
+    .trim();
 
-  // Try to find location - check meta tags first
-  let location = $('meta[property="og:description"]').attr("content")?.match(/[A-Z][a-z]+(?:,\s*[A-Z][a-z]+)*/)?.[0] || "";
-  if (!location) {
-    location = $('[class*="location" i], [data-location], .location, [data-testid*="location" i]')
-      .first()
-      .text()
-      .trim();
-  }
+  // Try to find location
+  const location = $('[class*="location" i], [data-location], .location')
+    .first()
+    .text()
+    .trim();
 
-  // Try to find company - check meta tags first
-  let company = $('meta[property="og:site_name"]').attr("content") || "";
-  if (!company) {
-    company = $('meta[property="article:author"]').attr("content") || "";
-  }
-  if (!company) {
-    company = $('[class*="company" i], .company-name, [data-testid*="company" i]')
-      .first()
-      .text()
-      .trim();
-  }
+  // Try to find company
+  const company = $('[class*="company" i], .company-name')
+    .first()
+    .text()
+    .trim();
 
   // Try to find description - look for the largest text block
   let description = "";
-  $('[class*="description" i], [class*="content" i], main, article, [id*="description" i]').each(
-    (_: any, elem: any) => {
+  $('[class*="description" i], [class*="content" i], main, article').each(
+    (_, elem) => {
       const text = $(elem).text().trim();
-      if (text.length > description.length && text.length > 200) {
+      if (text.length > description.length) {
         description = text;
       }
     }
   );
-  
-  // If still no description, try meta description
-  if (!description || description.length < 100) {
-    description = $('meta[property="og:description"]').attr("content") || "";
-  }
-
-  // Try to extract salary
-  let salary = $('[class*="salary" i], [class*="compensation" i], [data-testid*="salary" i]').text().trim();
-  if (!salary) {
-    const bodyText = $("body").text();
-    const salaryMatch = bodyText.match(/\$[\d,.]+(?:K|M)?\s*[\–-]\s*\$[\d,.]+(?:K|M)?/i) ||
-                        bodyText.match(/£[\d,.]+(?:k|m)?\s*[\–-]\s*£[\d,.]+(?:k|m)?/i) ||
-                        bodyText.match(/€[\d,.]+(?:k|m)?\s*[\–-]\s*€[\d,.]+(?:k|m)?/i);
-    if (salaryMatch) {
-      salary = salaryMatch[0];
-    }
-  }
 
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
 
@@ -944,7 +603,7 @@ function extractListItems(
   const sectionRegex = new RegExp(section, "i");
 
   // Find elements that might contain the section
-  $("h2, h3, h4, h5, strong, b").each((_: any, elem: any) => {
+  $("h2, h3, h4, h5, strong, b").each((_, elem) => {
     const text = $(elem).text().trim();
     if (sectionRegex.test(text)) {
       // Get the next sibling elements (ul, ol, or p tags)
@@ -953,7 +612,7 @@ function extractListItems(
 
       while (next.length && count < 5) {
         if (next.is("ul, ol")) {
-          next.find("li").each((_: any, li: any) => {
+          next.find("li").each((_, li) => {
             const item = $(li).text().trim();
             if (item) items.push(item);
           });
