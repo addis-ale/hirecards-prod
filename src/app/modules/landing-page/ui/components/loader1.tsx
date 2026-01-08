@@ -4,11 +4,26 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export default function Loader1() {
+interface Loader1Props {
+  onComplete?: () => void;
+  isComplete?: boolean;
+}
+
+export default function Loader1({ onComplete, isComplete = false }: Loader1Props) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const totalDuration = 45000; // 45 seconds total
+    // If marked as complete, immediately finish the loader
+    if (isComplete) {
+      setProgress(100);
+      // Small delay to show completion animation, then call onComplete
+      setTimeout(() => {
+        onComplete?.();
+      }, 300);
+      return;
+    }
+
+    const totalDuration = 45000; // 45 seconds total (max duration)
     const startTime = Date.now();
     let rafId: number;
 
@@ -35,7 +50,7 @@ export default function Loader1() {
 
     rafId = requestAnimationFrame(updateProgress);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [isComplete, onComplete]);
 
   return <DynamicLoader progress={progress} />;
 }

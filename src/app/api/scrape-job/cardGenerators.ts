@@ -14,6 +14,26 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+/**
+ * Ensure company name is the actual hiring company, not the job board/platform
+ */
+function ensureHiringCompany(company: string | undefined, source: string | undefined): string {
+  if (!company) return "Unknown";
+  
+  const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic", "ScrapingBee"];
+  const isJobBoard = jobBoardNames.some(board => 
+    company.toLowerCase().includes(board.toLowerCase()) || 
+    company.toLowerCase() === board.toLowerCase()
+  );
+  
+  if (isJobBoard) {
+    console.warn(`⚠️ Company name "${company}" appears to be a job board. Using "Unknown" instead.`);
+    return "Unknown";
+  }
+  
+  return company;
+}
+
 // Data sources mapping for each card type
 const CARD_DATA_SOURCES: Record<string, string> = {
   roleCard: "Manual intake from HM; internal job descriptions (if they have it)",
@@ -46,13 +66,16 @@ export async function generateRoleCard(jobData: any): Promise<any> {
 
   try {
     console.log("🤖 Generating Role Card with AI...");
+    
+    // Ensure we use the actual hiring company, not the job board
+    const company = ensureHiringCompany(jobData.company, jobData.source);
 
     const prompt = `Analyze this job posting and create a Role Card with the following structure.
 
 Job Data:
 Title: ${jobData.title || "Not provided"}
 Description: ${jobData.description || "Not provided"}
-Company: ${jobData.company || "Not provided"}
+Company: ${ensureHiringCompany(jobData.company, jobData.source) || "Not provided"}
 Responsibilities: ${jobData.responsibilities || "Not provided"}
 
 Return ONLY valid JSON with this exact structure:

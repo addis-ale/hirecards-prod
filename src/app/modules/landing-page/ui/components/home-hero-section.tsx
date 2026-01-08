@@ -101,6 +101,7 @@ export const HomeHeroSection = () => {
   const router = useRouter();
   const [roleDescription, setRoleDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [apiCompleted, setApiCompleted] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedJobData | null>(null);
   const [similarJobs, setSimilarJobs] = useState<ApifyJobData[]>([]);
   const [candidates, setCandidates] = useState<ApifyPeopleData[]>([]);
@@ -128,7 +129,6 @@ export const HomeHeroSection = () => {
   
   // Additional data sources state
   const [additionalDataSources, setAdditionalDataSources] = useState<any>(null);
-  const [dataSourcesOpen, setDataSourcesOpen] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -293,6 +293,7 @@ export const HomeHeroSection = () => {
     if (!roleDescription.trim()) return;
     
     setIsLoading(true);
+    setApiCompleted(false); // Reset API completion state
     setError(null);
     
     // Prevent scrolling when loading
@@ -375,49 +376,43 @@ export const HomeHeroSection = () => {
       // Set additional data sources (Glassdoor, Levels.fyi, Crunchbase, GitHub)
       setAdditionalDataSources(result.dataSources || null);
       
-      // For testing: Show modal immediately (skip 45 second wait)
-      const startTime = Date.now();
-      const minLoadTime = SKIP_SCRAPING ? 500 : 45000; // 0.5 seconds for testing, 45 seconds for real
+      // Mark API as completed
+      setApiCompleted(true);
       
-      const checkAndShowModal = () => {
-        // Show missing fields modal if there are missing fields
-        // Check both hasMissingFields flag and actual missingFields array
-        const missingFieldsArray = result.missingFields || [];
-        const hasMissing = result.hasMissingFields === true || 
-                          (Array.isArray(missingFieldsArray) && missingFieldsArray.length > 0);
-        
-        console.log("=== MODAL CHECK DEBUG ===");
-        console.log("hasMissingFields flag:", result.hasMissingFields);
-        console.log("missingFields array:", missingFieldsArray);
-        console.log("missingFields length:", missingFieldsArray.length);
-        console.log("hasMissing:", hasMissing);
-        console.log("extractedFields:", result.extractedFields);
-        console.log("========================");
-        
-        // Update state with the actual missing fields array
-        setMissingFields(missingFieldsArray);
-        
-        if (hasMissing && missingFieldsArray.length > 0) {
-          // Keep loading screen visible and show modal on top
-          console.log("✅ SHOULD OPEN MODAL - Missing", missingFieldsArray.length, "fields");
-          setTimeout(() => {
-            console.log("🚀 OPENING MISSING FIELDS MODAL NOW (on loading screen)");
-            setMissingFieldsModalOpen(true);
-            // Don't hide loading screen yet - it will be hidden when user makes a choice
-          }, 100);
-        } else {
-          // No missing fields, hide loading and proceed to results
-          console.log("⏭️ NO MISSING FIELDS - Proceeding to results");
-          setIsLoading(false);
-          document.body.style.overflow = 'auto';
-          proceedToResults();
-        }
-      };
+      // Process immediately when API completes - no artificial delay
+      // Show missing fields modal if there are missing fields
+      // Check both hasMissingFields flag and actual missingFields array
+      const missingFieldsArray = result.missingFields || [];
+      const hasMissing = result.hasMissingFields === true || 
+                        (Array.isArray(missingFieldsArray) && missingFieldsArray.length > 0);
       
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, minLoadTime - elapsedTime);
+      console.log("=== MODAL CHECK DEBUG ===");
+      console.log("hasMissingFields flag:", result.hasMissingFields);
+      console.log("missingFields array:", missingFieldsArray);
+      console.log("missingFields length:", missingFieldsArray.length);
+      console.log("hasMissing:", hasMissing);
+      console.log("extractedFields:", result.extractedFields);
+      console.log("========================");
       
-      setTimeout(checkAndShowModal, remainingTime);
+      // Update state with the actual missing fields array
+      setMissingFields(missingFieldsArray);
+      
+      if (hasMissing && missingFieldsArray.length > 0) {
+        // Keep loading screen visible and show modal on top
+        console.log("✅ SHOULD OPEN MODAL - Missing", missingFieldsArray.length, "fields");
+        // Small delay to ensure state updates are processed
+        setTimeout(() => {
+          console.log("🚀 OPENING MISSING FIELDS MODAL NOW (on loading screen)");
+          setMissingFieldsModalOpen(true);
+          // Don't hide loading screen yet - it will be hidden when user makes a choice
+        }, 100);
+      } else {
+        // No missing fields, hide loading and proceed to results immediately
+        console.log("⏭️ NO MISSING FIELDS - Proceeding to results immediately");
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        proceedToResults();
+      }
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
@@ -454,7 +449,11 @@ export const HomeHeroSection = () => {
       {isLoading && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white dark:bg-slate-950 p-4">
           {/* Show loader only when neither modal is open */}
-          {!missingFieldsModalOpen && !chatbotModalOpen && <Loader1 />}
+          {!missingFieldsModalOpen && !chatbotModalOpen && (
+            <Loader1 
+              isComplete={apiCompleted}
+            />
+          )}
           
           {/* Show Missing Fields Modal on loading screen when ready */}
           <MissingFieldsModal
@@ -535,10 +534,10 @@ export const HomeHeroSection = () => {
         </div>
       )}
 
-      {/* Generated Cards Debug Panel - Shows all AI-generated cards */}
+      {/* Generated Cards Panel - Professional Dashboard */}
       {(jobAnalysisCards || peopleAnalysisCards || combinedAnalysisCards || derivedStrategyCards) && (
         <div className="fixed top-20 right-4 z-[10000] max-w-md">
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-purple-500 overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-purple-500/50 overflow-hidden backdrop-blur-sm">
             <button
               onClick={() => {
                 const allOpen = jobAnalysisCardsOpen && peopleAnalysisCardsOpen && combinedAnalysisCardsOpen && derivedStrategyCardsOpen;
@@ -547,53 +546,64 @@ export const HomeHeroSection = () => {
                 setCombinedAnalysisCardsOpen(!allOpen);
                 setDerivedStrategyCardsOpen(!allOpen);
               }}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-purple-950/30"
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎴</span>
-                <span className="text-sm font-semibold text-white">
-                  Generated Cards
-                </span>
-                <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                  <span className="text-xl">🎴</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-bold text-white">
+                    AI-Generated Cards
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    Battle Cards Analysis
+                  </span>
+                </div>
+                <span className="px-3 py-1 bg-purple-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold">
                   {[
                     jobAnalysisCards ? 5 : 0,
                     peopleAnalysisCards ? 1 : 0,
                     combinedAnalysisCards ? 4 : 0,
                     derivedStrategyCards ? 3 : 0,
-                  ].reduce((a, b) => a + b, 0)} CARDS
+                  ].reduce((a, b) => a + b, 0)}
                 </span>
               </div>
               {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-5 h-5 text-slate-400" />
               ) : (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-5 h-5 text-slate-400" />
               )}
             </button>
 
             {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm space-y-3">
                 {/* Group 1: Job Analysis Cards */}
                 {jobAnalysisCards && (
-                  <div className="border border-green-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-green-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setJobAnalysisCardsOpen(!jobAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-green-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-green-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">🟢</span>
-                        <span className="text-xs font-semibold text-white">
-                          Job Analysis (5 cards)
+                        <span className="text-base">🟢</span>
+                        <span className="text-xs font-bold text-white">
+                          Job Analysis
+                        </span>
+                        <span className="px-2 py-0.5 bg-green-600/30 border border-green-500/50 rounded text-green-200 text-[10px] font-bold">
+                          5 Cards
                         </span>
                       </div>
                       {jobAnalysisCardsOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {jobAnalysisCardsOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(jobAnalysisCards, null, 2)}
                         </pre>
                       </div>
@@ -603,26 +613,30 @@ export const HomeHeroSection = () => {
 
                 {/* Group 2: People Analysis Cards */}
                 {peopleAnalysisCards && (
-                  <div className="border border-blue-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-blue-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setPeopleAnalysisCardsOpen(!peopleAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-blue-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-blue-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">🔵</span>
-                        <span className="text-xs font-semibold text-white">
-                          People Analysis (1 card)
+                        <span className="text-base">🔵</span>
+                        <span className="text-xs font-bold text-white">
+                          People Analysis
+                        </span>
+                        <span className="px-2 py-0.5 bg-blue-600/30 border border-blue-500/50 rounded text-blue-200 text-[10px] font-bold">
+                          1 Card
                         </span>
                       </div>
                       {peopleAnalysisCardsOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {peopleAnalysisCardsOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(peopleAnalysisCards, null, 2)}
                         </pre>
                       </div>
@@ -632,26 +646,30 @@ export const HomeHeroSection = () => {
 
                 {/* Group 3: Combined Analysis Cards */}
                 {combinedAnalysisCards && (
-                  <div className="border border-amber-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-amber-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setCombinedAnalysisCardsOpen(!combinedAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-amber-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-amber-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">🟠</span>
-                        <span className="text-xs font-semibold text-white">
-                          Combined Analysis (4 cards)
+                        <span className="text-base">🟠</span>
+                        <span className="text-xs font-bold text-white">
+                          Combined Analysis
+                        </span>
+                        <span className="px-2 py-0.5 bg-amber-600/30 border border-amber-500/50 rounded text-amber-200 text-[10px] font-bold">
+                          4 Cards
                         </span>
                       </div>
                       {combinedAnalysisCardsOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {combinedAnalysisCardsOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(combinedAnalysisCards, null, 2)}
                         </pre>
                       </div>
@@ -661,26 +679,30 @@ export const HomeHeroSection = () => {
 
                 {/* Group 4: Derived Strategy Cards */}
                 {derivedStrategyCards && (
-                  <div className="border border-purple-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-purple-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setDerivedStrategyCardsOpen(!derivedStrategyCardsOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-purple-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-purple-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">🟣</span>
-                        <span className="text-xs font-semibold text-white">
-                          Derived Strategy (3 cards)
+                        <span className="text-base">🟣</span>
+                        <span className="text-xs font-bold text-white">
+                          Strategy Cards
+                        </span>
+                        <span className="px-2 py-0.5 bg-purple-600/30 border border-purple-500/50 rounded text-purple-200 text-[10px] font-bold">
+                          3 Cards
                         </span>
                       </div>
                       {derivedStrategyCardsOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {derivedStrategyCardsOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(derivedStrategyCards, null, 2)}
                         </pre>
                       </div>
@@ -693,66 +715,98 @@ export const HomeHeroSection = () => {
         </div>
       )}
 
-      {/* Apify Results Debug Panel - Shows similar jobs and candidates */}
+      {/* Market Data Panel - Professional Dashboard */}
       {(similarJobs.length > 0 || candidates.length > 0) && (
         <div className="fixed right-4 z-[10000] max-w-md" style={{ 
           top: jobAnalysisCards ? 'calc(20px + 520px)' : '80px' 
         }}>
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-cyan-500 overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-cyan-500/50 overflow-hidden backdrop-blur-sm">
             <button
               onClick={() => setApifyResultsOpen(!apifyResultsOpen)}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-cyan-950/30"
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔷</span>
-                <span className="text-sm font-semibold text-white">
-                  Apify Results
-                </span>
-                {similarJobs.length > 0 && (
-                  <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[10px] font-bold">
-                    {similarJobs.length} JOBS
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-xl">📊</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-bold text-white">
+                    Market Data
                   </span>
-                )}
-                {candidates.length > 0 && (
-                  <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[10px] font-bold">
-                    {candidates.length} CANDIDATES
+                  <span className="text-xs text-slate-400">
+                    Jobs & Candidates
                   </span>
-                )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {similarJobs.length > 0 && (
+                    <span className="px-2.5 py-1 bg-cyan-600/30 border border-cyan-500/50 rounded-lg text-cyan-200 text-xs font-bold">
+                      {similarJobs.length}
+                    </span>
+                  )}
+                  {candidates.length > 0 && (
+                    <span className="px-2.5 py-1 bg-purple-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold">
+                      {candidates.length}
+                    </span>
+                  )}
+                </div>
               </div>
               {apifyResultsOpen ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-5 h-5 text-slate-400" />
               ) : (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-5 h-5 text-slate-400" />
               )}
             </button>
 
             {apifyResultsOpen && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm space-y-3">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {similarJobs.length > 0 && (
+                    <div className="bg-cyan-600/10 rounded-lg p-3 border border-cyan-500/30">
+                      <div className="text-cyan-300 text-xs font-medium mb-1">Similar Jobs</div>
+                      <div className="text-cyan-100 font-bold text-xl">{similarJobs.length}</div>
+                      <div className="text-cyan-400/70 text-[10px] mt-1">
+                        {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} LinkedIn • {similarJobs.filter(j => j.platform === "indeed").length} Indeed
+                      </div>
+                    </div>
+                  )}
+                  {candidates.length > 0 && (
+                    <div className="bg-purple-600/10 rounded-lg p-3 border border-purple-500/30">
+                      <div className="text-purple-300 text-xs font-medium mb-1">Candidates</div>
+                      <div className="text-purple-100 font-bold text-xl">{candidates.length}</div>
+                      <div className="text-purple-400/70 text-[10px] mt-1">
+                        {candidates.filter(c => c.platform === 'linkedin').length} LinkedIn • {candidates.filter(c => c.platform === 'github').length} GitHub
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Similar Jobs Section */}
                 {similarJobs.length > 0 && (
-                  <div className="border border-cyan-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-cyan-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setApifyJobsOpen(!apifyJobsOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-cyan-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-cyan-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">💼</span>
-                        <span className="text-xs font-semibold text-white">
-                          Similar Jobs ({similarJobs.length})
+                        <span className="text-base">💼</span>
+                        <span className="text-xs font-bold text-white">
+                          Similar Jobs
                         </span>
-                        <span className="px-2 py-0.5 bg-cyan-600/20 border border-cyan-500/40 rounded text-cyan-300 text-[9px] font-bold">
-                          LI: {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} | IN: {similarJobs.filter(j => j.platform === "indeed").length}
+                        <span className="px-2 py-0.5 bg-cyan-600/30 border border-cyan-500/50 rounded text-cyan-200 text-[10px] font-bold">
+                          {similarJobs.length}
                         </span>
                       </div>
                       {apifyJobsOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {apifyJobsOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Raw Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(similarJobs, null, 2)}
                         </pre>
                       </div>
@@ -762,26 +816,30 @@ export const HomeHeroSection = () => {
 
                 {/* Candidates Section */}
                 {candidates.length > 0 && (
-                  <div className="border border-cyan-500/40 rounded-lg overflow-hidden">
+                  <div className="border border-purple-500/40 rounded-xl overflow-hidden bg-slate-800/30">
                     <button
                       onClick={() => setApifyCandidatesOpen(!apifyCandidatesOpen)}
-                      className="w-full flex items-center justify-between p-2 hover:bg-slate-800 transition-colors bg-cyan-950/20"
+                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-purple-950/30"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">👥</span>
-                        <span className="text-xs font-semibold text-white">
-                          Candidates ({candidates.length})
+                        <span className="text-base">👥</span>
+                        <span className="text-xs font-bold text-white">
+                          Candidate Profiles
+                        </span>
+                        <span className="px-2 py-0.5 bg-purple-600/30 border border-purple-500/50 rounded text-purple-200 text-[10px] font-bold">
+                          {candidates.length}
                         </span>
                       </div>
                       {apifyCandidatesOpen ? (
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronUp className="w-3 h-3 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       )}
                     </button>
                     {apifyCandidatesOpen && (
-                      <div className="p-3 bg-slate-900">
-                        <pre className="text-[9px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto">
+                      <div className="p-4 bg-slate-900/50">
+                        <div className="text-xs text-slate-400 mb-2 font-medium">Raw Data:</div>
+                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
                           {JSON.stringify(candidates, null, 2)}
                         </pre>
                       </div>
@@ -794,332 +852,193 @@ export const HomeHeroSection = () => {
         </div>
       )}
 
-      {/* Additional Data Sources Debug Panel - Glassdoor, Levels.fyi, Crunchbase, GitHub */}
-      {additionalDataSources && (
-        <div className="fixed left-4 z-[10000] max-w-md" style={{ 
-          top: '80px' 
-        }}>
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-emerald-500 overflow-hidden">
-            <button
-              onClick={() => setDataSourcesOpen(!dataSourcesOpen)}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-emerald-950/30"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📊</span>
-                <span className="text-sm font-semibold text-white">
-                  Data Sources
-                </span>
-                {additionalDataSources.glassdoorSalaries?.length > 0 && (
-                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
-                    GD
-                  </span>
-                )}
-                {additionalDataSources.levelsFyiSalaries?.length > 0 && (
-                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
-                    LVL
-                  </span>
-                )}
-                {additionalDataSources.companyData && (
-                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
-                    CB
-                  </span>
-                )}
-                {additionalDataSources.githubTalent?.length > 0 && (
-                  <span className="px-2 py-0.5 bg-emerald-600/20 border border-emerald-500/40 rounded text-emerald-300 text-[10px] font-bold">
-                    GH
-                  </span>
-                )}
-              </div>
-              {dataSourcesOpen ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              ) : (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
-              )}
-            </button>
 
-            {dataSourcesOpen && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900 space-y-3">
-                {/* Glassdoor Salaries */}
-                {additionalDataSources.glassdoorSalaries?.length > 0 && (
-                  <div className="border border-emerald-500/40 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-emerald-950/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">💰</span>
-                        <span className="text-xs font-semibold text-white">
-                          Glassdoor Salaries ({additionalDataSources.glassdoorSalaries.length})
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900">
-                      {additionalDataSources.glassdoorSalaries.map((salary: any, idx: number) => (
-                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
-                          <div className="text-emerald-400 font-semibold">{salary.jobTitle}</div>
-                          <div>Range: ${salary.baseSalary?.min?.toLocaleString()} - ${salary.baseSalary?.max?.toLocaleString()}</div>
-                          <div>Median: ${salary.baseSalary?.median?.toLocaleString()}</div>
-                          <div className="text-slate-500">Source: {salary.source}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Levels.fyi Salaries */}
-                {additionalDataSources.levelsFyiSalaries?.length > 0 && (
-                  <div className="border border-blue-500/40 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-blue-950/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">📈</span>
-                        <span className="text-xs font-semibold text-white">
-                          Levels.fyi ({additionalDataSources.levelsFyiSalaries.length} companies)
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900">
-                      {additionalDataSources.levelsFyiSalaries.map((salary: any, idx: number) => (
-                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
-                          <div className="text-blue-400 font-semibold">{salary.company}</div>
-                          <div>Total Comp: ${salary.totalCompensation?.toLocaleString()}</div>
-                          <div>Base: ${salary.baseSalary?.toLocaleString()} | Stock: ${salary.stockGrant?.toLocaleString()}</div>
-                          <div className="text-slate-500">Source: {salary.source}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Crunchbase Company Data */}
-                {additionalDataSources.companyData && (
-                  <div className="border border-purple-500/40 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-purple-950/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">🏢</span>
-                        <span className="text-xs font-semibold text-white">
-                          Crunchbase: {additionalDataSources.companyData.name}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900 text-[10px] text-slate-300">
-                      <div>Employees: {additionalDataSources.companyData.employeeCount}</div>
-                      <div>Funding: ${(additionalDataSources.companyData.funding?.totalRaised / 1000000).toFixed(1)}M</div>
-                      <div>Last Round: {additionalDataSources.companyData.funding?.lastRound}</div>
-                      <div>Industry: {additionalDataSources.companyData.industry?.join(", ")}</div>
-                      <div className="text-slate-500">Source: {additionalDataSources.companyData.source}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* GitHub Talent */}
-                {additionalDataSources.githubTalent?.length > 0 && (
-                  <div className="border border-orange-500/40 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-orange-950/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">👨‍💻</span>
-                        <span className="text-xs font-semibold text-white">
-                          GitHub Talent ({additionalDataSources.githubTalent.length})
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900">
-                      {additionalDataSources.githubTalent.slice(0, 5).map((dev: any, idx: number) => (
-                        <div key={idx} className="text-[10px] text-slate-300 mb-2">
-                          <div className="text-orange-400 font-semibold">{dev.name} (@{dev.username})</div>
-                          <div>Followers: {dev.followers} | Repos: {dev.publicRepos}</div>
-                          <div className="text-slate-500">{dev.location || "Location unknown"}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Industry Benchmarks */}
-                {additionalDataSources.benchmarks && (
-                  <div className="border border-amber-500/40 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-amber-950/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">📉</span>
-                        <span className="text-xs font-semibold text-white">
-                          Industry Benchmarks
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-slate-900 text-[10px] text-slate-300">
-                      <div>Applicants/Hire: {additionalDataSources.benchmarks.funnelMetrics?.applicantsPerHire}</div>
-                      <div>Phone Screen Pass: {(additionalDataSources.benchmarks.funnelMetrics?.phoneScreenPassRate * 100).toFixed(0)}%</div>
-                      <div>Onsite Pass: {(additionalDataSources.benchmarks.funnelMetrics?.onsitePassRate * 100).toFixed(0)}%</div>
-                      <div>Time to Hire: {additionalDataSources.benchmarks.funnelMetrics?.averageTimeToHire} days</div>
-                      <div className="text-slate-500">Source: {additionalDataSources.benchmarks.source}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Quick Scrape Debug Panel - Shows 10 extracted fields */}
+      {/* Quick Scrape Panel - Professional Dashboard */}
       <div className="fixed top-20 left-4 z-[10000] max-w-md" style={{ marginTop: additionalDataSources ? '60px' : '0' }}>
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-blue-500 overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-blue-500/50 overflow-hidden backdrop-blur-sm">
             <button
               onClick={() => setQuickScrapeDebugOpen(!quickScrapeDebugOpen)}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors bg-blue-950/30"
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔵</span>
-                <span className="text-sm font-semibold text-white">
-                  Quick Scrape: 10 Fields
-                </span>
-                {quickScrapeData?.hasMissingFields && (
-                  <span className="px-2 py-0.5 bg-amber-600/20 border border-amber-500/40 rounded text-amber-300 text-[10px] font-bold">
-                    {quickScrapeData.missingFields?.length || 0} MISSING
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                  <span className="text-xl">⚡</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-bold text-white">
+                    Quick Scrape
                   </span>
-                )}
-                {quickScrapeLoading && (
-                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
-                    SCRAPING...
+                  <span className="text-xs text-slate-400">
+                    10 Key Fields
                   </span>
-                )}
-                {quickScrapeError && (
-                  <span className="px-2 py-0.5 bg-red-600/20 border border-red-500/40 rounded text-red-300 text-[10px] font-bold">
-                    ERROR
-                  </span>
-                )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {quickScrapeData?.hasMissingFields && (
+                    <span className="px-2.5 py-1 bg-amber-600/30 border border-amber-500/50 rounded-lg text-amber-200 text-[10px] font-bold">
+                      {quickScrapeData.missingFields?.length || 0}
+                    </span>
+                  )}
+                  {quickScrapeLoading && (
+                    <span className="px-2.5 py-1 bg-blue-600/30 border border-blue-500/50 rounded-lg text-blue-200 text-[10px] font-bold animate-pulse">
+                      ...
+                    </span>
+                  )}
+                  {quickScrapeError && (
+                    <span className="px-2.5 py-1 bg-red-600/30 border border-red-500/50 rounded-lg text-red-200 text-[10px] font-bold">
+                      ⚠
+                    </span>
+                  )}
+                </div>
               </div>
               {quickScrapeDebugOpen ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-5 h-5 text-slate-400" />
               ) : (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-5 h-5 text-slate-400" />
               )}
             </button>
 
             {quickScrapeDebugOpen && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                <div className="space-y-3 text-xs font-mono">
+              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                <div className="space-y-3">
                   {/* Show error if scraping failed */}
                   {quickScrapeError && (
-                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded">
-                      <div className="text-red-400 font-semibold mb-1">❌ Scraping Error:</div>
-                      <div className="text-red-300 text-xs">{quickScrapeError}</div>
+                    <div className="mb-4 p-4 bg-red-900/30 border border-red-700/50 rounded-xl">
+                      <div className="text-red-300 font-bold text-sm mb-1 flex items-center gap-2">
+                        <span>❌</span>
+                        <span>Scraping Error</span>
+                      </div>
+                      <div className="text-red-200 text-xs">{quickScrapeError}</div>
                     </div>
                   )}
 
                   {/* Show loading state */}
                   {quickScrapeLoading && !quickScrapeData && (
-                    <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded text-center">
-                      <div className="text-blue-400 font-semibold">🔄 Scraping in progress...</div>
+                    <div className="mb-4 p-4 bg-blue-900/30 border border-blue-700/50 rounded-xl text-center">
+                      <div className="text-blue-300 font-bold text-sm flex items-center justify-center gap-2">
+                        <span className="animate-spin">🔄</span>
+                        <span>Scraping in progress...</span>
+                      </div>
                     </div>
                   )}
 
                   {/* 10 Required Fields - Only show if we have data */}
                   {quickScrapeData ? (
                     <>
-                      <div className="pb-2 border-b border-slate-700">
-                        <div className="text-blue-400 font-semibold mb-2">10 Required Fields:</div>
+                      <div className="pb-3 border-b border-slate-700/50 mb-4">
+                        <div className="text-blue-300 font-bold text-sm mb-1">10 Required Fields</div>
+                        <div className="text-slate-400 text-xs">
+                          {10 - (quickScrapeData.missingFields?.length || 0)} of 10 complete
+                        </div>
                       </div>
 
                       {/* Role Title */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">1. Role Title:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.roleTitle ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">1. Role Title</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.roleTitle ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.roleTitle || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Department */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">2. Department:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.department ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">2. Department</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.department ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.department || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Experience Level */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">3. Experience Level:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.experienceLevel ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">3. Experience Level</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.experienceLevel ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.experienceLevel || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Location */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">4. Location:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.location ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">4. Location</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.location ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.location || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Work Model */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">5. Work Model:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.workModel ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">5. Work Model</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.workModel ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.workModel || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Critical Skills */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">6. Critical Skills:</div>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-2 uppercase tracking-wide">6. Critical Skills</div>
                         {quickScrapeData.extractedFields?.criticalSkills && Array.isArray(quickScrapeData.extractedFields.criticalSkills) && quickScrapeData.extractedFields.criticalSkills.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-2">
                             {quickScrapeData.extractedFields.criticalSkills.map((skill: string, idx: number) => (
-                              <span key={idx} className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px]">
+                              <span key={idx} className="px-2.5 py-1 bg-blue-600/30 border border-blue-500/50 rounded-lg text-blue-200 text-xs font-medium">
                                 {skill}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <div className="text-red-400">❌ Missing</div>
+                          <div className="text-red-400 font-semibold">❌ Missing</div>
                         )}
                       </div>
 
                       {/* Salary Range */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">7. Salary Range:</div>
+                      <div className="bg-gradient-to-r from-emerald-600/10 to-teal-600/10 rounded-lg p-3 border border-emerald-500/20">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">7. Salary Range</div>
                         {quickScrapeData.extractedFields?.minSalary && quickScrapeData.extractedFields?.maxSalary ? (
-                          <div className="text-slate-300">
+                          <div className="text-emerald-300 font-bold text-lg">
                             ${parseInt(quickScrapeData.extractedFields.minSalary).toLocaleString()} - ${parseInt(quickScrapeData.extractedFields.maxSalary).toLocaleString()}
                           </div>
                         ) : (
-                          <div className="text-red-400">❌ Missing</div>
+                          <div className="text-red-400 font-semibold">❌ Missing</div>
                         )}
                       </div>
 
                       {/* Non-Negotiables */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">8. Non-Negotiables:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.nonNegotiables ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">8. Non-Negotiables</div>
+                        <div className={`text-sm ${quickScrapeData.extractedFields?.nonNegotiables ? 'text-white' : 'text-red-400 font-semibold'}`}>
                           {quickScrapeData.extractedFields?.nonNegotiables || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Flexible Requirements */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">9. Flexible Requirements:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.flexible ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">9. Flexible Requirements</div>
+                        <div className={`text-sm ${quickScrapeData.extractedFields?.flexible ? 'text-white' : 'text-red-400 font-semibold'}`}>
                           {quickScrapeData.extractedFields?.flexible || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Timeline */}
-                      <div>
-                        <div className="text-green-400 font-semibold mb-1">10. Timeline:</div>
-                        <div className={`text-slate-300 ${quickScrapeData.extractedFields?.timeline ? '' : 'text-red-400'}`}>
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">10. Timeline</div>
+                        <div className={`text-sm font-semibold ${quickScrapeData.extractedFields?.timeline ? 'text-white' : 'text-red-400'}`}>
                           {quickScrapeData.extractedFields?.timeline || "❌ Missing"}
                         </div>
                       </div>
 
                       {/* Missing Fields Summary */}
                       {quickScrapeData.missingFields && quickScrapeData.missingFields.length > 0 && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <div className="text-amber-400 font-semibold mb-2">
-                            Missing Fields ({quickScrapeData.missingFields.length}):
+                        <div className="pt-4 mt-4 border-t border-slate-700/50">
+                          <div className="bg-amber-600/10 rounded-lg p-4 border border-amber-500/30">
+                            <div className="text-amber-300 font-bold text-sm mb-3 flex items-center gap-2">
+                              <span>⚠️</span>
+                              <span>Missing Fields ({quickScrapeData.missingFields.length})</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {quickScrapeData.missingFields.map((field: string, idx: number) => (
+                                <span key={idx} className="px-2.5 py-1 bg-amber-600/30 border border-amber-500/50 rounded-lg text-amber-200 text-xs font-medium">
+                                  {field}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <ul className="list-disc list-inside text-amber-300 space-y-1">
-                            {quickScrapeData.missingFields.map((field: string, idx: number) => (
-                              <li key={idx}>{field}</li>
-                            ))}
-                          </ul>
                         </div>
                       )}
                     </>
@@ -1140,147 +1059,161 @@ export const HomeHeroSection = () => {
           </div>
         </div>
 
-      {/* Debug Panels - Collapsible and Absolutely Positioned */}
+      {/* Data Dashboard - Professional Presentation */}
       {scrapedData && (
         <div className="fixed bottom-4 right-4 z-[100] max-w-md space-y-2">
-          {/* Debug: Scraped Data Panel */}
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+          {/* Job Data Panel */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-700/50 overflow-hidden backdrop-blur-sm">
             {/* Header */}
             <button
               onClick={() => setDebugOpen(!debugOpen)}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
             >
-              <div className="flex items-center gap-2">
-                <Bug className="w-4 h-4 text-green-400" />
-                <span className="text-sm font-semibold text-white">
-                  Debug: Scraped Data
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-bold text-white">
+                    Job Details
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    Extracted Information
+                  </span>
+                </div>
               </div>
               {debugOpen ? (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-5 h-5 text-slate-400" />
               ) : (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-5 h-5 text-slate-400" />
               )}
             </button>
 
             {/* Collapsible Content */}
             {debugOpen && (
-              <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                <div className="space-y-3 text-xs font-mono">
+              <div className="p-5 max-h-[60vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                <div className="space-y-4">
                   {/* AI Enhanced Badge */}
                   {scrapedData.aiEnhanced && (
-                    <div className="flex items-center gap-2 pb-2 border-b border-slate-700">
-                      <div className="px-2 py-1 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
-                        ✨ AI ENHANCED
+                    <div className="flex items-center gap-2 pb-3 border-b border-slate-700/50">
+                      <div className="px-3 py-1.5 bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold flex items-center gap-1.5">
+                        <span>✨</span>
+                        <span>AI Enhanced</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Source */}
-                  <div>
-                    <div className="text-green-400 font-semibold mb-1">Source:</div>
-                    <div className="text-slate-300">{scrapedData.source}</div>
+                  {/* Key Info Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Source */}
+                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                      <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Source</div>
+                      <div className="text-white font-semibold text-sm">{scrapedData.source}</div>
+                    </div>
+
+                    {/* Platform */}
+                    {platform && platform !== "unknown" && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Platform</div>
+                        <div className="flex items-center gap-2">
+                          {platform === "linkedin" && (
+                            <span className="px-2.5 py-1 bg-blue-600/30 border border-blue-500/50 rounded-md text-blue-200 text-xs font-bold flex items-center gap-1">
+                              <span>🔵</span>
+                              <span>LinkedIn</span>
+                            </span>
+                          )}
+                          {platform === "indeed" && (
+                            <span className="px-2.5 py-1 bg-orange-600/30 border border-orange-500/50 rounded-md text-orange-200 text-xs font-bold flex items-center gap-1">
+                              <span>🟠</span>
+                              <span>Indeed</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Platform Detected */}
-                  {platform && platform !== "unknown" && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Platform Detected:</div>
-                      <div className="flex items-center gap-2">
-                        {platform === "linkedin" && (
-                          <span className="px-2 py-1 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
-                            🔵 LINKEDIN
-                          </span>
-                        )}
-                        {platform === "indeed" && (
-                          <span className="px-2 py-1 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[10px] font-bold">
-                            🟠 INDEED
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Title */}
-                  <div>
-                    <div className="text-green-400 font-semibold mb-1">Title:</div>
-                    <div className="text-slate-300">{scrapedData.title}</div>
+                  <div className="bg-gradient-to-r from-blue-600/10 to-indigo-600/10 rounded-lg p-4 border border-blue-500/20">
+                    <div className="text-slate-400 text-xs font-medium mb-2 uppercase tracking-wide">Job Title</div>
+                    <div className="text-white font-bold text-base leading-tight">{scrapedData.title}</div>
                   </div>
 
-                  {/* Company */}
-                  {scrapedData.company && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Company:</div>
-                      <div className="text-slate-300">{scrapedData.company}</div>
-                    </div>
-                  )}
+                  {/* Company & Location Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {scrapedData.company && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Company</div>
+                        <div className="text-white font-semibold text-sm">{scrapedData.company}</div>
+                      </div>
+                    )}
+                    {scrapedData.location && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Location</div>
+                        <div className="text-white font-semibold text-sm flex items-center gap-1">
+                          <span>📍</span>
+                          <span>{scrapedData.location}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Department */}
-                  {scrapedData.department && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Department:</div>
-                      <div className="text-slate-300">{scrapedData.department}</div>
-                    </div>
-                  )}
-
-                  {/* Location */}
-                  {scrapedData.location && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Location:</div>
-                      <div className="text-slate-300">{scrapedData.location}</div>
-                    </div>
-                  )}
-
-                  {/* Location Type */}
-                  {scrapedData.locationType && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Location Type:</div>
-                      <div className="text-slate-300">{scrapedData.locationType}</div>
-                    </div>
-                  )}
-
-                  {/* Employment Type */}
-                  {scrapedData.employmentType && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Employment Type:</div>
-                      <div className="text-slate-300">{scrapedData.employmentType}</div>
-                    </div>
-                  )}
-
-                  {/* Experience Level */}
-                  {scrapedData.experienceLevel && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Experience Level:</div>
-                      <div className="text-slate-300">{scrapedData.experienceLevel}</div>
-                    </div>
-                  )}
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {scrapedData.department && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Department</div>
+                        <div className="text-white font-semibold text-sm">{scrapedData.department}</div>
+                      </div>
+                    )}
+                    {scrapedData.locationType && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Work Model</div>
+                        <div className="text-white font-semibold text-sm">{scrapedData.locationType}</div>
+                      </div>
+                    )}
+                    {scrapedData.employmentType && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Employment</div>
+                        <div className="text-white font-semibold text-sm">{scrapedData.employmentType}</div>
+                      </div>
+                    )}
+                    {scrapedData.experienceLevel && (
+                      <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                        <div className="text-slate-400 text-xs font-medium mb-1.5 uppercase tracking-wide">Level</div>
+                        <div className="text-white font-semibold text-sm">{scrapedData.experienceLevel}</div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Salary */}
                   {scrapedData.salary && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">Salary:</div>
-                      <div className="text-slate-300">{scrapedData.salary}</div>
+                    <div className="bg-gradient-to-r from-emerald-600/10 to-teal-600/10 rounded-lg p-4 border border-emerald-500/20">
+                      <div className="text-slate-400 text-xs font-medium mb-2 uppercase tracking-wide">Compensation</div>
+                      <div className="text-emerald-300 font-bold text-lg">{scrapedData.salary}</div>
                     </div>
                   )}
 
                   {/* Skills */}
                   {scrapedData.skills && scrapedData.skills.length > 0 && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">
-                        Skills ({scrapedData.skills.length}):
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                      <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                        Required Skills ({scrapedData.skills.length})
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {scrapedData.skills.slice(0, 8).map((skill, idx) => (
+                      <div className="flex flex-wrap gap-2">
+                        {scrapedData.skills.slice(0, 10).map((skill, idx) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px]"
+                            className="px-3 py-1.5 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/40 rounded-lg text-blue-200 text-xs font-medium"
                           >
                             {skill}
                           </span>
                         ))}
-                        {scrapedData.skills.length > 8 && (
-                          <span className="text-slate-500 text-[10px]">
-                            +{scrapedData.skills.length - 8} more
+                        {scrapedData.skills.length > 10 && (
+                          <span className="px-3 py-1.5 text-slate-400 text-xs font-medium">
+                            +{scrapedData.skills.length - 10} more
                           </span>
                         )}
                       </div>
@@ -1289,19 +1222,20 @@ export const HomeHeroSection = () => {
 
                   {/* Requirements */}
                   {scrapedData.requirements && scrapedData.requirements.length > 0 && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">
-                        Requirements ({scrapedData.requirements.length}):
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                      <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                        Requirements ({scrapedData.requirements.length})
                       </div>
-                      <ul className="list-disc list-inside text-slate-300 space-y-1">
-                        {scrapedData.requirements.slice(0, 3).map((req, idx) => (
-                          <li key={idx} className="truncate">
-                            {req}
+                      <ul className="space-y-2">
+                        {scrapedData.requirements.slice(0, 5).map((req, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-slate-200 text-sm">
+                            <span className="text-blue-400 mt-1">•</span>
+                            <span className="flex-1">{req}</span>
                           </li>
                         ))}
-                        {scrapedData.requirements.length > 3 && (
-                          <li className="text-slate-500">
-                            +{scrapedData.requirements.length - 3} more...
+                        {scrapedData.requirements.length > 5 && (
+                          <li className="text-slate-400 text-xs italic">
+                            +{scrapedData.requirements.length - 5} more requirements
                           </li>
                         )}
                       </ul>
@@ -1310,19 +1244,20 @@ export const HomeHeroSection = () => {
 
                   {/* Responsibilities */}
                   {scrapedData.responsibilities && scrapedData.responsibilities.length > 0 && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">
-                        Responsibilities ({scrapedData.responsibilities.length}):
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                      <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                        Key Responsibilities ({scrapedData.responsibilities.length})
                       </div>
-                      <ul className="list-disc list-inside text-slate-300 space-y-1">
-                        {scrapedData.responsibilities.slice(0, 3).map((resp, idx) => (
-                          <li key={idx} className="truncate">
-                            {resp}
+                      <ul className="space-y-2">
+                        {scrapedData.responsibilities.slice(0, 5).map((resp, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-slate-200 text-sm">
+                            <span className="text-indigo-400 mt-1">•</span>
+                            <span className="flex-1">{resp}</span>
                           </li>
                         ))}
-                        {scrapedData.responsibilities.length > 3 && (
-                          <li className="text-slate-500">
-                            +{scrapedData.responsibilities.length - 3} more...
+                        {scrapedData.responsibilities.length > 5 && (
+                          <li className="text-slate-400 text-xs italic">
+                            +{scrapedData.responsibilities.length - 5} more responsibilities
                           </li>
                         )}
                       </ul>
@@ -1331,52 +1266,40 @@ export const HomeHeroSection = () => {
 
                   {/* Benefits */}
                   {scrapedData.benefits && scrapedData.benefits.length > 0 && (
-                    <div>
-                      <div className="text-green-400 font-semibold mb-1">
-                        Benefits ({scrapedData.benefits.length}):
+                    <div className="bg-gradient-to-r from-emerald-600/10 to-teal-600/10 rounded-lg p-4 border border-emerald-500/20">
+                      <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                        Benefits & Perks ({scrapedData.benefits.length})
                       </div>
-                      <ul className="list-disc list-inside text-slate-300 space-y-1">
-                        {scrapedData.benefits.slice(0, 3).map((benefit, idx) => (
-                          <li key={idx} className="truncate">
+                      <div className="flex flex-wrap gap-2">
+                        {scrapedData.benefits.slice(0, 8).map((benefit, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/40 rounded-lg text-emerald-200 text-xs font-medium"
+                          >
                             {benefit}
-                          </li>
+                          </span>
                         ))}
-                        {scrapedData.benefits.length > 3 && (
-                          <li className="text-slate-500">
-                            +{scrapedData.benefits.length - 3} more...
-                          </li>
+                        {scrapedData.benefits.length > 8 && (
+                          <span className="px-3 py-1.5 text-slate-400 text-xs">
+                            +{scrapedData.benefits.length - 8} more
+                          </span>
                         )}
-                      </ul>
+                      </div>
                     </div>
                   )}
 
                   {/* Description Preview */}
-                  <div>
-                    <div className="text-green-400 font-semibold mb-1">
-                      Description Preview:
+                  <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                    <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                      Job Description
                     </div>
-                    <div className="text-slate-300 line-clamp-4 text-[10px] leading-relaxed">
+                    <div className="text-slate-200 text-sm leading-relaxed line-clamp-6 max-h-32 overflow-hidden">
                       {scrapedData.description || scrapedData.rawText}
                     </div>
-                  </div>
-
-                  {/* Raw Text Length */}
-                  <div>
-                    <div className="text-green-400 font-semibold mb-1">
-                      Raw Text Length:
-                    </div>
-                    <div className="text-slate-300">
-                      {scrapedData.rawText.length} characters
+                    <div className="mt-2 text-slate-500 text-xs">
+                      {scrapedData.rawText.length.toLocaleString()} characters
                     </div>
                   </div>
-
-                  {/* Close Button */}
-                  <button
-                    onClick={() => setScrapedData(null)}
-                    className="w-full mt-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
-                  >
-                    Clear Data
-                  </button>
                 </div>
               </div>
             )}
@@ -1384,123 +1307,143 @@ export const HomeHeroSection = () => {
 
           {/* Candidates Panel - LinkedIn People Profiles */}
           {candidates.length > 0 && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border border-purple-500/30 overflow-hidden backdrop-blur-sm">
               {/* Header */}
               <button
                 onClick={() => setCandidatesOpen(!candidatesOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
               >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-purple-400"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  <span className="text-sm font-semibold text-white">
-                    Candidates
-                  </span>
-                  <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
-                    {candidates.length} PEOPLE
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-bold text-white">
+                      Candidate Profiles
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      LinkedIn + GitHub
+                    </span>
+                  </div>
+                  <span className="px-3 py-1 bg-purple-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold">
+                    {candidates.length}
                   </span>
                 </div>
                 {candidatesOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
                 ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
                 )}
               </button>
 
               {/* Collapsible Content */}
               {candidatesOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  <div className="space-y-4 text-xs">
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                  <div className="space-y-3">
                     {candidates.map((person, index) => (
                       <div
                         key={person.id}
-                        className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
+                        className="p-4 bg-gradient-to-br from-slate-800/60 to-slate-800/40 rounded-xl border border-slate-700/50 hover:border-purple-500/50 transition-all duration-200 hover:shadow-lg"
                       >
                         {/* Person Header */}
-                        <div className="flex items-start gap-3 mb-2">
+                        <div className="flex items-start gap-3 mb-3">
                           {person.avatar && (
                             <img
                               src={person.avatar}
                               alt={`${person.firstName} ${person.lastName}`}
-                              className="w-12 h-12 rounded-full object-cover"
+                              className="w-14 h-14 rounded-xl object-cover border-2 border-purple-500/30"
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-white font-semibold text-sm mb-1">
-                              {person.firstName} {person.lastName}
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-white font-bold text-sm">
+                                {person.firstName} {person.lastName}
+                              </h3>
                               {person.premium && (
-                                <span className="ml-1 text-yellow-400 text-xs">⭐</span>
+                                <span className="text-yellow-400 text-sm">⭐</span>
                               )}
                               {person.openToWork && (
-                                <span className="ml-1 px-1.5 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[9px]">
+                                <span className="px-2 py-0.5 bg-green-600/30 border border-green-500/50 rounded-md text-green-200 text-[10px] font-bold">
                                   OPEN TO WORK
                                 </span>
                               )}
-                            </h3>
-                            <p className="text-slate-400 text-xs line-clamp-2">
+                            </div>
+                            <p className="text-slate-300 text-xs font-medium line-clamp-2 mb-2">
                               {person.headline}
                             </p>
+                            {person.currentCompany && (
+                              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                                <span>🏢</span>
+                                <span className="font-medium">{person.currentCompany.name}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        {/* Current Company */}
-                        {person.currentCompany && (
-                          <div className="text-slate-300 text-xs mb-2">
-                            <span className="text-slate-500">Company:</span> {person.currentCompany.name}
+                        {/* Location & Stats Row */}
+                        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-700/50">
+                          <div className="flex items-center gap-1.5 text-slate-300 text-xs">
+                            <span>📍</span>
+                            <span>{person.location.linkedinText}</span>
                           </div>
-                        )}
-
-                        {/* Location */}
-                        <div className="flex items-center gap-2 text-slate-300 mb-2">
-                          <span className="text-[10px]">📍</span>
-                          <span className="text-xs">
-                            {person.location.linkedinText}
-                          </span>
+                          <div className="flex items-center gap-3 text-slate-400 text-xs">
+                            {person.connections !== undefined && person.connections > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span>🤝</span>
+                                <span>{person.connections}+</span>
+                              </span>
+                            )}
+                            {person.followers !== undefined && person.followers > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span>👥</span>
+                                <span>{person.followers}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Top Skills */}
                         {person.topSkills && (
-                          <div className="mb-2">
-                            <div className="text-slate-500 text-[10px] mb-1">
-                              Skills:
+                          <div className="mb-3">
+                            <div className="text-slate-400 text-xs font-medium mb-2 uppercase tracking-wide">
+                              Skills
                             </div>
-                            <div className="text-slate-300 text-xs">
+                            <div className="text-slate-200 text-xs leading-relaxed line-clamp-2">
                               {person.topSkills}
                             </div>
                           </div>
                         )}
-
-                        {/* Stats */}
-                        <div className="flex items-center gap-3 text-slate-400 text-[10px] mb-2">
-                          {person.connections !== undefined && (
-                            <span>🤝 {person.connections}+ connections</span>
-                          )}
-                          {person.followers !== undefined && (
-                            <span>👥 {person.followers} followers</span>
-                          )}
-                        </div>
 
                         {/* Link */}
                         <a
                           href={person.linkedinUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-block text-purple-400 hover:text-purple-300 text-xs underline"
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-lg text-purple-200 text-xs font-medium transition-all duration-200"
                         >
-                          View Profile on LinkedIn →
+                          <span>View Profile</span>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
                         </a>
                       </div>
                     ))}
 
                     {/* Summary */}
-                    <div className="pt-3 border-t border-slate-700">
-                      <div className="text-slate-400 text-xs text-center">
-                        Found {candidates.length} candidates on LinkedIn
+                    <div className="pt-4 mt-4 border-t border-slate-700/50">
+                      <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg p-3 border border-purple-500/30">
+                        <div className="text-purple-200 text-xs font-bold text-center">
+                          📊 {candidates.length} Total Candidates Found
+                        </div>
+                        <div className="text-slate-400 text-[10px] text-center mt-1">
+                          {candidates.filter(c => c.platform === 'linkedin').length} LinkedIn • {candidates.filter(c => c.platform === 'github').length} GitHub
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1509,102 +1452,125 @@ export const HomeHeroSection = () => {
             </div>
           )}
 
-          {/* LinkedIn Jobs Panel */}
-          {linkedInJobsCount > 0 && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-blue-500/40 overflow-hidden">
+          {/* Similar Jobs Panel - Combined LinkedIn + Indeed */}
+          {(linkedInJobsCount > 0 || indeedJobsCount > 0) && (
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border border-cyan-500/30 overflow-hidden backdrop-blur-sm">
               {/* Header */}
               <button
-                onClick={() => setLinkedInJobsOpen(!linkedInJobsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                onClick={() => {
+                  setLinkedInJobsOpen(!linkedInJobsOpen);
+                  setIndeedJobsOpen(!indeedJobsOpen);
+                }}
+                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
               >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-blue-400"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
-                  </svg>
-                  <span className="text-sm font-semibold text-white flex items-center gap-2">
-                    🔵 LinkedIn Jobs
-                  </span>
-                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
-                    {linkedInJobsCount} JOBS
-                  </span>
-                </div>
-                {linkedInJobsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
-
-              {/* Collapsible Content */}
-              {linkedInJobsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  {/* Raw JSON Display */}
-                  <div className="mb-4">
-                    <div className="text-blue-400 font-semibold text-xs mb-2">
-                      Raw LinkedIn Jobs Array:
-                    </div>
-                    <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                      {JSON.stringify(
-                        similarJobs.filter(job => job.platform === "linkedin"),
-                        null,
-                        2
-                      )}
-                    </pre>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-bold text-white">
+                      Similar Jobs
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Market Analysis
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {linkedInJobsCount > 0 && (
+                      <span className="px-2.5 py-1 bg-blue-600/30 border border-blue-500/50 rounded-lg text-blue-200 text-xs font-bold">
+                        {linkedInJobsCount}
+                      </span>
+                    )}
+                    {indeedJobsCount > 0 && (
+                      <span className="px-2.5 py-1 bg-orange-600/30 border border-orange-500/50 rounded-lg text-orange-200 text-xs font-bold">
+                        {indeedJobsCount}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Indeed Jobs Panel */}
-          {indeedJobsCount > 0 && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-orange-500/40 overflow-hidden">
-              {/* Header */}
-              <button
-                onClick={() => setIndeedJobsOpen(!indeedJobsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-orange-400"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                  </svg>
-                  <span className="text-sm font-semibold text-white flex items-center gap-2">
-                    🟠 Indeed Jobs
-                  </span>
-                  <span className="px-2 py-0.5 bg-orange-600/20 border border-orange-500/40 rounded text-orange-300 text-[10px] font-bold">
-                    {indeedJobsCount} JOBS
-                  </span>
-                </div>
-                {indeedJobsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                {linkedInJobsOpen || indeedJobsOpen ? (
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
                 ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
                 )}
               </button>
 
               {/* Collapsible Content */}
-              {indeedJobsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  {/* Raw JSON Display */}
-                  <div className="mb-4">
-                    <div className="text-orange-400 font-semibold text-xs mb-2">
-                      Raw Indeed Jobs Array:
-                    </div>
-                    <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                      {JSON.stringify(
-                        similarJobs.filter(job => job.platform === "indeed"),
-                        null,
-                        2
+              {(linkedInJobsOpen || indeedJobsOpen) && (
+                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                  <div className="space-y-4">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {linkedInJobsCount > 0 && (
+                        <div className="bg-blue-600/10 rounded-lg p-3 border border-blue-500/30">
+                          <div className="text-blue-300 text-xs font-medium mb-1">LinkedIn</div>
+                          <div className="text-blue-100 font-bold text-lg">{linkedInJobsCount}</div>
+                          <div className="text-blue-400/70 text-[10px]">Similar Jobs</div>
+                        </div>
                       )}
-                    </pre>
+                      {indeedJobsCount > 0 && (
+                        <div className="bg-orange-600/10 rounded-lg p-3 border border-orange-500/30">
+                          <div className="text-orange-300 text-xs font-medium mb-1">Indeed</div>
+                          <div className="text-orange-100 font-bold text-lg">{indeedJobsCount}</div>
+                          <div className="text-orange-400/70 text-[10px]">Similar Jobs</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sample Jobs Preview */}
+                    <div>
+                      <div className="text-slate-400 text-xs font-medium mb-3 uppercase tracking-wide">
+                        Sample Jobs ({Math.min(similarJobs.length, 5)} of {similarJobs.length})
+                      </div>
+                      <div className="space-y-2">
+                        {similarJobs.slice(0, 5).map((job, idx) => (
+                          <div
+                            key={job.id || idx}
+                            className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="text-white font-semibold text-sm mb-1 line-clamp-1">
+                                  {job.title}
+                                </div>
+                                <div className="text-slate-300 text-xs">
+                                  {job.company?.name || 'Company not specified'}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                job.platform === 'linkedin' 
+                                  ? 'bg-blue-600/30 border border-blue-500/50 text-blue-200'
+                                  : 'bg-orange-600/30 border border-orange-500/50 text-orange-200'
+                              }`}>
+                                {job.platform === 'linkedin' ? 'LI' : 'IN'}
+                              </span>
+                            </div>
+                            {job.location?.linkedinText && (
+                              <div className="text-slate-400 text-xs flex items-center gap-1">
+                                <span>📍</span>
+                                <span>{job.location.linkedinText}</span>
+                              </div>
+                            )}
+                            {job.salary && (
+                              <div className="text-emerald-300 text-xs font-medium mt-1">
+                                💰 {typeof job.salary === 'string' ? job.salary : `$${job.salary.min?.toLocaleString()} - $${job.salary.max?.toLocaleString()}`}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {similarJobs.length > 5 && (
+                        <div className="text-center text-slate-400 text-xs mt-3">
+                          +{similarJobs.length - 5} more jobs available
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

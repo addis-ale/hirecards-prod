@@ -3,7 +3,7 @@ import { scrapeJobURL } from "@/lib/jobScraper";
 import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
 import * as cardGenerators from "./cardGenerators";
-import { fetchAllDataSources, getIndustryBenchmarks, searchGitHubCandidatesByTitle } from "./dataSources";
+import { fetchAllDataSources, scrapeIndustryBenchmarks, searchGitHubCandidatesByTitle } from "./dataSources";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
@@ -100,6 +100,7 @@ interface ApifyPeopleData {
   education?: any[];
   certifications?: any[];
   projects?: any[];
+  platform?: "linkedin" | "github"; // Track which platform the candidate came from
 }
 
 interface NormalizedApifyInput {
@@ -939,10 +940,17 @@ async function searchCandidatesWithApify(
       console.log("ℹ️ Total result count not available, will use ratio-based estimation");
     }
 
+    // Add platform property to LinkedIn candidates
+    const candidatesWithPlatform = (items as ApifyPeopleData[]).map(candidate => ({
+      ...candidate,
+      platform: "linkedin" as const,
+    }));
+
     return {
-      candidates: items as ApifyPeopleData[],
+      candidates: candidatesWithPlatform,
       totalResultCount,
       sampleSize: peopleInput.maxItems || 100,
+      source: "linkedin" as const,
     };
   } catch (error: any) {
     console.error("❌ Error searching candidates with Apify:", error);
@@ -978,9 +986,16 @@ async function searchCandidatesWithApify(
           .dataset(run.defaultDatasetId)
           .listItems();
         console.log(`✅ Fallback found ${items.length} candidates`);
+        // Add platform property to LinkedIn candidates
+        const fallbackCandidates = (items as ApifyPeopleData[]).map(candidate => ({
+          ...candidate,
+          platform: "linkedin" as const,
+        }));
+
         return {
-          candidates: items as ApifyPeopleData[],
+          candidates: fallbackCandidates,
           sampleSize: safeInput.maxItems || 50,
+          source: "linkedin" as const,
         };
       } catch (e) {
         console.error("Fallback candidate search failed:", e);
@@ -1183,8 +1198,19 @@ export async function POST(request: NextRequest) {
       // Only add AI data if the field doesn't already exist
       console.log(`📍 Location data - Scraped: "${scrapedData.location}", AI extracted: "${aiExtractedData.location}"`);
       
+      // Ensure company is the actual hiring company, not the job board
+      const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
+      let finalCompany = scrapedData.company || aiExtractedData.company;
+      
+      // If company matches job board name, try to get it from AI extraction or keep scraped
+      if (finalCompany && jobBoardNames.some(board => finalCompany?.toLowerCase().includes(board.toLowerCase()))) {
+        console.warn(`⚠️ Company name "${finalCompany}" appears to be a job board name, using scraped company instead`);
+        finalCompany = scrapedData.company; // Prefer scraped company name
+      }
+      
       scrapedData = {
         ...scrapedData,
+        company: finalCompany, // Ensure we use the actual company, not job board
         location: scrapedData.location || aiExtractedData.location,
         locationType: scrapedData.locationType || aiExtractedData.locationType,
         salary: scrapedData.salary || aiExtractedData.salary,
@@ -1355,8 +1381,8 @@ export async function POST(request: NextRequest) {
       // Continue without additional data sources
     }
 
-    // Get industry benchmarks
-    const benchmarks = getIndustryBenchmarks(
+    // Get industry benchmarks (scraped from real sources)
+    const benchmarks = await scrapeIndustryBenchmarks(
       scrapedData.title || extractedFields?.roleTitle || "Engineer",
       "technology"
     );

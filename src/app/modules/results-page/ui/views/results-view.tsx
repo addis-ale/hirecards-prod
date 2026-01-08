@@ -41,10 +41,10 @@ export default function ResultsView() {
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-4 uppercase">
-            Journey to 9.9
+            HireCards Battle Deck
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
-            Explore all cards to maximize your hiring score
+            Your strategy before you go to market
           </p>
         </div>
 

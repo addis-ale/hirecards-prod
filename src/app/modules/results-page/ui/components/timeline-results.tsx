@@ -54,10 +54,10 @@ export function TimelineResults() {
                 
                 <div className="relative z-10 space-y-6">
                     <h3 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-                        <Sparkles className="w-8 h-8 text-yellow-500" /> The Journey to 9.9
+                        <Sparkles className="w-8 h-8 text-yellow-500" /> The HireCards Journey
                     </h3>
                     <p className="text-slate-400 font-bold max-w-2xl leading-relaxed">
-                        Achieving a perfect hire isn't about one single card. It's the cumulative effect of fixing alignment, market scope, and process speed across the entire deck.
+                        Achieving a perfect hire isn't about one single card. It's the cumulative effect of fixing alignment, market scope, and process speed across the entire HireCards battle deck.
                     </p>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">

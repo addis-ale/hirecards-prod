@@ -664,6 +664,7 @@ ${scrapedData.description.substring(0, 4000)}
 CRITICAL: First, determine if this is actually a job posting. If it's NOT a job posting (e.g., company homepage, random article, search page, error page), set confidence to 0.0 and return minimal data.
 
 If it IS a valid job posting, extract the following:
+- Company name (CRITICAL: Extract the ACTUAL hiring company name, NOT the job board/platform name like "LinkedIn", "Indeed", "Greenhouse", etc. Look for phrases like "at [Company]", "join [Company]", or company names in the job description)
 - Job title (clean format)
 - Location (city/state/country or "Remote")
 - Work model (Remote, Hybrid, On-site)
@@ -684,6 +685,7 @@ IMPORTANT FOR SALARY:
 Return ONLY valid JSON with this exact structure:
 {
   "isJobPosting": true/false,
+  "company": "actual hiring company name (NOT job board name) or null",
   "jobTitle": "extracted role title or null",
   "location": "city/country or Remote or null",
   "workModel": "Remote/Hybrid/On-site or null",
@@ -736,9 +738,17 @@ Return ONLY valid JSON with this exact structure:
       skillsCount: parsed.skills?.length || 0,
     });
 
+    // Prioritize AI-extracted company name, but fall back to scraped company
+    // Make sure we never use the job board name (source) as the company
+    const extractedCompany = parsed.company || scrapedData.company;
+    const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
+    const isJobBoardName = jobBoardNames.some(board => 
+      extractedCompany?.toLowerCase().includes(board.toLowerCase())
+    );
+    
     return {
       ...parsed,
-      company: scrapedData.company,
+      company: isJobBoardName ? scrapedData.company : extractedCompany, // Use scraped company if AI returned job board name
       source: scrapedData.source,
       isURL: true,
     };
