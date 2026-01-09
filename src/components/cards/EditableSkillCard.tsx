@@ -113,17 +113,66 @@ export const EditableSkillCard = ({
     ]
   );
 
-  // Update when data prop changes - check for !== undefined and !== null to handle empty arrays/strings
+  // Update when data prop changes - PRIORITY: data prop overrides everything
   useEffect(() => {
-    if (data !== undefined && data !== null) {
-      if (data.technicalSkills !== undefined) setTechnicalSkills(data.technicalSkills);
-      if (data.productSkills !== undefined) setProductSkills(data.productSkills);
-      if (data.behaviouralSkills !== undefined) setBehaviouralSkills(data.behaviouralSkills);
-      if (data.brutalTruth !== undefined) setBrutalTruth(data.brutalTruth);
-      if (data.redFlags !== undefined) setRedFlags(data.redFlags);
-      if (data.donts !== undefined) setDonts(data.donts);
-      if (data.upskillableSkills !== undefined) setUpskillableSkills(data.upskillableSkills);
-      if (data.mustHaveSkills !== undefined) setMustHaveSkills(data.mustHaveSkills);
+    if (data) {
+      console.log("🔧 ============================================");
+      console.log("🔧 UPDATING SKILL CARD FROM DYNAMIC DATA");
+      console.log("🔧 ============================================");
+      console.log("🔧 Data received:", JSON.stringify(data, null, 2));
+      
+      if (data.technicalSkills !== undefined && Array.isArray(data.technicalSkills)) {
+        console.log("🔧 Updating technicalSkills from data:", data.technicalSkills.length, "items");
+        setTechnicalSkills(data.technicalSkills);
+      }
+      if (data.productSkills !== undefined && Array.isArray(data.productSkills)) {
+        console.log("🔧 Updating productSkills from data:", data.productSkills.length, "items");
+        setProductSkills(data.productSkills);
+      }
+      if (data.behaviouralSkills !== undefined && Array.isArray(data.behaviouralSkills)) {
+        console.log("🔧 Updating behaviouralSkills from data:", data.behaviouralSkills.length, "items");
+        setBehaviouralSkills(data.behaviouralSkills);
+      }
+      if (data.mustHaveSkills !== undefined && Array.isArray(data.mustHaveSkills)) {
+        console.log("🔧 Updating mustHaveSkills from data:", data.mustHaveSkills.length, "items");
+        setMustHaveSkills(data.mustHaveSkills);
+      }
+      if (data.upskillableSkills !== undefined && Array.isArray(data.upskillableSkills)) {
+        console.log("🔧 Updating upskillableSkills from data:", data.upskillableSkills.length, "items");
+        setUpskillableSkills(data.upskillableSkills);
+      }
+      if (data.redFlags !== undefined && Array.isArray(data.redFlags)) {
+        console.log("🔧 Updating redFlags from data:", data.redFlags.length, "items");
+        setRedFlags(data.redFlags);
+      }
+      if (data.donts !== undefined && Array.isArray(data.donts)) {
+        console.log("🔧 Updating donts from data:", data.donts.length, "items");
+        setDonts(data.donts);
+      }
+      if (data.brutalTruth !== undefined) {
+        console.log("🔧 Updating brutalTruth from data");
+        setBrutalTruth(data.brutalTruth);
+      }
+      // Generate scoreImpactRows from donts/redFlags if not provided
+      if (!data.scoreImpactRows) {
+        const fixes = data.donts || data.redFlags || [];
+        if (fixes.length > 0) {
+          const impacts = ["+0.3", "+0.2", "+0.2", "+0.1", "+0.1"];
+          const talentImpacts = ["+25% pool expansion", "+15% persona match", "+12% signal quality", "+10% more candidates", "+18% engagement"];
+          const riskReductions = ["-15% false negatives", "-10% interview waste", "-15% bad hires", "-5% HM conflict", "-12% dropout"];
+          const generatedScoreImpactRows: ScoreImpactRow[] = fixes.slice(0, 5).map((fix: string, index: number) => ({
+            fix: fix,
+            impact: impacts[index] || "+0.1",
+            tooltip: `Why it matters: ${fix}`,
+            talentPoolImpact: talentImpacts[index] || "+10% improvement",
+            riskReduction: riskReductions[index] || "-10% risk",
+          }));
+          setScoreImpactRows(generatedScoreImpactRows);
+        }
+      } else if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        console.log("🔧 Updating scoreImpactRows from data:", data.scoreImpactRows.length, "items");
+        setScoreImpactRows(data.scoreImpactRows);
+      }
     }
   }, [data]);
 
@@ -188,7 +237,8 @@ export const EditableSkillCard = ({
 
   // Load from sessionStorage ONLY if no data prop is provided (fallback)
   useEffect(() => {
-    if (data === undefined || data === null) {
+    // Only load from sessionStorage if we don't have dynamic data
+    if (!data) {
       const saved = sessionStorage.getItem("editableSkillCard");
       if (saved) {
         try {

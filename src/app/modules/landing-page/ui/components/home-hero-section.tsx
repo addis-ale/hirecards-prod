@@ -107,6 +107,7 @@ export const HomeHeroSection = () => {
   const [candidates, setCandidates] = useState<ApifyPeopleData[]>([]);
   const [linkedInJobsCount, setLinkedInJobsCount] = useState(0);
   const [indeedJobsCount, setIndeedJobsCount] = useState(0);
+  const [glassdoorJobsCount, setGlassdoorJobsCount] = useState(0);
   const [platform, setPlatform] = useState<string>("unknown");
   const [debugOpen, setDebugOpen] = useState(false);
   const [linkedInJobsOpen, setLinkedInJobsOpen] = useState(false);
@@ -211,8 +212,13 @@ export const HomeHeroSection = () => {
       candidates,
       linkedInJobsCount,
       indeedJobsCount,
+      glassdoorJobsCount,
       platform,
       extractedFields,
+      jobAnalysisCards, // Include AI-generated cards
+      peopleAnalysisCards,
+      combinedAnalysisCards,
+      derivedStrategyCards,
     };
     sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
     router.push("/results");
@@ -227,8 +233,13 @@ export const HomeHeroSection = () => {
       candidates,
       linkedInJobsCount,
       indeedJobsCount,
+      glassdoorJobsCount,
       platform,
       extractedFields,
+      jobAnalysisCards, // Include AI-generated cards
+      peopleAnalysisCards,
+      combinedAnalysisCards,
+      derivedStrategyCards,
     };
     sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
     // Use window.location for immediate navigation without React re-renders
@@ -282,8 +293,13 @@ export const HomeHeroSection = () => {
       candidates,
       linkedInJobsCount,
       indeedJobsCount,
+      glassdoorJobsCount,
       platform,
       extractedFields: mergedData,
+      jobAnalysisCards, // Include AI-generated cards
+      peopleAnalysisCards,
+      combinedAnalysisCards,
+      derivedStrategyCards,
     };
     sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
     router.push("/results");
@@ -362,6 +378,7 @@ export const HomeHeroSection = () => {
       setCandidates(result.candidates || []);
       setLinkedInJobsCount(result.linkedInJobsCount || 0);
       setIndeedJobsCount(result.indeedJobsCount || 0);
+      setGlassdoorJobsCount(result.glassdoorJobsCount || 0);
       setPlatform(result.platform || "unknown");
       setWarnings(result.warnings || []);
       
@@ -766,7 +783,7 @@ export const HomeHeroSection = () => {
                       <div className="text-cyan-300 text-xs font-medium mb-1">Similar Jobs</div>
                       <div className="text-cyan-100 font-bold text-xl">{similarJobs.length}</div>
                       <div className="text-cyan-400/70 text-[10px] mt-1">
-                        {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} LinkedIn • {similarJobs.filter(j => j.platform === "indeed").length} Indeed
+                        {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} LinkedIn • {similarJobs.filter(j => j.platform === "indeed").length} Indeed • {similarJobs.filter(j => j.platform === "glassdoor").length} Glassdoor
                       </div>
                     </div>
                   )}
@@ -1452,8 +1469,8 @@ export const HomeHeroSection = () => {
             </div>
           )}
 
-          {/* Similar Jobs Panel - Combined LinkedIn + Indeed */}
-          {(linkedInJobsCount > 0 || indeedJobsCount > 0) && (
+          {/* Similar Jobs Panel - Combined LinkedIn + Indeed + Glassdoor */}
+          {(linkedInJobsCount > 0 || indeedJobsCount > 0 || glassdoorJobsCount > 0) && (
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border border-cyan-500/30 overflow-hidden backdrop-blur-sm">
               {/* Header */}
               <button
@@ -1506,7 +1523,7 @@ export const HomeHeroSection = () => {
                 <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
                   <div className="space-y-4">
                     {/* Summary Stats */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       {linkedInJobsCount > 0 && (
                         <div className="bg-blue-600/10 rounded-lg p-3 border border-blue-500/30">
                           <div className="text-blue-300 text-xs font-medium mb-1">LinkedIn</div>
@@ -1519,6 +1536,13 @@ export const HomeHeroSection = () => {
                           <div className="text-orange-300 text-xs font-medium mb-1">Indeed</div>
                           <div className="text-orange-100 font-bold text-lg">{indeedJobsCount}</div>
                           <div className="text-orange-400/70 text-[10px]">Similar Jobs</div>
+                        </div>
+                      )}
+                      {glassdoorJobsCount > 0 && (
+                        <div className="bg-green-600/10 rounded-lg p-3 border border-green-500/30">
+                          <div className="text-green-300 text-xs font-medium mb-1">Glassdoor</div>
+                          <div className="text-green-100 font-bold text-lg">{glassdoorJobsCount}</div>
+                          <div className="text-green-400/70 text-[10px]">Similar Jobs</div>
                         </div>
                       )}
                     </div>
@@ -1546,9 +1570,11 @@ export const HomeHeroSection = () => {
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                 job.platform === 'linkedin' 
                                   ? 'bg-blue-600/30 border border-blue-500/50 text-blue-200'
+                                  : job.platform === 'glassdoor'
+                                  ? 'bg-green-600/30 border border-green-500/50 text-green-200'
                                   : 'bg-orange-600/30 border border-orange-500/50 text-orange-200'
                               }`}>
-                                {job.platform === 'linkedin' ? 'LI' : 'IN'}
+                                {job.platform === 'linkedin' ? 'LI' : job.platform === 'glassdoor' ? 'GD' : 'IN'}
                               </span>
                             </div>
                             {job.location?.linkedinText && (
@@ -1848,7 +1874,7 @@ export const HomeHeroSection = () => {
                           rel="noopener noreferrer"
                           className="inline-block text-blue-400 hover:text-blue-300 text-xs underline"
                         >
-                          {job.platform === "linkedin" ? "View on LinkedIn →" : "View on Indeed →"}
+                          {job.platform === "linkedin" ? "View on LinkedIn →" : job.platform === "glassdoor" ? "View on Glassdoor →" : "View on Indeed →"}
                         </a>
                       </div>
                     ))}

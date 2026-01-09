@@ -648,6 +648,279 @@ async function searchSimilarJobsOnIndeed(
   }
 }
 
+async function searchSimilarJobsOnGlassdoor(
+  jobTitle: string,
+  location: string,
+  filters: {
+    workplaceType?: string;
+    employmentType?: string;
+    experienceLevel?: string;
+    salary?: string;
+  }
+): Promise<ApifyJobData[]> {
+  if (!apifyClient) {
+    console.warn("Apify API key not configured, skipping Glassdoor search");
+    return [];
+  }
+
+  // Normalize job title for better search results
+  const normalizedJobTitle = normalizeJobTitle(jobTitle);
+
+  // Normalize location for Glassdoor - it's very picky about location format
+  const normalizeLocationForGlassdoor = (loc: string): string | undefined => {
+      if (!loc) return undefined;
+      
+      // Remove null literals
+      let cleaned = loc.replace(/\bnull\b,?\s*/gi, "").trim();
+      if (!cleaned) return undefined;
+      
+      // Handle locations with "/" separator (e.g., "Amsterdam, Noord-Holland/Amsterdam, Netherlands")
+      if (cleaned.includes("/")) {
+        // Take the part after "/" if it exists, otherwise take the first part
+        const parts = cleaned.split("/");
+        cleaned = parts[parts.length - 1].trim();
+      }
+      
+      // Remove duplicate city names (e.g., "Amsterdam, Amsterdam, Netherlands" -> "Amsterdam, Netherlands")
+      const locationParts = cleaned.split(",").map(p => p.trim());
+      const uniqueParts: string[] = [];
+      const seen = new Set<string>();
+      
+      for (const part of locationParts) {
+        const normalizedPart = part.toLowerCase();
+        if (!seen.has(normalizedPart) && part.length > 0) {
+          seen.add(normalizedPart);
+          uniqueParts.push(part);
+        }
+      }
+      
+      cleaned = uniqueParts.join(", ");
+      
+      // Simplify to just "City, Country" format (max 2 parts)
+      if (uniqueParts.length > 2) {
+        // Take first part (city) and last part (country)
+        cleaned = `${uniqueParts[0]}, ${uniqueParts[uniqueParts.length - 1]}`;
+      }
+      
+      // Common location format fixes
+      cleaned = cleaned
+        .replace(/\s+,/g, ",")
+        .replace(/,{2,}/g, ",")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      
+      return cleaned || undefined;
+  };
+
+  const cleanedLocation = normalizeLocationForGlassdoor(location);
+
+  try {
+    console.log("Searching Glassdoor for similar jobs...", {
+      jobTitle,
+      location,
+      cleanedLocation,
+      filters,
+    });
+
+    // Build Glassdoor search input using bebity/glassdoor-jobs-scraper
+    const glassdoorInput: any = {
+      keyword: normalizedJobTitle,
+      maxItems: 100, // Limit to 100 jobs
+      includeCompanyDetails: true,
+    };
+
+    // Only add location if we have a valid one
+    if (cleanedLocation) {
+      glassdoorInput.location = cleanedLocation;
+    }
+
+    console.log(`Glassdoor search for: "${normalizedJobTitle}" in location: "${cleanedLocation || 'anywhere'}"`);
+
+    // Run the Glassdoor Jobs Scraper actor
+    const run = await apifyClient.actor("bebity/glassdoor-jobs-scraper").call(
+      glassdoorInput,
+      {
+        timeout: 120, // 2 minutes timeout
+      }
+    );
+
+    console.log("✅ Glassdoor Apify run finished:", run.id);
+
+    // Fetch results from dataset
+    const { items } = await apifyClient
+      .dataset(run.defaultDatasetId)
+      .listItems();
+
+    console.log(`✅ Found ${items.length} similar jobs from Glassdoor`);
+
+    // Transform Glassdoor results to ApifyJobData format
+    const glassdoorJobs: ApifyJobData[] = items
+      .slice(0, 100) // Limit to 100 jobs
+      .map((job: any) => {
+        // Parse salary if available
+        let salaryData: any = undefined;
+        if (job.salary || job.salaryRange) {
+          const salaryText = job.salary || job.salaryRange || "";
+          const numbers = salaryText.match(/[\d,]+/g) || [];
+          if (numbers.length >= 2) {
+            const min = parseInt(numbers[0].replace(/,/g, ""));
+            const max = parseInt(numbers[1].replace(/,/g, ""));
+            salaryData = {
+              text: salaryText,
+              min: min > 1000 ? min : min * 1000, // Handle k notation
+              max: max > 1000 ? max : max * 1000,
+              currency: "USD",
+            };
+          } else if (numbers.length === 1) {
+            const value = parseInt(numbers[0].replace(/,/g, ""));
+            salaryData = {
+              text: salaryText,
+              min: value > 1000 ? value : value * 1000,
+              max: value > 1000 ? value * 1.2 : value * 1200,
+              currency: "USD",
+            };
+          }
+        }
+
+        // Parse location
+        const locationText = job.location || cleanedLocation || "Unknown";
+        const locationParts = locationText.split(",").map((p: string) => p.trim());
+
+        return {
+          id: job.jobId || job.id || `glassdoor-${Date.now()}-${Math.random()}`,
+          title: job.jobTitle || job.title || normalizedJobTitle,
+          url: job.jobUrl || job.url,
+          company: {
+            name: job.companyName || job.company || "Unknown",
+            logo: job.companyLogo,
+            employeeCount: job.employeeCount || job.companySize,
+          },
+          location: {
+            linkedinText: locationText,
+            city: locationParts[0],
+            state: locationParts[1],
+            country: locationParts[2] || locationParts[1],
+            parsed: {
+              city: locationParts[0],
+              state: locationParts[1],
+              country: locationParts[2] || locationParts[1],
+            },
+          },
+          salary: salaryData,
+          employmentType: job.employmentType || filters.employmentType,
+          workplaceType: job.workplaceType || filters.workplaceType,
+          applicants: job.applicants,
+          views: job.views,
+          benefits: job.benefits || [],
+          descriptionText: job.description || job.jobDescription,
+          platform: "glassdoor" as const, // Mark as Glassdoor
+        };
+      })
+      .filter((job: ApifyJobData) => job.title && job.company.name); // Filter out invalid jobs
+
+    return glassdoorJobs;
+  } catch (error: any) {
+    console.error("❌ Glassdoor jobs search error:", error.message);
+    
+    // If location error, try again without location as fallback
+    if (error.message?.includes("Location not found") && cleanedLocation) {
+      console.log("⚠️ Location not found, retrying Glassdoor search without location...");
+      try {
+        const fallbackInput: any = {
+          keyword: normalizedJobTitle,
+          maxItems: 100,
+          includeCompanyDetails: true,
+        };
+        
+        const fallbackRun = await apifyClient.actor("bebity/glassdoor-jobs-scraper").call(
+          fallbackInput,
+          {
+            timeout: 120,
+          }
+        );
+        
+        const { items: fallbackItems } = await apifyClient
+          .dataset(fallbackRun.defaultDatasetId)
+          .listItems();
+        
+        if (fallbackItems && fallbackItems.length > 0) {
+          console.log(`✅ Found ${fallbackItems.length} Glassdoor jobs without location filter`);
+          
+          // Transform results (same as above)
+          const glassdoorJobs: ApifyJobData[] = fallbackItems
+            .slice(0, 100)
+            .map((job: any) => {
+              let salaryData: any = undefined;
+              if (job.salary || job.salaryRange) {
+                const salaryText = job.salary || job.salaryRange || "";
+                const numbers = salaryText.match(/[\d,]+/g) || [];
+                if (numbers.length >= 2) {
+                  const min = parseInt(numbers[0].replace(/,/g, ""));
+                  const max = parseInt(numbers[1].replace(/,/g, ""));
+                  salaryData = {
+                    text: salaryText,
+                    min: min > 1000 ? min : min * 1000,
+                    max: max > 1000 ? max : max * 1000,
+                    currency: "USD",
+                  };
+                } else if (numbers.length === 1) {
+                  const value = parseInt(numbers[0].replace(/,/g, ""));
+                  salaryData = {
+                    text: salaryText,
+                    min: value > 1000 ? value : value * 1000,
+                    max: value > 1000 ? value * 1.2 : value * 1200,
+                    currency: "USD",
+                  };
+                }
+              }
+
+              const locationText = job.location || "Unknown";
+              const locationParts = locationText.split(",").map((p: string) => p.trim());
+
+              return {
+                id: job.jobId || job.id || `glassdoor-${Date.now()}-${Math.random()}`,
+                title: job.jobTitle || job.title || normalizedJobTitle,
+                url: job.jobUrl || job.url,
+                company: {
+                  name: job.companyName || job.company || "Unknown",
+                  logo: job.companyLogo,
+                  employeeCount: job.employeeCount || job.companySize,
+                },
+                location: {
+                  linkedinText: locationText,
+                  city: locationParts[0],
+                  state: locationParts[1],
+                  country: locationParts[2] || locationParts[1],
+                  parsed: {
+                    city: locationParts[0],
+                    state: locationParts[1],
+                    country: locationParts[2] || locationParts[1],
+                  },
+                },
+                salary: salaryData,
+                employmentType: job.employmentType || filters.employmentType,
+                workplaceType: job.workplaceType || filters.workplaceType,
+                applicants: job.applicants,
+                views: job.views,
+                benefits: job.benefits || [],
+                descriptionText: job.description || job.jobDescription,
+                platform: "glassdoor" as const,
+              };
+            })
+            .filter((job: ApifyJobData) => job.title && job.company.name);
+          
+          return glassdoorJobs;
+        }
+      } catch (fallbackError: any) {
+        console.error("❌ Glassdoor fallback search also failed:", fallbackError.message);
+      }
+    }
+    
+    // Return empty array on error
+    return [];
+  }
+}
+
 async function searchSimilarJobsWithApify(
   jobTitle: string,
   location: string,
@@ -1246,16 +1519,17 @@ export async function POST(request: NextRequest) {
           salary: scrapedData.salary,
         };
 
-        // Search both platforms in parallel with normalized title
-        const [linkedInJobs, indeedJobs] = await Promise.all([
+        // Search all platforms in parallel with normalized title
+        const [linkedInJobs, indeedJobs, glassdoorJobs] = await Promise.all([
           searchSimilarJobsWithApify(normalizedJobTitle, location, filters),
           searchSimilarJobsOnIndeed(normalizedJobTitle, location, filters),
+          searchSimilarJobsOnGlassdoor(normalizedJobTitle, location, filters),
         ]);
 
-        // Combine results from both platforms
-        similarJobs = [...linkedInJobs, ...indeedJobs];
+        // Combine results from all platforms
+        similarJobs = [...linkedInJobs, ...indeedJobs, ...glassdoorJobs];
         console.log(
-          `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed = ${similarJobs.length} total`
+          `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed + ${glassdoorJobs.length} from Glassdoor = ${similarJobs.length} total`
         );
       } else if (!apifyClient) {
         console.warn("⚠️ Apify API key not configured - skipping job search");
@@ -1299,6 +1573,9 @@ export async function POST(request: NextRequest) {
     ).length;
     const indeedJobsCount = similarJobs.filter(
       (j) => j.platform === "indeed"
+    ).length;
+    const glassdoorJobsCount = similarJobs.filter(
+      (j) => j.platform === "glassdoor"
     ).length;
 
     // Extract salary range if available
@@ -1490,6 +1767,7 @@ export async function POST(request: NextRequest) {
       similarJobsCount: similarJobs.length,
       linkedInJobsCount: linkedInJobsCount,
       indeedJobsCount: indeedJobsCount,
+      glassdoorJobsCount: glassdoorJobsCount,
       candidates: candidates,
       candidatesCount: candidates.length,
       inputType,

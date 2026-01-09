@@ -115,12 +115,87 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
   const [realityCardDataForPanel, setRealityCardDataForPanel] =
     useState<any>(null);
 
-  // Skip loading enriched data - use static cards only
+  // Load dynamic card data from sessionStorage
   React.useEffect(() => {
-    console.log("🚀 ============================================");
-    console.log("🚀 HIRECARD TABS: USING STATIC CARDS");
-    console.log("🚀 ============================================");
-    console.log("✅ All cards will use their default static data");
+    try {
+      const stored = sessionStorage.getItem("scrapedJobData");
+      if (stored) {
+        const data = JSON.parse(stored);
+        const jobAnalysisCards = data.jobAnalysisCards;
+        
+        if (jobAnalysisCards) {
+          console.log("📊 Loading dynamic card data from sessionStorage");
+          
+          // Set role card data
+          if (jobAnalysisCards.roleCard) {
+            console.log("📋 Setting roleCardData:", JSON.stringify(jobAnalysisCards.roleCard, null, 2));
+            setRoleCardData(jobAnalysisCards.roleCard);
+            console.log("✅ Role Card data loaded and state updated");
+          } else {
+            console.log("⚠️ No roleCard found in jobAnalysisCards");
+          }
+          
+          // Set skill card data
+          if (jobAnalysisCards.skillCard) {
+            console.log("🔧 Setting skillCardData:", JSON.stringify(jobAnalysisCards.skillCard, null, 2));
+            setSkillCardData(jobAnalysisCards.skillCard);
+            console.log("✅ Skill Card data loaded and state updated");
+          } else {
+            console.log("⚠️ No skillCard found in jobAnalysisCards");
+          }
+          
+          // Set other card data if available
+          if (data.combinedAnalysisCards) {
+            if (data.combinedAnalysisCards.marketCard) {
+              setMarketCardData(data.combinedAnalysisCards.marketCard);
+            }
+            if (data.combinedAnalysisCards.payCard) {
+              setPayCardData(data.combinedAnalysisCards.payCard);
+            }
+            if (data.combinedAnalysisCards.funnelCard) {
+              setFunnelCardData(data.combinedAnalysisCards.funnelCard);
+            }
+            if (data.combinedAnalysisCards.realityCard) {
+              setRealityCardData(data.combinedAnalysisCards.realityCard);
+            }
+          }
+          
+          if (data.peopleAnalysisCards?.talentMapCard) {
+            setTalentMapCardData(data.peopleAnalysisCards.talentMapCard);
+          }
+          
+          if (jobAnalysisCards.fitCard) {
+            setFitCardData(jobAnalysisCards.fitCard);
+          }
+          
+          if (jobAnalysisCards.messageCard) {
+            setMessageCardData(jobAnalysisCards.messageCard);
+          }
+          
+          if (jobAnalysisCards.outreachCard) {
+            setOutreachCardData(jobAnalysisCards.outreachCard);
+          }
+          
+          if (data.derivedStrategyCards) {
+            if (data.derivedStrategyCards.interviewCard) {
+              setInterviewCardData(data.derivedStrategyCards.interviewCard);
+            }
+            if (data.derivedStrategyCards.scorecardCard) {
+              setScorecardCardData(data.derivedStrategyCards.scorecardCard);
+            }
+            if (data.derivedStrategyCards.planCard) {
+              setPlanCardData(data.derivedStrategyCards.planCard);
+            }
+          }
+        } else {
+          console.log("⚠️ No jobAnalysisCards found in sessionStorage, using static data");
+        }
+      } else {
+        console.log("⚠️ No scrapedJobData in sessionStorage, using static data");
+      }
+    } catch (error) {
+      console.error("❌ Error loading card data from sessionStorage:", error);
+    }
   }, []);
 
   const tabs = [
@@ -200,9 +275,20 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
           "📋 Rendering EditableRoleCard with data:",
           roleCardData ? "YES" : "NO"
         );
-        return <EditableRoleCard data={roleCardData} {...commonProps} />;
+        if (roleCardData) {
+          console.log("📋 Role Card Data:", JSON.stringify(roleCardData, null, 2));
+        }
+        // Use key to force re-render when data changes from null to actual data
+        return <EditableRoleCard key={roleCardData ? `role-dynamic-${roleCardData.roleSummary?.slice(0, 20)}` : 'role-static'} data={roleCardData} {...commonProps} />;
       case "skill":
-        return <EditableSkillCard data={skillCardData} {...commonProps} />;
+        console.log(
+          "🔧 Rendering EditableSkillCard with data:",
+          skillCardData ? "YES" : "NO"
+        );
+        if (skillCardData) {
+          console.log("🔧 Skill Card Data:", JSON.stringify(skillCardData, null, 2));
+        }
+        return <EditableSkillCard key={skillCardData ? `skill-${JSON.stringify(skillCardData).slice(0, 50)}` : 'skill-static'} data={skillCardData} {...commonProps} />;
       case "market":
         console.log(
           "📊 Rendering EditableMarketCard with data:",

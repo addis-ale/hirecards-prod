@@ -21,6 +21,13 @@ interface RoleCardProps {
     brutalTruth?: string;
     whatGreatLooksLike?: string[];
     roleMission?: string;
+    whatYoullWorkWith?: string[];
+    whatYouWontDo?: string[];
+    jdBefore?: string;
+    jdAfter?: string;
+    fullJdSnippet?: string;
+    commonFailureModes?: string[];
+    scoreImpactRows?: ScoreImpactRow[];
   };
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
@@ -82,14 +89,16 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
     data?.roleMission ?? "You own the modelling layer behind merchant analytics. You design stable, production-grade dbt models that shape the Insights product and directly influence thousands of merchants every day."
   );
 
-  const [whatGreatLooksLike, setWhatGreatLooksLike] = useState([
-    "Thinks in systems, not dashboards",
-    "Writes clean, maintainable, tested models",
-    "Communicates modelling choices clearly",
-    "Works tightly with PM & Engineering",
-    "Handles ambiguity through structure",
-    "Defines modelling patterns others adopt"
-  ]);
+  const [whatGreatLooksLike, setWhatGreatLooksLike] = useState(
+    data?.whatGreatLooksLike || [
+      "Thinks in systems, not dashboards",
+      "Writes clean, maintainable, tested models",
+      "Communicates modelling choices clearly",
+      "Works tightly with PM & Engineering",
+      "Handles ambiguity through structure",
+      "Defines modelling patterns others adopt"
+    ]
+  );
 
   const [whatYoullWorkWith, setWhatYoullWorkWith] = useState([
     "dbt, Snowflake, Looker, Git, Airflow",
@@ -184,64 +193,129 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
     sessionStorage.setItem("editableRoleCard", JSON.stringify(data));
   }, [roleSummary, outcomes, redFlags, donts, fixes, brutalTruth, roleMission, whatGreatLooksLike, whatYoullWorkWith, whatYouWontDo, jdBefore, jdAfter, fullJdSnippet, commonFailureModes, scoreImpactRows]);
 
-  // Update when data prop changes
+  // Update when data prop changes - PRIORITY: data prop overrides everything
   useEffect(() => {
-    console.log("📋 useEffect triggered - data changed");
-    if (data?.roleSummary) {
-      console.log("📋 Updating roleSummary from data");
-      setRoleSummary(data.roleSummary);
-    }
-    if (data?.outcomes) {
-      console.log("📋 Updating outcomes from data:", data.outcomes.length, "items");
-      setOutcomes(data.outcomes);
-    }
-    if (data?.redFlags) {
-      console.log("📋 Updating redFlags from data:", data.redFlags.length, "items");
-      setRedFlags(data.redFlags);
-    }
-    if (data?.donts) {
-      console.log("📋 Updating donts from data:", data.donts.length, "items");
-      setDonts(data.donts);
-    }
-    if (data?.fixes) {
-      console.log("📋 Updating fixes from data:", data.fixes.length, "items");
-      setFixes(data.fixes);
-    }
-    if (data?.brutalTruth) {
-      console.log("📋 Updating brutalTruth from data");
-      setBrutalTruth(data.brutalTruth);
+    // Check if data exists and has actual content (not just empty object)
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      console.log("📋 ============================================");
+      console.log("📋 UPDATING ROLE CARD FROM DYNAMIC DATA");
+      console.log("📋 ============================================");
+      console.log("📋 Data received:", JSON.stringify(data, null, 2));
+      
+      if (data.roleSummary !== undefined && data.roleSummary !== null) {
+        console.log("📋 Updating roleSummary from data:", data.roleSummary);
+        setRoleSummary(data.roleSummary);
+      }
+      if (data.roleMission !== undefined && data.roleMission !== null) {
+        console.log("📋 Updating roleMission from data:", data.roleMission);
+        setRoleMission(data.roleMission);
+      }
+      if (data.outcomes !== undefined && Array.isArray(data.outcomes) && data.outcomes.length > 0) {
+        console.log("📋 Updating outcomes from data:", data.outcomes.length, "items");
+        setOutcomes(data.outcomes);
+      }
+      if (data.whatGreatLooksLike !== undefined && Array.isArray(data.whatGreatLooksLike) && data.whatGreatLooksLike.length > 0) {
+        console.log("📋 Updating whatGreatLooksLike from data:", data.whatGreatLooksLike.length, "items");
+        setWhatGreatLooksLike(data.whatGreatLooksLike);
+      }
+      if (data.whatYoullWorkWith !== undefined && Array.isArray(data.whatYoullWorkWith) && data.whatYoullWorkWith.length > 0) {
+        console.log("📋 Updating whatYoullWorkWith from data:", data.whatYoullWorkWith.length, "items");
+        setWhatYoullWorkWith(data.whatYoullWorkWith);
+      }
+      if (data.whatYouWontDo !== undefined && Array.isArray(data.whatYouWontDo) && data.whatYouWontDo.length > 0) {
+        console.log("📋 Updating whatYouWontDo from data:", data.whatYouWontDo.length, "items");
+        setWhatYouWontDo(data.whatYouWontDo);
+      }
+      if (data.redFlags !== undefined && Array.isArray(data.redFlags) && data.redFlags.length > 0) {
+        console.log("📋 Updating redFlags from data:", data.redFlags.length, "items");
+        setRedFlags(data.redFlags);
+      }
+      if (data.donts !== undefined && Array.isArray(data.donts) && data.donts.length > 0) {
+        console.log("📋 Updating donts from data:", data.donts.length, "items");
+        setDonts(data.donts);
+      }
+      if (data.fixes !== undefined && Array.isArray(data.fixes) && data.fixes.length > 0) {
+        console.log("📋 Updating fixes from data:", data.fixes.length, "items");
+        setFixes(data.fixes);
+        // Generate scoreImpactRows from fixes if not provided
+        if (!data.scoreImpactRows && data.fixes.length > 0) {
+          const generatedScoreImpactRows: ScoreImpactRow[] = data.fixes.slice(0, 5).map((fix: string, index: number) => {
+            const impacts = ["+0.3", "+0.2", "+0.2", "+0.1", "+0.1"];
+            const talentImpacts = ["+20% persona relevance", "+18% engagement", "+15% conversion", "+10% accuracy", "+12% signal quality"];
+            const riskReductions = ["-15% misalignment", "-10% rejection risk", "-20% restart risk", "-5% interview waste", "-15% bad hires"];
+            return {
+              fix: fix,
+              impact: impacts[index] || "+0.1",
+              tooltip: `Why it matters: ${fix}`,
+              talentPoolImpact: talentImpacts[index] || "+10% improvement",
+              riskReduction: riskReductions[index] || "-10% risk",
+            };
+          });
+          setScoreImpactRows(generatedScoreImpactRows);
+        }
+      }
+      if (data.jdBefore !== undefined && data.jdBefore !== null) {
+        console.log("📋 Updating jdBefore from data");
+        setJdBefore(data.jdBefore);
+      }
+      if (data.jdAfter !== undefined && data.jdAfter !== null) {
+        console.log("📋 Updating jdAfter from data");
+        setJdAfter(data.jdAfter);
+      }
+      if (data.fullJdSnippet !== undefined && data.fullJdSnippet !== null) {
+        console.log("📋 Updating fullJdSnippet from data");
+        setFullJdSnippet(data.fullJdSnippet);
+      }
+      if (data.commonFailureModes !== undefined && Array.isArray(data.commonFailureModes) && data.commonFailureModes.length > 0) {
+        console.log("📋 Updating commonFailureModes from data:", data.commonFailureModes.length, "items");
+        setCommonFailureModes(data.commonFailureModes);
+      }
+      if (data.scoreImpactRows !== undefined && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        console.log("📋 Updating scoreImpactRows from data:", data.scoreImpactRows.length, "items");
+        setScoreImpactRows(data.scoreImpactRows);
+      }
+      if (data.brutalTruth !== undefined && data.brutalTruth !== null) {
+        console.log("📋 Updating brutalTruth from data:", data.brutalTruth);
+        setBrutalTruth(data.brutalTruth);
+      }
+    } else if (!data) {
+      console.log("📋 No data prop provided, will use sessionStorage or defaults");
     }
   }, [data]);
 
-  // Load from sessionStorage on mount
+  // Load from sessionStorage ONLY if data prop is not provided (fallback)
   useEffect(() => {
-    const saved = sessionStorage.getItem("editableRoleCard");
-    if (saved) {
-      try {
-        const savedData = JSON.parse(saved);
-        if (savedData.roleSummary) setRoleSummary(savedData.roleSummary);
-        if (savedData.outcomes) setOutcomes(savedData.outcomes);
-        if (savedData.redFlags) setRedFlags(savedData.redFlags);
-        if (savedData.donts) setDonts(savedData.donts);
-        if (savedData.fixes) setFixes(savedData.fixes);
-        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
-        if (savedData.roleMission) setRoleMission(savedData.roleMission);
-        if (savedData.whatGreatLooksLike) setWhatGreatLooksLike(savedData.whatGreatLooksLike);
-        if (savedData.whatYoullWorkWith) setWhatYoullWorkWith(savedData.whatYoullWorkWith);
-        if (savedData.whatYouWontDo) setWhatYouWontDo(savedData.whatYouWontDo);
-        if (savedData.jdBefore) setJdBefore(savedData.jdBefore);
-        if (savedData.jdAfter) setJdAfter(savedData.jdAfter);
-        if (savedData.fullJdSnippet) setFullJdSnippet(savedData.fullJdSnippet);
-        if (savedData.commonFailureModes) setCommonFailureModes(savedData.commonFailureModes);
-        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
-          setScoreImpactRows(savedData.scoreImpactRows);
+    // Only load from sessionStorage if we don't have dynamic data
+    if (!data) {
+      const saved = sessionStorage.getItem("editableRoleCard");
+      if (saved) {
+        try {
+          const savedData = JSON.parse(saved);
+          console.log("📋 Loading from sessionStorage (no dynamic data available)");
+          if (savedData.roleSummary) setRoleSummary(savedData.roleSummary);
+          if (savedData.outcomes) setOutcomes(savedData.outcomes);
+          if (savedData.redFlags) setRedFlags(savedData.redFlags);
+          if (savedData.donts) setDonts(savedData.donts);
+          if (savedData.fixes) setFixes(savedData.fixes);
+          if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+          if (savedData.roleMission) setRoleMission(savedData.roleMission);
+          if (savedData.whatGreatLooksLike) setWhatGreatLooksLike(savedData.whatGreatLooksLike);
+          if (savedData.whatYoullWorkWith) setWhatYoullWorkWith(savedData.whatYoullWorkWith);
+          if (savedData.whatYouWontDo) setWhatYouWontDo(savedData.whatYouWontDo);
+          if (savedData.jdBefore) setJdBefore(savedData.jdBefore);
+          if (savedData.jdAfter) setJdAfter(savedData.jdAfter);
+          if (savedData.fullJdSnippet) setFullJdSnippet(savedData.fullJdSnippet);
+          if (savedData.commonFailureModes) setCommonFailureModes(savedData.commonFailureModes);
+          if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+            setScoreImpactRows(savedData.scoreImpactRows);
+          }
+        } catch (e) {
+          console.error("Failed to load saved data:", e);
         }
-      } catch (e) {
-        console.error("Failed to load saved data:", e);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const [openModal, setOpenModal] = useState<string | null>(null);
 

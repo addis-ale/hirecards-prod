@@ -11,46 +11,86 @@ interface Loader1Props {
 
 export default function Loader1({ onComplete, isComplete = false }: Loader1Props) {
   const [progress, setProgress] = useState(0);
+  const startTimeRef = useRef(Date.now());
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // If marked as complete, immediately finish the loader
+    // If marked as complete, smoothly finish the loader immediately
     if (isComplete) {
-      setProgress(100);
-      // Small delay to show completion animation, then call onComplete
-      setTimeout(() => {
-        onComplete?.();
-      }, 300);
-      return;
+      // Cancel any ongoing progress animation
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      // Animate to 100% quickly
+      const targetProgress = 100;
+      const currentProgress = progress;
+      const duration = 400; // 400ms to complete
+      const startProgress = currentProgress;
+      const animationStart = Date.now();
+
+      const animate = () => {
+        const elapsed = Date.now() - animationStart;
+        const ratio = Math.min(elapsed / duration, 1);
+        // Ease out animation
+        const eased = 1 - Math.pow(1 - ratio, 3);
+        const newProgress = startProgress + (targetProgress - startProgress) * eased;
+        
+        setProgress(newProgress);
+
+        if (ratio < 1) {
+          animationFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          setProgress(100);
+          // Small delay to show completion, then call onComplete
+          setTimeout(() => {
+            onComplete?.();
+          }, 150);
+        }
+      };
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
     }
 
-    const totalDuration = 45000; // 45 seconds total (max duration)
-    const startTime = Date.now();
-    let rafId: number;
-
+    // While loading, show smooth progress based on elapsed time
+    // Use a realistic estimate: card generation typically takes 30-60 seconds
+    const estimatedDuration = 55000; // 55 seconds estimate
     const updateProgress = () => {
-      const elapsed = Date.now() - startTime;
-      const rawProgress = (elapsed / totalDuration) * 100;
+      const elapsed = Date.now() - startTimeRef.current;
+      const rawProgress = (elapsed / estimatedDuration) * 100;
 
-      // Add some variance to make it feel more organic
-      const variance = Math.sin(elapsed / 1000) * 2;
-      const newProgress = Math.min(rawProgress + variance, 100);
+      // Cap at 92% until isComplete is true (to avoid showing 100% before completion)
+      const cappedProgress = Math.min(rawProgress, 92);
 
-      // Only update state if the change is significant to reduce render depth/frequency
+      // Add subtle variance to make it feel organic
+      const variance = Math.sin(elapsed / 1000) * 1;
+      const newProgress = Math.min(cappedProgress + variance, 92);
+
       setProgress((prev) => {
-        if (Math.abs(newProgress - prev) < 0.1 && newProgress < 100) {
+        // Only update if change is significant
+        if (Math.abs(newProgress - prev) < 0.1) {
           return prev;
         }
         return newProgress;
       });
 
-      if (newProgress < 100) {
-        rafId = requestAnimationFrame(updateProgress);
+      if (!isComplete && newProgress < 92) {
+        animationFrameRef.current = requestAnimationFrame(updateProgress);
       }
     };
 
-    rafId = requestAnimationFrame(updateProgress);
-    return () => cancelAnimationFrame(rafId);
-  }, [isComplete, onComplete]);
+    animationFrameRef.current = requestAnimationFrame(updateProgress);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isComplete, onComplete, progress]);
 
   return <DynamicLoader progress={progress} />;
 }
@@ -200,8 +240,18 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
   }, []);
 
   // Progressively reveal cards based on progress - only update if count changed
+  // Cap at CARDS.length - 1 until progress reaches 100%
   useEffect(() => {
-    const cardsToShow = Math.floor((progress / 100) * CARDS.length);
+    let cardsToShow;
+    if (progress >= 100) {
+      cardsToShow = CARDS.length; // Show all cards when complete
+    } else {
+      // Show cards progressively, but cap at second-to-last card until complete
+      cardsToShow = Math.min(
+        Math.floor((progress / 100) * CARDS.length),
+        CARDS.length - 1
+      );
+    }
     setVisibleCardsCount((prev) => (prev !== cardsToShow ? cardsToShow : prev));
   }, [progress]);
 

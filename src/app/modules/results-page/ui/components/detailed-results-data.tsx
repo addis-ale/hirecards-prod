@@ -27,6 +27,37 @@ import {
 
 const IconTarget = () => <IconAdjustmentsBolt />; // Fallback or custom
 
+// Helper function to get dynamic card data from sessionStorage
+function getDynamicCardData() {
+  try {
+    const stored = sessionStorage.getItem("scrapedJobData");
+    if (!stored) return null;
+    const data = JSON.parse(stored);
+    return data.jobAnalysisCards || null;
+  } catch (error) {
+    console.error("Error reading card data from sessionStorage:", error);
+    return null;
+  }
+}
+
+// Get dynamic data
+const jobAnalysisCards = getDynamicCardData();
+const roleCard = jobAnalysisCards?.roleCard;
+const skillCard = jobAnalysisCards?.skillCard;
+
+// Helper to format array as string for display
+function formatArrayAsString(arr: string[] | undefined, fallback: string = "Not specified"): string {
+  if (!arr || arr.length === 0) return fallback;
+  return arr.join(", ");
+}
+
+// Helper to format array as bullet list
+function formatArrayAsList(arr: string[] | undefined, maxItems: number = 5): string {
+  if (!arr || arr.length === 0) return "Not specified";
+  const items = arr.slice(0, maxItems);
+  return items.map((item, idx) => `${idx + 1}. ${item}`).join(" • ");
+}
+
 export const detailedHeroCards = [
   {
     id: "1",
@@ -94,7 +125,48 @@ export const detailedHeroCards = [
     metricValue: "+1.0",
     metricLabel: "Uplift Potential",
     uplift: "+1.0",
-    features: [
+    features: roleCard ? [
+      {
+        title: "Role Summary",
+        description: roleCard.roleSummary || "Not specified",
+        icon: <IconTarget />,
+      },
+      {
+        title: "Role Mission",
+        description: roleCard.roleMission || "Not specified",
+        icon: <IconTarget />,
+      },
+      {
+        title: "Top Outcomes",
+        description: formatArrayAsList(roleCard.outcomes, 5),
+        icon: <Zap />,
+      },
+      {
+        title: "What Great Looks Like",
+        description: formatArrayAsList(roleCard.whatGreatLooksLike, 6),
+        icon: <IconHeart />,
+      },
+      {
+        title: "Red Flags",
+        description: formatArrayAsList(roleCard.redFlags, 3),
+        icon: <IconRouteAltLeft />,
+      },
+      {
+        title: "Don'ts",
+        description: formatArrayAsList(roleCard.donts, 3),
+        icon: <IconAdjustmentsBolt />,
+      },
+      {
+        title: "Fixes",
+        description: formatArrayAsList(roleCard.fixes, 3),
+        icon: <IconCurrencyDollar />,
+      },
+      {
+        title: "Brutal Truth",
+        description: roleCard.brutalTruth || "Not specified",
+        icon: <IconTerminal2 />,
+      },
+    ] : [
       {
         title: "Role Mission",
         description: "Own the modelling layer behind merchant analytics. Design stable dbt models that shape the Insights product for thousands of merchants.",
@@ -111,13 +183,13 @@ export const detailedHeroCards = [
         icon: <IconHeart />,
       },
       {
-        title: "What You Won’t Do",
+        title: "What You Won't Do",
         description: "No dashboard maintenance, ad-hoc requests, glue-code pipelines, or 'do-everything' data roles.",
         icon: <IconAdjustmentsBolt />,
       },
       {
         title: "JD Rewrite: After",
-        description: "Own the modelling layer powering Mollie’s merchant-facing analytics. Design stable models used by thousands of merchants.",
+        description: "Own the modelling layer powering Mollie's merchant-facing analytics. Design stable models used by thousands of merchants.",
         icon: <IconTerminal2 />,
       },
       {
@@ -141,7 +213,48 @@ export const detailedHeroCards = [
     metricValue: "+0.8",
     metricLabel: "Uplift Potential",
     uplift: "+0.8",
-    features: [
+    features: skillCard ? [
+      {
+        title: "Core Technical Skills",
+        description: formatArrayAsList(skillCard.technicalSkills, 5),
+        icon: <IconTerminal2 />,
+      },
+      {
+        title: "Product Skills",
+        description: formatArrayAsList(skillCard.productSkills, 4),
+        icon: <Zap />,
+      },
+      {
+        title: "Behavioural Skills",
+        description: formatArrayAsList(skillCard.behaviouralSkills, 4),
+        icon: <IconHeart />,
+      },
+      {
+        title: "Must-Have Skills",
+        description: formatArrayAsList(skillCard.mustHaveSkills, 4),
+        icon: <IconTarget />,
+      },
+      {
+        title: "Upskillable Skills",
+        description: formatArrayAsList(skillCard.upskillableSkills, 4),
+        icon: <IconEaseInOut />,
+      },
+      {
+        title: "Red Flags",
+        description: formatArrayAsList(skillCard.redFlags, 4),
+        icon: <IconRouteAltLeft />,
+      },
+      {
+        title: "Don'ts",
+        description: formatArrayAsList(skillCard.donts, 4),
+        icon: <IconAdjustmentsBolt />,
+      },
+      {
+        title: "Brutal Truth",
+        description: skillCard.brutalTruth || "Not specified",
+        icon: <IconTerminal2 />,
+      },
+    ] : [
       {
         title: "Core Technical Skills",
         description: "Advanced SQL, strong dbt (macros, refs), dimensional modelling, and data reliability engineering.",

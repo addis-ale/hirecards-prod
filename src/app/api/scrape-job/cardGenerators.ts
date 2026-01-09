@@ -70,13 +70,14 @@ export async function generateRoleCard(jobData: any): Promise<any> {
     // Ensure we use the actual hiring company, not the job board
     const company = ensureHiringCompany(jobData.company, jobData.source);
 
-    const prompt = `Analyze this job posting and create a Role Card with the following structure.
+    const prompt = `Analyze this job posting and create a comprehensive Role Card with the following structure.
 
 Job Data:
 Title: ${jobData.title || "Not provided"}
 Description: ${jobData.description || "Not provided"}
 Company: ${ensureHiringCompany(jobData.company, jobData.source) || "Not provided"}
 Responsibilities: ${jobData.responsibilities || "Not provided"}
+Requirements: ${jobData.requirements || "Not provided"}
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -84,13 +85,19 @@ Return ONLY valid JSON with this exact structure:
   "roleMission": "What this person owns - be specific about impact",
   "outcomes": ["5 clear success outcomes in first 6-12 months"],
   "whatGreatLooksLike": ["6 characteristics of ideal candidate"],
+  "whatYoullWorkWith": ["3-4 items: tools, technologies, systems, or teams mentioned in the JD"],
+  "whatYouWontDo": ["3-4 items: what this role explicitly is NOT (e.g., 'Dashboard maintenance', 'Ad-hoc requests')"],
   "redFlags": ["3 warning signs in the JD or role"],
   "donts": ["3 hiring mistakes to avoid for this role"],
   "fixes": ["3 specific improvements to make hire successful"],
+  "jdBefore": "A generic, poorly written version of this job description (what NOT to write)",
+  "jdAfter": "An improved, outcome-focused version of this job description (what TO write)",
+  "fullJdSnippet": "A complete, well-written job description ready to use, formatted as a multi-line string with proper structure",
+  "commonFailureModes": ["4 common ways role definitions fail for this type of role"],
   "brutalTruth": "One honest, direct insight about this role"
 }
 
-Be specific to THIS job. Avoid generic advice. Focus on what's actually in the description.`;
+Be specific to THIS job. Avoid generic advice. Focus on what's actually in the description. Extract tools/technologies from the JD for whatYoullWorkWith.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -102,11 +109,25 @@ Be specific to THIS job. Avoid generic advice. Focus on what's actually in the d
         { role: "user", content: prompt }
       ],
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 2500, // Increased for more comprehensive output
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
     const roleCard = JSON.parse(content);
+    
+    // Generate scoreImpactRows from fixes if not provided
+    if (roleCard.fixes && Array.isArray(roleCard.fixes) && roleCard.fixes.length > 0 && !roleCard.scoreImpactRows) {
+      const impacts = ["+0.3", "+0.2", "+0.2", "+0.1", "+0.1"];
+      const talentImpacts = ["+20% persona relevance", "+18% engagement", "+15% conversion", "+10% accuracy", "+12% signal quality"];
+      const riskReductions = ["-15% misalignment", "-10% rejection risk", "-20% restart risk", "-5% interview waste", "-15% bad hires"];
+      roleCard.scoreImpactRows = roleCard.fixes.slice(0, 5).map((fix: string, index: number) => ({
+        fix: fix,
+        impact: impacts[index] || "+0.1",
+        tooltip: `Why it matters: ${fix}`,
+        talentPoolImpact: talentImpacts[index] || "+10% improvement",
+        riskReduction: riskReductions[index] || "-10% risk",
+      }));
+    }
     
     // Add data sources
     roleCard.dataSources = CARD_DATA_SOURCES.roleCard;
@@ -175,6 +196,23 @@ Extract from the actual job description above. If not explicitly mentioned, infe
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
     const skillCard = JSON.parse(content);
+    
+    // Generate scoreImpactRows from donts/redFlags if not provided
+    if ((skillCard.donts || skillCard.redFlags) && !skillCard.scoreImpactRows) {
+      const fixes = skillCard.donts || skillCard.redFlags || [];
+      if (fixes.length > 0) {
+        const impacts = ["+0.3", "+0.2", "+0.2", "+0.1", "+0.1"];
+        const talentImpacts = ["+25% pool expansion", "+15% persona match", "+12% signal quality", "+10% more candidates", "+18% engagement"];
+        const riskReductions = ["-15% false negatives", "-10% interview waste", "-15% bad hires", "-5% HM conflict", "-12% dropout"];
+        skillCard.scoreImpactRows = fixes.slice(0, 5).map((fix: string, index: number) => ({
+          fix: fix,
+          impact: impacts[index] || "+0.1",
+          tooltip: `Why it matters: ${fix}`,
+          talentPoolImpact: talentImpacts[index] || "+10% improvement",
+          riskReduction: riskReductions[index] || "-10% risk",
+        }));
+      }
+    }
     
     // Add data sources
     skillCard.dataSources = CARD_DATA_SOURCES.skillCard;
