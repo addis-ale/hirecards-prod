@@ -9,7 +9,10 @@ interface Loader1Props {
   isComplete?: boolean;
 }
 
-export default function Loader1({ onComplete, isComplete = false }: Loader1Props) {
+export default function Loader1({
+  onComplete,
+  isComplete = false,
+}: Loader1Props) {
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());
   const animationFrameRef = useRef<number | null>(null);
@@ -34,8 +37,9 @@ export default function Loader1({ onComplete, isComplete = false }: Loader1Props
         const ratio = Math.min(elapsed / duration, 1);
         // Ease out animation
         const eased = 1 - Math.pow(1 - ratio, 3);
-        const newProgress = startProgress + (targetProgress - startProgress) * eased;
-        
+        const newProgress =
+          startProgress + (targetProgress - startProgress) * eased;
+
         setProgress(newProgress);
 
         if (ratio < 1) {
@@ -58,18 +62,18 @@ export default function Loader1({ onComplete, isComplete = false }: Loader1Props
     }
 
     // While loading, show smooth progress based on elapsed time
-    // Use a realistic estimate: card generation typically takes 30-60 seconds
-    const estimatedDuration = 55000; // 55 seconds estimate
+    // Use a 2-minute minimum duration to ensure all cards have equal time
+    const estimatedDuration = 120000; // 2 minutes (120 seconds)
     const updateProgress = () => {
       const elapsed = Date.now() - startTimeRef.current;
       const rawProgress = (elapsed / estimatedDuration) * 100;
 
-      // Cap at 92% until isComplete is true (to avoid showing 100% before completion)
-      const cappedProgress = Math.min(rawProgress, 92);
+      // Cap at 95% until isComplete is true (to avoid showing 100% before completion)
+      const cappedProgress = Math.min(rawProgress, 95);
 
       // Add subtle variance to make it feel organic
-      const variance = Math.sin(elapsed / 1000) * 1;
-      const newProgress = Math.min(cappedProgress + variance, 92);
+      const variance = Math.sin(elapsed / 1000) * 0.5;
+      const newProgress = Math.min(cappedProgress + variance, 95);
 
       setProgress((prev) => {
         // Only update if change is significant
@@ -79,7 +83,7 @@ export default function Loader1({ onComplete, isComplete = false }: Loader1Props
         return newProgress;
       });
 
-      if (!isComplete && newProgress < 92) {
+      if (!isComplete && newProgress < 95) {
         animationFrameRef.current = requestAnimationFrame(updateProgress);
       }
     };
@@ -239,16 +243,18 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Progressively reveal cards based on progress - only update if count changed
-  // Cap at CARDS.length - 1 until progress reaches 100%
+  // Progressively reveal cards based on progress - equal time per card
+  // With 2-minute duration and 13 cards, each card gets ~9.2 seconds
   useEffect(() => {
     let cardsToShow;
     if (progress >= 100) {
       cardsToShow = CARDS.length; // Show all cards when complete
     } else {
-      // Show cards progressively, but cap at second-to-last card until complete
+      // Distribute cards evenly across the progress (capped at 95%)
+      // Each card gets equal time: progress / (95 / CARDS.length)
+      const progressPerCard = 95 / CARDS.length; // ~7.3% per card
       cardsToShow = Math.min(
-        Math.floor((progress / 100) * CARDS.length),
+        Math.floor(progress / progressPerCard),
         CARDS.length - 1
       );
     }

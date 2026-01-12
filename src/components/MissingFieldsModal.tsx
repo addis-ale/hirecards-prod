@@ -20,11 +20,6 @@ export default function MissingFieldsModal({
   onCompleteFields,
   onBackToLanding,
 }: MissingFieldsModalProps) {
-  console.log("MissingFieldsModal render:", {
-    open,
-    missingFieldsCount: missingFields.length,
-  });
-
   const handleBackToLanding = () => {
     onOpenChange(false);
     if (onBackToLanding) {

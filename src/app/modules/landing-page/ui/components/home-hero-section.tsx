@@ -25,20 +25,6 @@ interface ExtractedData {
   timeline: string | null;
 }
 import MissingFieldsModal from "@/components/MissingFieldsModal";
-// Import card components for dynamic rendering
-import { EditableRoleCard } from "@/components/cards/EditableRoleCard";
-import { EditableSkillCard } from "@/components/cards/EditableSkillCard";
-import { EditableFitCard } from "@/components/cards/EditableFitCard";
-import { EditableMessageCard } from "@/components/cards/EditableMessageCard";
-import { EditableOutreachCard } from "@/components/cards/EditableOutreachCard";
-import { EditableTalentMapCard } from "@/components/cards/EditableTalentMapCard";
-import { EditableMarketCard } from "@/components/cards/EditableMarketCard";
-import { EditablePayCard } from "@/components/cards/EditablePayCard";
-import { EditableFunnelCard } from "@/components/cards/EditableFunnelCard";
-import { EditableRealityCard } from "@/components/cards/EditableRealityCard";
-import { EditableInterviewCard } from "@/components/cards/EditableInterviewCard";
-import { EditableScorecardCard } from "@/components/cards/EditableScorecardCard";
-import { EditablePlanCard } from "@/components/cards/EditablePlanCard";
 
 interface ExtractedFields {
   roleTitle?: string | null;
@@ -195,27 +181,15 @@ export const HomeHeroSection = () => {
   const [indeedJobsCount, setIndeedJobsCount] = useState(0);
   const [glassdoorJobsCount, setGlassdoorJobsCount] = useState(0);
   const [platform, setPlatform] = useState<string>("unknown");
-  const [debugOpen, setDebugOpen] = useState(false);
   const [linkedInJobsOpen, setLinkedInJobsOpen] = useState(false);
   const [indeedJobsOpen, setIndeedJobsOpen] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   
   // AI-Generated Card Groups
-  const [jobAnalysisCardsOpen, setJobAnalysisCardsOpen] = useState(false);
-  const [peopleAnalysisCardsOpen, setPeopleAnalysisCardsOpen] = useState(false);
-  const [combinedAnalysisCardsOpen, setCombinedAnalysisCardsOpen] = useState(false);
-  const [derivedStrategyCardsOpen, setDerivedStrategyCardsOpen] = useState(false);
-  const [apifyResultsOpen, setApifyResultsOpen] = useState(false);
-  const [apifyJobsOpen, setApifyJobsOpen] = useState(false);
-  const [apifyCandidatesOpen, setApifyCandidatesOpen] = useState(false);
-  
   const [jobAnalysisCards, setJobAnalysisCards] = useState<JobAnalysisCards | null>(null);
   const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<PeopleAnalysisCards | null>(null);
   const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<CombinedAnalysisCards | null>(null);
   const [derivedStrategyCards, setDerivedStrategyCards] = useState<DerivedStrategyCards | null>(null);
-  
-  // Additional data sources state
-  const [additionalDataSources, setAdditionalDataSources] = useState<Record<string, unknown> | null>(null);
   
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -231,7 +205,6 @@ export const HomeHeroSection = () => {
   const [quickScrapeLoading, setQuickScrapeLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [quickScrapeError, setQuickScrapeError] = useState<string | null>(null);
-  const [quickScrapeDebugOpen, setQuickScrapeDebugOpen] = useState(false);
 
   // Debug: Log when modal state changes
   useEffect(() => {
@@ -393,7 +366,6 @@ export const HomeHeroSection = () => {
         setCombinedAnalysisCards(result.combinedAnalysisCards || null);
         setDerivedStrategyCards(result.derivedStrategyCards || null);
         setExtractedFields(result.extractedFields || completedData);
-        setAdditionalDataSources(result.dataSources || null);
         
         // Save to sessionStorage
         const formData = {
@@ -480,7 +452,6 @@ export const HomeHeroSection = () => {
         setCombinedAnalysisCards(result.combinedAnalysisCards || null);
         setDerivedStrategyCards(result.derivedStrategyCards || null);
         setExtractedFields(result.extractedFields || mergedData);
-        setAdditionalDataSources(result.dataSources || null);
         
         // Save to sessionStorage
         const formData = {
@@ -629,9 +600,6 @@ export const HomeHeroSection = () => {
       setDerivedStrategyCards(result.derivedStrategyCards || null);
       setExtractedFields(result.extractedFields || null);
       setMissingFields(result.missingFields || []);
-      
-      // Set additional data sources (Glassdoor, Levels.fyi, Crunchbase, GitHub)
-      setAdditionalDataSources(result.dataSources || null);
       
       // Save all card data to sessionStorage for dynamic card rendering
       try {
@@ -812,411 +780,6 @@ export const HomeHeroSection = () => {
       )}
 
       {/* Generated Cards Panel - Professional Dashboard */}
-      {(jobAnalysisCards || peopleAnalysisCards || combinedAnalysisCards || derivedStrategyCards) && (
-        <div className="fixed top-20 right-4 z-[10000] max-w-md">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-purple-500/50 overflow-hidden backdrop-blur-sm">
-            <button
-              onClick={() => {
-                const allOpen = jobAnalysisCardsOpen && peopleAnalysisCardsOpen && combinedAnalysisCardsOpen && derivedStrategyCardsOpen;
-                setJobAnalysisCardsOpen(!allOpen);
-                setPeopleAnalysisCardsOpen(!allOpen);
-                setCombinedAnalysisCardsOpen(!allOpen);
-                setDerivedStrategyCardsOpen(!allOpen);
-              }}
-              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                  <span className="text-xl">🎴</span>
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-bold text-white">
-                    AI-Generated Cards
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Battle Cards Analysis
-                  </span>
-                </div>
-                <span className="px-3 py-1 bg-purple-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold">
-                  {[
-                    jobAnalysisCards ? 5 : 0,
-                    peopleAnalysisCards ? 1 : 0,
-                    combinedAnalysisCards ? 4 : 0,
-                    derivedStrategyCards ? 3 : 0,
-                  ].reduce((a, b) => a + b, 0)}
-                </span>
-              </div>
-              {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) ? (
-                <ChevronDown className="w-5 h-5 text-slate-400" />
-              ) : (
-                <ChevronUp className="w-5 h-5 text-slate-400" />
-              )}
-            </button>
-
-            {(jobAnalysisCardsOpen || peopleAnalysisCardsOpen || combinedAnalysisCardsOpen || derivedStrategyCardsOpen) && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm space-y-3">
-                {/* Group 1: Job Analysis Cards */}
-                {jobAnalysisCards && (
-                  <div className="border border-green-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setJobAnalysisCardsOpen(!jobAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-green-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🟢</span>
-                        <span className="text-xs font-bold text-white">
-                          Job Analysis
-                        </span>
-                        <span className="px-2 py-0.5 bg-green-600/30 border border-green-500/50 rounded text-green-200 text-[10px] font-bold">
-                          5 Cards
-                        </span>
-                      </div>
-                      {jobAnalysisCardsOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {jobAnalysisCardsOpen && (
-                      <div className="p-4 bg-slate-900/50 space-y-4">
-                        {jobAnalysisCards.roleCard && typeof jobAnalysisCards.roleCard !== "undefined" && (
-                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-green-300 mb-2">Role Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableRoleCard data={jobAnalysisCards.roleCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {jobAnalysisCards.skillCard && typeof jobAnalysisCards.skillCard !== "undefined" && (
-                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-green-300 mb-2">Skill Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableSkillCard data={jobAnalysisCards.skillCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {jobAnalysisCards.fitCard && typeof jobAnalysisCards.fitCard !== "undefined" && (
-                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-green-300 mb-2">Fit Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableFitCard data={jobAnalysisCards.fitCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {jobAnalysisCards.messageCard && typeof jobAnalysisCards.messageCard !== "undefined" && (
-                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-green-300 mb-2">Message Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableMessageCard data={jobAnalysisCards.messageCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {jobAnalysisCards.outreachCard && typeof jobAnalysisCards.outreachCard !== "undefined" && (
-                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-green-300 mb-2">Outreach Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableOutreachCard data={jobAnalysisCards.outreachCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Group 2: People Analysis Cards */}
-                {peopleAnalysisCards && (
-                  <div className="border border-blue-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setPeopleAnalysisCardsOpen(!peopleAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-blue-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🔵</span>
-                        <span className="text-xs font-bold text-white">
-                          People Analysis
-                        </span>
-                        <span className="px-2 py-0.5 bg-blue-600/30 border border-blue-500/50 rounded text-blue-200 text-[10px] font-bold">
-                          1 Card
-                        </span>
-                      </div>
-                      {peopleAnalysisCardsOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {peopleAnalysisCardsOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        {peopleAnalysisCards.talentMapCard && typeof peopleAnalysisCards.talentMapCard !== "undefined" && (
-                          <div className="border border-blue-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-blue-300 mb-2">Talent Map Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableTalentMapCard data={peopleAnalysisCards.talentMapCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Group 3: Combined Analysis Cards */}
-                {combinedAnalysisCards && (
-                  <div className="border border-amber-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setCombinedAnalysisCardsOpen(!combinedAnalysisCardsOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-amber-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🟠</span>
-                        <span className="text-xs font-bold text-white">
-                          Combined Analysis
-                        </span>
-                        <span className="px-2 py-0.5 bg-amber-600/30 border border-amber-500/50 rounded text-amber-200 text-[10px] font-bold">
-                          4 Cards
-                        </span>
-                      </div>
-                      {combinedAnalysisCardsOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {combinedAnalysisCardsOpen && (
-                      <div className="p-4 bg-slate-900/50 space-y-4">
-                        {combinedAnalysisCards.marketCard && typeof combinedAnalysisCards.marketCard !== "undefined" && (
-                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-amber-300 mb-2">Market Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableMarketCard data={combinedAnalysisCards.marketCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {combinedAnalysisCards.payCard && typeof combinedAnalysisCards.payCard !== "undefined" && (
-                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-amber-300 mb-2">Pay Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditablePayCard data={combinedAnalysisCards.payCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {combinedAnalysisCards.funnelCard && typeof combinedAnalysisCards.funnelCard !== "undefined" && (
-                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-amber-300 mb-2">Funnel Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableFunnelCard data={combinedAnalysisCards.funnelCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {combinedAnalysisCards.realityCard && typeof combinedAnalysisCards.realityCard !== "undefined" && (
-                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-amber-300 mb-2">Reality Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableRealityCard data={combinedAnalysisCards.realityCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Group 4: Derived Strategy Cards */}
-                {derivedStrategyCards && (
-                  <div className="border border-purple-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setDerivedStrategyCardsOpen(!derivedStrategyCardsOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-purple-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🟣</span>
-                        <span className="text-xs font-bold text-white">
-                          Strategy Cards
-                        </span>
-                        <span className="px-2 py-0.5 bg-purple-600/30 border border-purple-500/50 rounded text-purple-200 text-[10px] font-bold">
-                          3 Cards
-                        </span>
-                      </div>
-                      {derivedStrategyCardsOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {derivedStrategyCardsOpen && (
-                      <div className="p-4 bg-slate-900/50 space-y-4">
-                        {derivedStrategyCards.interviewCard && typeof derivedStrategyCards.interviewCard !== "undefined" && (
-                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-purple-300 mb-2">Interview Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableInterviewCard data={derivedStrategyCards.interviewCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {derivedStrategyCards.scorecardCard && typeof derivedStrategyCards.scorecardCard !== "undefined" && (
-                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-purple-300 mb-2">Scorecard Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableScorecardCard data={derivedStrategyCards.scorecardCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                        {derivedStrategyCards.planCard && typeof derivedStrategyCards.planCard !== "undefined" && (
-                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
-                            <div className="text-xs font-bold text-purple-300 mb-2">Plan Card</div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                              <EditablePlanCard data={derivedStrategyCards.planCard as Record<string, unknown>} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Market Data Panel - Professional Dashboard */}
-      {(similarJobs.length > 0 || candidates.length > 0) && (
-        <div className="fixed right-4 z-[10000] max-w-md" style={{ 
-          top: jobAnalysisCards ? 'calc(20px + 520px)' : '80px' 
-        }}>
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-cyan-500/50 overflow-hidden backdrop-blur-sm">
-            <button
-              onClick={() => setApifyResultsOpen(!apifyResultsOpen)}
-              className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 dark:hover:bg-slate-700/50 transition-all duration-200 border-b border-slate-700/50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-xl">📊</span>
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-bold text-white">
-                    Market Data
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Jobs & Candidates
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {similarJobs.length > 0 && (
-                    <span className="px-2.5 py-1 bg-cyan-600/30 border border-cyan-500/50 rounded-lg text-cyan-200 text-xs font-bold">
-                      {similarJobs.length}
-                    </span>
-                  )}
-                  {candidates.length > 0 && (
-                    <span className="px-2.5 py-1 bg-purple-600/30 border border-purple-500/50 rounded-lg text-purple-200 text-xs font-bold">
-                      {candidates.length}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {apifyResultsOpen ? (
-                <ChevronDown className="w-5 h-5 text-slate-400" />
-              ) : (
-                <ChevronUp className="w-5 h-5 text-slate-400" />
-              )}
-            </button>
-
-            {apifyResultsOpen && (
-              <div className="p-4 max-h-[80vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm space-y-3">
-                {/* Summary Stats */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {similarJobs.length > 0 && (
-                    <div className="bg-cyan-600/10 rounded-lg p-3 border border-cyan-500/30">
-                      <div className="text-cyan-300 text-xs font-medium mb-1">Similar Jobs</div>
-                      <div className="text-cyan-100 font-bold text-xl">{similarJobs.length}</div>
-                      <div className="text-cyan-400/70 text-[10px] mt-1">
-                        {similarJobs.filter(j => j.platform === "linkedin" || !j.platform).length} LinkedIn • {similarJobs.filter(j => j.platform === "indeed").length} Indeed • {similarJobs.filter(j => j.platform === "glassdoor").length} Glassdoor
-                      </div>
-                    </div>
-                  )}
-                  {candidates.length > 0 && (
-                    <div className="bg-purple-600/10 rounded-lg p-3 border border-purple-500/30">
-                      <div className="text-purple-300 text-xs font-medium mb-1">Candidates</div>
-                      <div className="text-purple-100 font-bold text-xl">{candidates.length}</div>
-                      <div className="text-purple-400/70 text-[10px] mt-1">
-                        {candidates.filter(c => c.platform === 'linkedin').length} LinkedIn • {candidates.filter(c => c.platform === 'github').length} GitHub
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Similar Jobs Section */}
-                {similarJobs.length > 0 && (
-                  <div className="border border-cyan-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setApifyJobsOpen(!apifyJobsOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-cyan-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">💼</span>
-                        <span className="text-xs font-bold text-white">
-                          Similar Jobs
-                        </span>
-                        <span className="px-2 py-0.5 bg-cyan-600/30 border border-cyan-500/50 rounded text-cyan-200 text-[10px] font-bold">
-                          {similarJobs.length}
-                        </span>
-                      </div>
-                      {apifyJobsOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {apifyJobsOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Raw Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(similarJobs, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Candidates Section */}
-                {candidates.length > 0 && (
-                  <div className="border border-purple-500/40 rounded-xl overflow-hidden bg-slate-800/30">
-                    <button
-                      onClick={() => setApifyCandidatesOpen(!apifyCandidatesOpen)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-all duration-200 bg-purple-950/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">👥</span>
-                        <span className="text-xs font-bold text-white">
-                          Candidate Profiles
-                        </span>
-                        <span className="px-2 py-0.5 bg-purple-600/30 border border-purple-500/50 rounded text-purple-200 text-[10px] font-bold">
-                          {candidates.length}
-                        </span>
-                      </div>
-                      {apifyCandidatesOpen ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      )}
-                    </button>
-                    {apifyCandidatesOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Raw Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(candidates, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Candidates Panel - LinkedIn People Profiles */}
       {candidates.length > 0 && (
         <div className="fixed bottom-4 right-4 z-[100] max-w-md space-y-2">
@@ -1503,150 +1066,6 @@ export const HomeHeroSection = () => {
             </div>
         </div>
       )}
-
-      {/* ========================================= */}
-      {/* AI-GENERATED CARD GROUPS */}
-          {/* ========================================= */}
-
-          {/* Group 1: Job Analysis Cards (5 cards) */}
-          {jobAnalysisCards && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-green-500/40 overflow-hidden">
-              <button
-                onClick={() => setJobAnalysisCardsOpen(!jobAnalysisCardsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🟢</span>
-                  <span className="text-sm font-semibold text-white">
-                    Job Analysis Cards (AI)
-                  </span>
-                  <span className="px-2 py-0.5 bg-green-600/20 border border-green-500/40 rounded text-green-300 text-[10px] font-bold">
-                    5 CARDS
-                  </span>
-                </div>
-                {jobAnalysisCardsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
-              {jobAnalysisCardsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  <div className="text-green-400 font-semibold text-xs mb-2">
-                    Role, Skill, Message, Outreach, Fit Cards:
-                  </div>
-                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                    {JSON.stringify(jobAnalysisCards, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Group 2: People Analysis Cards (1 card) */}
-          {peopleAnalysisCards && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-blue-500/40 overflow-hidden">
-              <button
-                onClick={() => setPeopleAnalysisCardsOpen(!peopleAnalysisCardsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔵</span>
-                  <span className="text-sm font-semibold text-white">
-                    People Analysis Cards (AI)
-                  </span>
-                  <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/40 rounded text-blue-300 text-[10px] font-bold">
-                    1 CARD
-                  </span>
-                </div>
-                {peopleAnalysisCardsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
-              {peopleAnalysisCardsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  <div className="text-blue-400 font-semibold text-xs mb-2">
-                    Talent Map Card:
-                  </div>
-                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                    {JSON.stringify(peopleAnalysisCards, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Group 3: Combined Analysis Cards (4 cards) */}
-          {combinedAnalysisCards && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-amber-500/40 overflow-hidden">
-              <button
-                onClick={() => setCombinedAnalysisCardsOpen(!combinedAnalysisCardsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🟠</span>
-                  <span className="text-sm font-semibold text-white">
-                    Combined Analysis Cards (AI)
-                  </span>
-                  <span className="px-2 py-0.5 bg-amber-600/20 border border-amber-500/40 rounded text-amber-300 text-[10px] font-bold">
-                    4 CARDS
-                  </span>
-                </div>
-                {combinedAnalysisCardsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
-              {combinedAnalysisCardsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  <div className="text-amber-400 font-semibold text-xs mb-2">
-                    Market, Pay, Funnel, Reality Cards:
-                  </div>
-                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                    {JSON.stringify(combinedAnalysisCards, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Group 4: Derived Strategy Cards (3 cards) */}
-          {derivedStrategyCards && (
-            <div className="bg-slate-900 dark:bg-slate-800 rounded-lg shadow-2xl border border-purple-500/40 overflow-hidden">
-              <button
-                onClick={() => setDerivedStrategyCardsOpen(!derivedStrategyCardsOpen)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🟣</span>
-                  <span className="text-sm font-semibold text-white">
-                    Derived Strategy Cards (AI)
-                  </span>
-                  <span className="px-2 py-0.5 bg-purple-600/20 border border-purple-500/40 rounded text-purple-300 text-[10px] font-bold">
-                    3 CARDS
-                  </span>
-                </div>
-                {derivedStrategyCardsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
-              {derivedStrategyCardsOpen && (
-                <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950 dark:bg-slate-900">
-                  <div className="text-purple-400 font-semibold text-xs mb-2">
-                    Interview, Scorecard, Plan Cards:
-                  </div>
-                  <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-[10px] overflow-x-auto text-slate-300 max-h-[50vh] overflow-y-auto">
-                    {JSON.stringify(derivedStrategyCards, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* OLD Combined View - REMOVED */}
           {false && similarJobs.length > 0 && (
