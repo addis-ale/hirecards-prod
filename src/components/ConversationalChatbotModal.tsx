@@ -221,21 +221,25 @@ export default function ConversationalChatbotModal({
     onOpenChange(false);
   }, [extractedData, router, onComplete, onOpenChange]);
 
-  // Check if completion message detected - automatically proceed immediately
+  // Check if completion message detected OR user requests generation - automatically proceed
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (
+    
+    // Check if assistant says "generate"
+    const assistantWantsToGenerate = 
       lastMessage?.role === "assistant" &&
-      lastMessage.content.includes("generate your HireCard now")
-    ) {
-      console.log("✅ Completion message detected, auto-proceeding to card generation...");
-      console.log("📊 Extracted data:", extractedData);
-      
-      // Automatically proceed after a brief moment to show the message
+      lastMessage.content.includes("generate your HireCard now");
+    
+    // Check if user explicitly requests generation
+    const userRequestsGenerate = 
+      lastMessage?.role === "user" &&
+      /\b(generate|start|go|create|build|make)\b/i.test(lastMessage.content.toLowerCase());
+    
+    if (assistantWantsToGenerate || userRequestsGenerate) {
+      // Automatically proceed after a brief moment
       const timer = setTimeout(() => {
-        console.log("🚀 Calling handleComplete()...");
         handleComplete();
-      }, 500); // Reduced from 1000ms to 500ms for faster auto-proceed
+      }, 500);
       
       return () => clearTimeout(timer);
     }

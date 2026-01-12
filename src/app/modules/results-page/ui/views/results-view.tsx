@@ -50,11 +50,6 @@ export default function ResultsView() {
           <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
             Dynamic cards generated from your job description
           </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-300 dark:border-blue-700">
-            <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
-              📊 Showing all 13 dynamic cards: Reality, Role, Skill, Fit, Message, Outreach, Talent Map, Market, Pay, Funnel, Interview, Scorecard, Plan
-            </span>
-          </div>
         </div>
 
         {/* Category Filters */}
