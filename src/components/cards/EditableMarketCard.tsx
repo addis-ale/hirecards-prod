@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 interface MarketCardProps {
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
   data?: {
     talentAvailability?: {
       total: number;

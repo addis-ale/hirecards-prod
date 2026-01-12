@@ -9,6 +9,21 @@ import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-mor
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
 import ConversationalChatbotModal from "@/components/ConversationalChatbotModal";
+
+// ExtractedData type from ConversationalChatbotModal
+interface ExtractedData {
+  roleTitle: string | null;
+  department: string | null;
+  experienceLevel: string | null;
+  location: string | null;
+  workModel: string | null;
+  criticalSkills: string[] | null;
+  minSalary: string | null;
+  maxSalary: string | null;
+  nonNegotiables: string | null;
+  flexible: string | null;
+  timeline: string | null;
+}
 import MissingFieldsModal from "@/components/MissingFieldsModal";
 // Import card components for dynamic rendering
 import { EditableRoleCard } from "@/components/cards/EditableRoleCard";
@@ -24,6 +39,53 @@ import { EditableRealityCard } from "@/components/cards/EditableRealityCard";
 import { EditableInterviewCard } from "@/components/cards/EditableInterviewCard";
 import { EditableScorecardCard } from "@/components/cards/EditableScorecardCard";
 import { EditablePlanCard } from "@/components/cards/EditablePlanCard";
+
+interface ExtractedFields {
+  roleTitle?: string | null;
+  department?: string | null;
+  experienceLevel?: string | null;
+  location?: string | null;
+  workModel?: string | null;
+  criticalSkills?: string[] | null;
+  minSalary?: string | null;
+  maxSalary?: string | null;
+  nonNegotiables?: string | null;
+  flexible?: string | null;
+  timeline?: string | null;
+}
+
+// Card group interfaces for proper typing
+interface JobAnalysisCards {
+  roleCard?: Record<string, unknown> | null;
+  skillCard?: Record<string, unknown> | null;
+  fitCard?: Record<string, unknown> | null;
+  messageCard?: Record<string, unknown> | null;
+  outreachCard?: Record<string, unknown> | null;
+}
+
+interface PeopleAnalysisCards {
+  talentMapCard?: Record<string, unknown> | null;
+}
+
+interface CombinedAnalysisCards {
+  marketCard?: Record<string, unknown> | null;
+  payCard?: Record<string, unknown> | null;
+  funnelCard?: Record<string, unknown> | null;
+  realityCard?: Record<string, unknown> | null;
+}
+
+interface DerivedStrategyCards {
+  interviewCard?: Record<string, unknown> | null;
+  scorecardCard?: Record<string, unknown> | null;
+  planCard?: Record<string, unknown> | null;
+}
+
+interface QuickScrapeData {
+  extractedFields?: ExtractedFields;
+  missingFields?: string[];
+  hasMissingFields?: boolean;
+  [key: string]: unknown;
+}
 
 interface ScrapedJobData {
   title: string;
@@ -48,6 +110,8 @@ interface ApifyJobData {
   id: string;
   title: string;
   linkedinUrl: string;
+  url?: string;
+  platform?: string;
   company: {
     name: string;
     logo?: string;
@@ -55,17 +119,23 @@ interface ApifyJobData {
   };
   location: {
     linkedinText: string;
+    city?: string;
+    state?: string;
+    country?: string;
     parsed?: {
       city?: string;
       state?: string;
       country?: string;
     };
   };
-  salary?: {
+  salary?: string | {
     text: string;
     min?: number;
     max?: number;
     currency?: string;
+    salaryText?: string;
+    salaryMin?: string;
+    salaryMax?: string;
   };
   employmentType?: string;
   workplaceType?: string;
@@ -79,6 +149,7 @@ interface ApifyPeopleData {
   id: string;
   publicIdentifier: string;
   linkedinUrl: string;
+  platform?: string;
   firstName: string;
   lastName: string;
   headline: string;
@@ -138,10 +209,10 @@ export const HomeHeroSection = () => {
   const [apifyJobsOpen, setApifyJobsOpen] = useState(false);
   const [apifyCandidatesOpen, setApifyCandidatesOpen] = useState(false);
   
-  const [jobAnalysisCards, setJobAnalysisCards] = useState<Record<string, unknown> | null>(null);
-  const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<Record<string, unknown> | null>(null);
-  const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<Record<string, unknown> | null>(null);
-  const [derivedStrategyCards, setDerivedStrategyCards] = useState<Record<string, unknown> | null>(null);
+  const [jobAnalysisCards, setJobAnalysisCards] = useState<JobAnalysisCards | null>(null);
+  const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<PeopleAnalysisCards | null>(null);
+  const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<CombinedAnalysisCards | null>(null);
+  const [derivedStrategyCards, setDerivedStrategyCards] = useState<DerivedStrategyCards | null>(null);
   
   // Additional data sources state
   const [additionalDataSources, setAdditionalDataSources] = useState<Record<string, unknown> | null>(null);
@@ -149,13 +220,13 @@ export const HomeHeroSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const [extractedFields, setExtractedFields] = useState<Record<string, unknown> | null>(null);
+  const [extractedFields, setExtractedFields] = useState<ExtractedFields | null>(null);
   const [missingFieldsModalOpen, setMissingFieldsModalOpen] = useState(false);
   const [chatbotModalOpen, setChatbotModalOpen] = useState(false);
   
   // Quick scrape state for real-time scraping (removed automatic scraping)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [quickScrapeData, setQuickScrapeData] = useState<Record<string, unknown> | null>(null);
+  const [quickScrapeData, setQuickScrapeData] = useState<QuickScrapeData | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [quickScrapeLoading, setQuickScrapeLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -250,35 +321,30 @@ export const HomeHeroSection = () => {
    * Fields that affect Apify: roleTitle (job title), location, company
    */
   const doCompletedFieldsAffectApify = (
-    originalFields: Record<string, unknown> | null,
-    completedFields: Record<string, unknown>
+    originalFields: ExtractedData | ExtractedFields | null,
+    completedFields: Partial<ExtractedData>
   ): boolean => {
-    // Fields that affect Apify scraping
-    const apifyAffectingFields = ['roleTitle', 'location'];
-    
-    // Check if any completed field is different from original and affects Apify
-    for (const field of apifyAffectingFields) {
-      const originalValue = originalFields?.[field];
-      const completedValue = completedFields[field];
-      
-      // If field was completed and is different from original, it affects Apify
-      if (completedValue && completedValue !== originalValue) {
-        console.log(`🔄 Field "${field}" changed: "${originalValue}" → "${completedValue}" - will redo Apify scraping`);
-        return true;
-      }
-      
-      // If field was missing and now provided, it affects Apify
-      if (!originalValue && completedValue) {
-        console.log(`🔄 Field "${field}" was missing, now provided: "${completedValue}" - will redo Apify scraping`);
-        return true;
-      }
+    // Check roleTitle
+    const originalRoleTitle = originalFields?.roleTitle;
+    const completedRoleTitle = completedFields.roleTitle;
+    if (completedRoleTitle && completedRoleTitle !== originalRoleTitle) {
+      console.log(`🔄 Field "roleTitle" changed: "${originalRoleTitle}" → "${completedRoleTitle}" - will redo Apify scraping`);
+      return true;
+    }
+    if (!originalRoleTitle && completedRoleTitle) {
+      console.log(`🔄 Field "roleTitle" was missing, now provided: "${completedRoleTitle}" - will redo Apify scraping`);
+      return true;
     }
     
-    // Company also affects salary data (optional but improves accuracy)
-    const originalCompany = scrapedData?.company || originalFields?.company;
-    const completedCompany = completedFields.company;
-    if (completedCompany && completedCompany !== originalCompany) {
-      console.log(`🔄 Company changed: "${originalCompany}" → "${completedCompany}" - will redo salary data`);
+    // Check location
+    const originalLocation = originalFields?.location;
+    const completedLocation = completedFields.location;
+    if (completedLocation && completedLocation !== originalLocation) {
+      console.log(`🔄 Field "location" changed: "${originalLocation}" → "${completedLocation}" - will redo Apify scraping`);
+      return true;
+    }
+    if (!originalLocation && completedLocation) {
+      console.log(`🔄 Field "location" was missing, now provided: "${completedLocation}" - will redo Apify scraping`);
       return true;
     }
     
@@ -286,7 +352,7 @@ export const HomeHeroSection = () => {
     return false;
   };
 
-  const handleChatbotComplete = async (completedData: Record<string, unknown>) => {
+  const handleChatbotComplete = async (completedData: ExtractedData) => {
     console.log("✅ Chatbot completed with data:", completedData);
     console.log("📊 Current extractedFields:", extractedFields);
     console.log("📊 Current scrapedData:", scrapedData);
@@ -384,7 +450,7 @@ export const HomeHeroSection = () => {
       try {
         // Call scrape-job API again with updated fields
         // Use the original job URL if available, or use the merged data
-        const jobURL = scrapedData?.url || roleDescription;
+        const jobURL = (scrapedData && typeof scrapedData === "object" && "url" in scrapedData ? String(scrapedData.url || "") : "") || roleDescription;
         
         const response = await fetch("/api/scrape-job", {
           method: "POST",
@@ -813,43 +879,43 @@ export const HomeHeroSection = () => {
                     </button>
                     {jobAnalysisCardsOpen && (
                       <div className="p-4 bg-slate-900/50 space-y-4">
-                        {jobAnalysisCards.roleCard && (
+                        {jobAnalysisCards.roleCard && typeof jobAnalysisCards.roleCard !== "undefined" && (
                           <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-green-300 mb-2">Role Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableRoleCard data={jobAnalysisCards.roleCard} />
+                              <EditableRoleCard data={jobAnalysisCards.roleCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {jobAnalysisCards.skillCard && (
+                        {jobAnalysisCards.skillCard && typeof jobAnalysisCards.skillCard !== "undefined" && (
                           <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-green-300 mb-2">Skill Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableSkillCard data={jobAnalysisCards.skillCard} />
+                              <EditableSkillCard data={jobAnalysisCards.skillCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {jobAnalysisCards.fitCard && (
+                        {jobAnalysisCards.fitCard && typeof jobAnalysisCards.fitCard !== "undefined" && (
                           <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-green-300 mb-2">Fit Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableFitCard data={jobAnalysisCards.fitCard} />
+                              <EditableFitCard data={jobAnalysisCards.fitCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {jobAnalysisCards.messageCard && (
+                        {jobAnalysisCards.messageCard && typeof jobAnalysisCards.messageCard !== "undefined" && (
                           <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-green-300 mb-2">Message Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableMessageCard data={jobAnalysisCards.messageCard} />
+                              <EditableMessageCard data={jobAnalysisCards.messageCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {jobAnalysisCards.outreachCard && (
+                        {jobAnalysisCards.outreachCard && typeof jobAnalysisCards.outreachCard !== "undefined" && (
                           <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-green-300 mb-2">Outreach Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableOutreachCard data={jobAnalysisCards.outreachCard} />
+                              <EditableOutreachCard data={jobAnalysisCards.outreachCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
@@ -882,11 +948,11 @@ export const HomeHeroSection = () => {
                     </button>
                     {peopleAnalysisCardsOpen && (
                       <div className="p-4 bg-slate-900/50">
-                        {peopleAnalysisCards.talentMapCard && (
+                        {peopleAnalysisCards.talentMapCard && typeof peopleAnalysisCards.talentMapCard !== "undefined" && (
                           <div className="border border-blue-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-blue-300 mb-2">Talent Map Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableTalentMapCard data={peopleAnalysisCards.talentMapCard} />
+                              <EditableTalentMapCard data={peopleAnalysisCards.talentMapCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
@@ -919,35 +985,35 @@ export const HomeHeroSection = () => {
                     </button>
                     {combinedAnalysisCardsOpen && (
                       <div className="p-4 bg-slate-900/50 space-y-4">
-                        {combinedAnalysisCards.marketCard && (
+                        {combinedAnalysisCards.marketCard && typeof combinedAnalysisCards.marketCard !== "undefined" && (
                           <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-amber-300 mb-2">Market Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableMarketCard data={combinedAnalysisCards.marketCard} />
+                              <EditableMarketCard data={combinedAnalysisCards.marketCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {combinedAnalysisCards.payCard && (
+                        {combinedAnalysisCards.payCard && typeof combinedAnalysisCards.payCard !== "undefined" && (
                           <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-amber-300 mb-2">Pay Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditablePayCard data={combinedAnalysisCards.payCard} />
+                              <EditablePayCard data={combinedAnalysisCards.payCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {combinedAnalysisCards.funnelCard && (
+                        {combinedAnalysisCards.funnelCard && typeof combinedAnalysisCards.funnelCard !== "undefined" && (
                           <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-amber-300 mb-2">Funnel Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableFunnelCard data={combinedAnalysisCards.funnelCard} />
+                              <EditableFunnelCard data={combinedAnalysisCards.funnelCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {combinedAnalysisCards.realityCard && (
+                        {combinedAnalysisCards.realityCard && typeof combinedAnalysisCards.realityCard !== "undefined" && (
                           <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-amber-300 mb-2">Reality Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableRealityCard data={combinedAnalysisCards.realityCard} />
+                              <EditableRealityCard data={combinedAnalysisCards.realityCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
@@ -980,27 +1046,27 @@ export const HomeHeroSection = () => {
                     </button>
                     {derivedStrategyCardsOpen && (
                       <div className="p-4 bg-slate-900/50 space-y-4">
-                        {derivedStrategyCards.interviewCard && (
+                        {derivedStrategyCards.interviewCard && typeof derivedStrategyCards.interviewCard !== "undefined" && (
                           <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-purple-300 mb-2">Interview Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableInterviewCard data={derivedStrategyCards.interviewCard} />
+                              <EditableInterviewCard data={derivedStrategyCards.interviewCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {derivedStrategyCards.scorecardCard && (
+                        {derivedStrategyCards.scorecardCard && typeof derivedStrategyCards.scorecardCard !== "undefined" && (
                           <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-purple-300 mb-2">Scorecard Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditableScorecardCard data={derivedStrategyCards.scorecardCard} />
+                              <EditableScorecardCard data={derivedStrategyCards.scorecardCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
-                        {derivedStrategyCards.planCard && (
+                        {derivedStrategyCards.planCard && typeof derivedStrategyCards.planCard !== "undefined" && (
                           <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
                             <div className="text-xs font-bold text-purple-300 mb-2">Plan Card</div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                              <EditablePlanCard data={derivedStrategyCards.planCard} />
+                              <EditablePlanCard data={derivedStrategyCards.planCard as Record<string, unknown>} />
                             </div>
                           </div>
                         )}
@@ -2080,7 +2146,7 @@ export const HomeHeroSection = () => {
                         <div className="flex items-center gap-2 text-slate-300 mb-2">
                           <span className="text-[10px]">📍</span>
                           <span className="text-xs">
-                            {job.location.linkedinText || `${job.location.city || ''}${job.location.state ? ', ' + job.location.state : ''}${job.location.country ? ', ' + job.location.country : ''}`}
+                            {job.location.linkedinText || `${job.location.parsed?.city || job.location.city || ''}${job.location.parsed?.state || job.location.state ? ', ' + (job.location.parsed?.state || job.location.state) : ''}${job.location.parsed?.country || job.location.country ? ', ' + (job.location.parsed?.country || job.location.country) : ''}`}
                           </span>
                         </div>
 
@@ -2101,7 +2167,7 @@ export const HomeHeroSection = () => {
                         {/* Salary */}
                         {job.salary && (
                           <div className="text-green-400 font-semibold text-xs mb-2">
-                            💰 {typeof job.salary === 'string' ? job.salary : (job.salary.text || job.salary.salaryText || `${job.salary.salaryMin || ''} - ${job.salary.salaryMax || ''}`)}
+                            💰 {typeof job.salary === 'string' ? job.salary : (job.salary?.text || (job.salary as { salaryText?: string; salaryMin?: string; salaryMax?: string })?.salaryText || `${(job.salary as { salaryMin?: string; salaryMax?: string })?.salaryMin || ''} - ${(job.salary as { salaryMin?: string; salaryMax?: string })?.salaryMax || ''}`)}
                           </div>
                         )}
 

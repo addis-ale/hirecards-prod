@@ -24,6 +24,7 @@ import { SectionModal } from "@/components/ui/SectionModal";
 interface MessageCardProps {
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
   data?: {
     corePitch?: string;
     brutalTruth?: string;

@@ -274,7 +274,8 @@ export const EditableOutreachCard = ({
       </div>
 
       {/* Brutal Truth */}
-      <Callout tone="danger" title="Brutal Truth">
+      <Callout variant="danger">
+        <div className="font-semibold mb-2">Brutal Truth</div>
         <EditableText value={brutalTruth} onChange={setBrutalTruth} multiline />
       </Callout>
 

@@ -137,7 +137,7 @@ async function searchGitHubUsers(
     const data = await response.json() as GitHubSearchResponse;
     return data;
   } catch (error) {
-    if (error.message.includes("rate limit")) {
+    if (error instanceof Error && error.message.includes("rate limit")) {
       throw error;
     }
     console.error(`❌ Error searching GitHub for "${keyword}" in ${location}:`, error);
@@ -160,11 +160,12 @@ async function getKeywordCount(
     // which is GitHub's estimate of total matches
     return firstPage.total_count;
   } catch (error) {
-    if (error.message.includes("rate limit")) {
+    if (error instanceof Error && error.message.includes("rate limit")) {
       throw error;
     }
     // If search fails, return 0
-    console.warn(`⚠️ Failed to get count for keyword "${keyword}":`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️ Failed to get count for keyword "${keyword}":`, errorMessage);
     return 0;
   }
 }
@@ -214,7 +215,7 @@ export async function getGithubMarketSignal(
         // Small delay to avoid rate limits
         await new Promise((resolve) => setTimeout(resolve, 200));
       } catch (error) {
-        if (error.message.includes("rate limit")) {
+        if (error instanceof Error && error.message.includes("rate limit")) {
           // If rate limited, return what we have so far
           console.warn("⚠️ GitHub rate limit hit, returning partial results");
           break;
@@ -255,7 +256,7 @@ export async function getGithubMarketSignal(
     console.error("❌ Error getting GitHub market signal:", error);
     
     // If rate limited, return null (don't cache errors)
-    if (error.message.includes("rate limit")) {
+    if (error instanceof Error && error.message.includes("rate limit")) {
       return null;
     }
     

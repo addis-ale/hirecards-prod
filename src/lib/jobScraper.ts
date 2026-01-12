@@ -53,17 +53,17 @@ export async function scrapeJobURL(url: string): Promise<ScrapedJobData> {
     let scrapedData: ScrapedJobData;
 
     if (hostname.includes("linkedin.com")) {
-      scrapedData = scrapeLinkedIn($, url);
+      scrapedData = scrapeLinkedIn($);
     } else if (hostname.includes("indeed.com")) {
-      scrapedData = scrapeIndeed($, url);
+      scrapedData = scrapeIndeed($);
     } else if (hostname.includes("workday.com")) {
-      scrapedData = scrapeWorkday($, url);
+      scrapedData = scrapeWorkday($);
     } else if (hostname.includes("myworkdayjobs.com")) {
-      scrapedData = scrapeWorkday($, url);
+      scrapedData = scrapeWorkday($);
     } else if (hostname.includes("ashbyhq.com")) {
       scrapedData = scrapeAshby($, url);
     } else {
-      scrapedData = scrapeGenericJobBoard($, url);
+      scrapedData = scrapeGenericJobBoard($);
     }
 
     console.log("✅ ScrapingBee success");
@@ -107,9 +107,9 @@ function scrapeLinkedIn($: cheerio.CheerioAPI): ScrapedJobData {
     location: location || undefined,
     company: company || undefined,
     salary: salary || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
+    requirements: extractListItems($, "requirements"),
+    responsibilities: extractListItems($, "responsibilities"),
+    benefits: extractListItems($, "benefits"),
     rawText,
     source: "LinkedIn",
   };
@@ -149,9 +149,9 @@ function scrapeIndeed($: cheerio.CheerioAPI): ScrapedJobData {
     location: location || undefined,
     company: company || undefined,
     salary: salary || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
+    requirements: extractListItems($, "requirements"),
+    responsibilities: extractListItems($, "responsibilities"),
+    benefits: extractListItems($, "benefits"),
     rawText,
     source: "Indeed",
   };
@@ -182,9 +182,9 @@ function scrapeWorkday($: cheerio.CheerioAPI): ScrapedJobData {
     title: title || "Job Position",
     description: description || rawText,
     location: location || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
+    requirements: extractListItems($, "requirements"),
+    responsibilities: extractListItems($, "responsibilities"),
+    benefits: extractListItems($, "benefits"),
     rawText,
     source: "Workday",
   };
@@ -520,9 +520,9 @@ function scrapeGenericJobBoard(
     description: description || rawText,
     location: location || undefined,
     company: company || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
+    requirements: extractListItems($, "requirements"),
+    responsibilities: extractListItems($, "responsibilities"),
+    benefits: extractListItems($, "benefits"),
     rawText,
     source: "Generic",
   };

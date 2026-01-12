@@ -46,7 +46,7 @@ interface Candidate {
   platform?: string;
 }
 
-interface CardData {
+export interface CardData {
   [key: string]: unknown;
 }
 
@@ -157,7 +157,7 @@ Use insights from these similar jobs to create a better, more competitive job de
 Job Data:
 Title: ${jobData.title || "Not provided"}
 Description: ${jobData.description || "Not provided"}
-Company: ${ensureHiringCompany(jobData.company, jobData.source) || "Not provided"}
+Company: ${ensureHiringCompany(jobData.company) || "Not provided"}
 Responsibilities: ${jobData.responsibilities || "Not provided"}
 Requirements: ${jobData.requirements || "Not provided"}${similarJobsContext}
 
@@ -305,7 +305,7 @@ Use the similar jobs above to identify additional skills, tools, and technologie
     
     // Generate scoreImpactRows from donts/redFlags if not provided
     if ((skillCard.donts || skillCard.redFlags) && !skillCard.scoreImpactRows) {
-      const fixes = skillCard.donts || skillCard.redFlags || [];
+      const fixes = (skillCard.donts || skillCard.redFlags || []) as string[];
       if (fixes.length > 0) {
         const impacts = ["+0.3", "+0.2", "+0.2", "+0.1", "+0.1"];
         const talentImpacts = ["+25% pool expansion", "+15% persona match", "+12% signal quality", "+10% more candidates", "+18% engagement"];
@@ -682,7 +682,7 @@ Return ONLY valid JSON using EXACT company names from the list:
       });
     }
     
-    console.log(`✅ Validated Talent Map Card - Primary Feeders: ${talentMapCard.primaryFeeders?.length || 0}, Secondary: ${talentMapCard.secondaryFeeders?.length || 0}`);
+    console.log(`✅ Validated Talent Map Card - Primary Feeders: ${Array.isArray(talentMapCard.primaryFeeders) ? talentMapCard.primaryFeeders.length : 0}, Secondary: ${Array.isArray(talentMapCard.secondaryFeeders) ? talentMapCard.secondaryFeeders.length : 0}`);
     
     // Add data sources
     talentMapCard.dataSources = CARD_DATA_SOURCES.talentMapCard;
@@ -889,9 +889,9 @@ export async function generatePayCard(
     const salariesWithData = similarJobs
       .filter(j => j.salary && (j.salary.min || j.salary.max || j.salary.text))
       .map(j => ({
-        min: j.salary.min,
-        max: j.salary.max,
-        text: j.salary.text,
+        min: j.salary?.min,
+        max: j.salary?.max,
+        text: j.salary?.text,
       }));
 
     const avgMin = salariesWithData.length > 0
@@ -987,7 +987,7 @@ export async function generateFunnelCard(
     console.log("🤖 Generating Funnel Card with AI...");
     console.log("   📊 Using industry benchmarks:", benchmarks?.source || "None");
 
-    const tightness = marketCard?.supplyDemand?.marketTightness || "Balanced";
+    const tightness = (marketCard?.supplyDemand as { marketTightness?: string } | undefined)?.marketTightness || "Balanced";
 
     // Build real benchmarks context
     let benchmarksContext = "";
@@ -1027,7 +1027,7 @@ QUALITY METRICS:
     const prompt = `Calculate hiring funnel metrics using REAL BENCHMARK DATA.
 
 Market Tightness: ${tightness}
-Talent Pool: ${marketCard?.talentAvailability?.qualified || "Unknown"}
+Talent Pool: ${(marketCard?.talentAvailability as { qualified?: number } | undefined)?.qualified || "Unknown"}
 ${benchmarksContext}
 
 PRE-CALCULATED FUNNEL (based on real benchmarks):
@@ -1107,9 +1107,9 @@ export async function generateRealityCard(allCards: Record<string, CardData>): P
   try {
     console.log("🤖 Generating Reality Card with AI...");
 
-    const marketTightness = allCards.marketCard?.supplyDemand?.marketTightness || "Unknown";
-    const candidateCount = allCards.marketCard?.talentAvailability?.total || 0;
-    const jobCount = allCards.marketCard?.supplyDemand?.openJobs || 0;
+    const marketTightness = (allCards.marketCard?.supplyDemand as { marketTightness?: string } | undefined)?.marketTightness || "Unknown";
+    const candidateCount = (allCards.marketCard?.talentAvailability as { total?: number } | undefined)?.total || 0;
+    const jobCount = (allCards.marketCard?.supplyDemand as { openJobs?: number } | undefined)?.openJobs || 0;
 
     const prompt = `Calculate a Reality Score (0-10) for this hire and identify what helps/hurts.
 
@@ -1179,8 +1179,8 @@ export async function generateInterviewCard(skillCard: CardData, roleCard: CardD
 
     const prompt = `Design an interview process for this role.
 
-Must-Have Skills: ${mustHaves.join(", ")}
-Key Outcomes: ${outcomes.join(", ")}
+Must-Have Skills: ${Array.isArray(mustHaves) ? mustHaves.join(", ") : ""}
+Key Outcomes: ${Array.isArray(outcomes) ? outcomes.join(", ") : ""}
 
 Return ONLY valid JSON:
 {
@@ -1235,9 +1235,9 @@ export async function generateScorecardCard(skillCard: CardData, _interviewCard:
     console.log("🤖 Generating Scorecard Card with AI...");
 
     const skills = [
-      ...(skillCard?.technicalSkills || []),
-      ...(skillCard?.productSkills || []),
-      ...(skillCard?.behaviouralSkills || [])
+      ...(Array.isArray(skillCard?.technicalSkills) ? skillCard.technicalSkills : []),
+      ...(Array.isArray(skillCard?.productSkills) ? skillCard.productSkills : []),
+      ...(Array.isArray(skillCard?.behaviouralSkills) ? skillCard.behaviouralSkills : [])
     ].slice(0, 8);
 
     const prompt = `Create an evaluation scorecard.
@@ -1295,7 +1295,7 @@ export async function generatePlanCard(allCards: Record<string, CardData>): Prom
 
     const prompt = `Create an action plan for this hire.
 
-Market Tightness: ${allCards.marketCard?.supplyDemand?.marketTightness || "Unknown"}
+Market Tightness: ${(allCards.marketCard?.supplyDemand as { marketTightness?: string } | undefined)?.marketTightness || "Unknown"}
 Reality Score: ${allCards.realityCard?.realityScore || "Unknown"}
 
 Return ONLY valid JSON:

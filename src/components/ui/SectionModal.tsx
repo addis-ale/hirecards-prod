@@ -9,7 +9,7 @@ interface SectionModalProps {
   onClose: () => void;
   title: string;
   subtitle?: string;
-  Icon: React.ComponentType<{ className?: string }>;
+  Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   tone?: "info" | "warning" | "success" | "danger" | "purple";
   allowEdit?: boolean;
   children: React.ReactNode;

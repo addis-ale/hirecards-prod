@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 interface ScorecardCardProps {
   onNavigateToCard?: (cardId: string) => void;
   currentCardId?: string;
+  onOpenSuggestions?: () => void;
   data?: {
     competencies?: string[];
     rating1?: string;
@@ -30,6 +31,7 @@ interface ScorecardCardProps {
     donts?: string[];
     fixes?: string[];
     evaluationMapping?: Array<{ stage: string; competencies: string }>;
+    scoreImpactRows?: Array<{ label: string; impact: number; currentValue?: string; suggestedValue?: string }>;
   };
 }
 
@@ -185,7 +187,13 @@ export const EditableScorecardCard: React.FC<ScorecardCardProps> = ({
       if (data.fixes) setFixes(data.fixes);
       if (data.evaluationMapping) setEvaluationMapping(data.evaluationMapping);
       if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-        setScoreImpactRows(data.scoreImpactRows);
+        setScoreImpactRows(data.scoreImpactRows.map(row => ({
+          fix: (row as { label?: string; fix?: string }).fix || (row as { label?: string }).label || "",
+          impact: typeof row.impact === "string" ? row.impact : String(row.impact || ""),
+          tooltip: (row as { tooltip?: string }).tooltip,
+          talentPoolImpact: (row as { talentPoolImpact?: string }).talentPoolImpact,
+          riskReduction: (row as { riskReduction?: string }).riskReduction,
+        })));
       }
       return; // Don't load from sessionStorage if data prop is provided
     }

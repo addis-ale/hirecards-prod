@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     // Scrape using ScrapingBee
     let scrapedData: Record<string, unknown>;
     try {
-      scrapedData = await scrapeJobURL(url.trim()) as Record<string, unknown>;
+      scrapedData = await scrapeJobURL(url.trim()) as unknown as Record<string, unknown>;
     } catch (scrapeError) {
       const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
       return NextResponse.json(

@@ -221,7 +221,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
       case "reality":
         return (
           <EditableRealityCard
-            data={realityCardData}
+            data={realityCardData || undefined}
             onScoreChange={handleRealityScoreChange}
             acceptedImprovementsBoost={acceptedImprovementsBoost}
             {...commonProps}
@@ -236,7 +236,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
           console.log("📋 Role Card Data:", JSON.stringify(roleCardData, null, 2));
         }
         // Use key to force re-render when data changes from null to actual data
-        return <EditableRoleCard key={roleCardData ? `role-dynamic-${roleCardData.roleSummary?.slice(0, 20)}` : 'role-static'} data={roleCardData} {...commonProps} />;
+        return <EditableRoleCard key={roleCardData ? `role-dynamic-${typeof roleCardData.roleSummary === 'string' ? roleCardData.roleSummary.slice(0, 20) : 'role'}` : 'role-static'} data={roleCardData || undefined} {...commonProps} />;
       case "skill":
         console.log(
           "🔧 Rendering EditableSkillCard with data:",
@@ -245,43 +245,43 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
         if (skillCardData) {
           console.log("🔧 Skill Card Data:", JSON.stringify(skillCardData, null, 2));
         }
-        return <EditableSkillCard key={skillCardData ? `skill-${JSON.stringify(skillCardData).slice(0, 50)}` : 'skill-static'} data={skillCardData} {...commonProps} />;
+        return <EditableSkillCard key={skillCardData ? `skill-${JSON.stringify(skillCardData).slice(0, 50)}` : 'skill-static'} data={skillCardData || undefined} {...commonProps} />;
       case "market":
         console.log(
           "📊 Rendering EditableMarketCard with data:",
           marketCardData ? "YES" : "NO"
         );
-        return <EditableMarketCard data={marketCardData} {...commonProps} />;
+        return <EditableMarketCard data={marketCardData || undefined} {...commonProps} />;
       case "talentmap":
         return (
-          <EditableTalentMapCard data={talentMapCardData} {...commonProps} />
+          <EditableTalentMapCard data={talentMapCardData || undefined} {...commonProps} />
         );
       case "pay":
         console.log(
           "💳 Rendering EditablePayCard with data:",
           payCardData ? "YES" : "NO"
         );
-        return <EditablePayCard data={payCardData} {...commonProps} />;
+        return <EditablePayCard data={payCardData || undefined} {...commonProps} />;
       case "funnel":
-        return <EditableFunnelCard data={funnelCardData} {...commonProps} />;
+        return <EditableFunnelCard data={funnelCardData || undefined} {...commonProps} />;
       case "fit":
-        return <EditableFitCard data={fitCardData} {...commonProps} />;
+        return <EditableFitCard data={fitCardData || undefined} {...commonProps} />;
       case "message":
-        return <EditableMessageCard data={messageCardData} {...commonProps} />;
+        return <EditableMessageCard data={messageCardData || undefined} {...commonProps} />;
       case "outreach":
         return (
-          <EditableOutreachCard data={outreachCardData} {...commonProps} />
+          <EditableOutreachCard data={outreachCardData || undefined} {...commonProps} />
         );
       case "interview":
         return (
-          <EditableInterviewCard data={interviewCardData} {...commonProps} />
+          <EditableInterviewCard data={interviewCardData || undefined} {...commonProps} />
         );
       case "scorecard":
         return (
-          <EditableScorecardCard data={scorecardCardData} {...commonProps} />
+          <EditableScorecardCard data={scorecardCardData || undefined} {...commonProps} />
         );
       case "plan":
-        return <EditablePlanCard data={planCardData} {...commonProps} />;
+        return <EditablePlanCard data={planCardData || undefined} {...commonProps} />;
       default:
         return (
           <div className="text-center py-12">
@@ -332,7 +332,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
         isOpen={showImprovementPanel}
         onClose={() => setShowImprovementPanel(false)}
         currentScore={realityScore}
-        cardData={realityCardData}
+        cardData={realityCardData || {}}
         onApplySuggestion={(signalId, targetTab, scoreIncrease) => {
           // Track accepted improvement and its score increase
           if (scoreIncrease) {

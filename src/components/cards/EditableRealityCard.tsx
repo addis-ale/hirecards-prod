@@ -37,6 +37,7 @@ interface RealityCardProps {
     feasibilityScore?: string;
     feasibilityTitle?: string;
     feasibilitySubtext?: string;
+    scoreImpactRows?: Array<{ label: string; impact: number; currentValue?: string; suggestedValue?: string }>;
   };
   onScoreChange?: (score: number) => void;
   acceptedImprovementsBoost?: number;
@@ -250,7 +251,13 @@ export const EditableRealityCard = ({
       if (data.redFlags) setRedFlags(data.redFlags);
       if (data.donts) setDonts(data.donts);
       if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-        setScoreImpactRows(data.scoreImpactRows);
+        setScoreImpactRows(data.scoreImpactRows.map(row => ({
+          fix: (row as { label?: string; fix?: string }).fix || (row as { label?: string }).label || "",
+          impact: typeof row.impact === "string" ? row.impact : String(row.impact || ""),
+          tooltip: (row as { tooltip?: string }).tooltip,
+          talentPoolImpact: (row as { talentPoolImpact?: string }).talentPoolImpact,
+          riskReduction: (row as { riskReduction?: string }).riskReduction,
+        })));
       }
       return; // Don't load from sessionStorage if data prop is provided
     }

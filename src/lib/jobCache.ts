@@ -94,9 +94,9 @@ export function isCacheValid(
   const timestampField = getTimestampField(dataType);
   const cacheTimestamp = cachedData[timestampField];
   
-  if (!cacheTimestamp) return false;
+  if (!cacheTimestamp || typeof cacheTimestamp !== 'string' && typeof cacheTimestamp !== 'number' && !(cacheTimestamp instanceof Date)) return false;
   
-  const cacheAge = Date.now() - new Date(cacheTimestamp).getTime();
+  const cacheAge = Date.now() - new Date(cacheTimestamp as string | number | Date).getTime();
   return cacheAge < validityPeriod;
 }
 
@@ -173,7 +173,7 @@ function validateCardsComplete(data: {
     missingCards.push("jobAnalysisCards");
   } else {
     const required = ["roleCard", "skillCard", "fitCard", "messageCard", "outreachCard"];
-    const missing = required.filter(key => !data.jobAnalysisCards[key]);
+    const missing = required.filter(key => !data.jobAnalysisCards?.[key]);
     if (missing.length > 0) {
       missingCards.push(`jobAnalysisCards: ${missing.join(", ")}`);
     }
@@ -187,7 +187,7 @@ function validateCardsComplete(data: {
     missingCards.push("combinedAnalysisCards");
   } else {
     const required = ["marketCard", "payCard", "funnelCard", "realityCard"];
-    const missing = required.filter(key => !data.combinedAnalysisCards[key]);
+    const missing = required.filter(key => !data.combinedAnalysisCards?.[key]);
     if (missing.length > 0) {
       missingCards.push(`combinedAnalysisCards: ${missing.join(", ")}`);
     }
@@ -198,7 +198,7 @@ function validateCardsComplete(data: {
     missingCards.push("derivedStrategyCards");
   } else {
     const required = ["interviewCard", "scorecardCard", "planCard"];
-    const missing = required.filter(key => !data.derivedStrategyCards[key]);
+    const missing = required.filter(key => !data.derivedStrategyCards?.[key]);
     if (missing.length > 0) {
       missingCards.push(`derivedStrategyCards: ${missing.join(", ")}`);
     }

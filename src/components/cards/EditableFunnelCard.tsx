@@ -204,13 +204,14 @@ export const EditableFunnelCard = ({
           // Only load if the saved data has valid values (not empty arrays/zeros)
           if (savedData.funnelStages && Array.isArray(savedData.funnelStages) && savedData.funnelStages.length > 0) {
             // Check if values are not all zeros/empty/invalid
-            const hasValidValues = savedData.funnelStages.some((stage: Record<string, unknown>) => 
-              stage.value && 
-              stage.value !== "0" && 
-              stage.value !== "0–0" && 
-              !stage.value.match(/^0+[–-]0+$/) &&
-              stage.value !== "8–8" // Invalid default
-            );
+            const hasValidValues = savedData.funnelStages.some((stage: Record<string, unknown>) => {
+              const value = stage.value;
+              return typeof value === 'string' && 
+                value !== "0" && 
+                value !== "0–0" && 
+                !value.match(/^0+[–-]0+$/) &&
+                value !== "8–8"; // Invalid default
+            });
             if (hasValidValues) {
               setFunnelStages(savedData.funnelStages);
             } else {

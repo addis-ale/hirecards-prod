@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
 import * as cardGenerators from "./cardGenerators";
 import { fetchAllDataSources, scrapeIndustryBenchmarks } from "./dataSources";
+import type { CardData } from "./cardGenerators";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
@@ -26,6 +27,32 @@ interface ExtractedJobData {
   benefits?: string[];
   skills?: string[];
   department?: string;
+  company?: string;
+  jobTitle?: string;
+}
+
+interface ScrapedJobData {
+  title: string;
+  description: string;
+  rawText: string;
+  source: string;
+  url?: string;
+  company?: string;
+  location?: string;
+  locationType?: string;
+  salary?: string;
+  experienceLevel?: string;
+  employmentType?: string;
+  requirements?: string | string[];
+  responsibilities?: string | string[];
+  benefits?: string | string[];
+  skills?: string[];
+  department?: string;
+  descriptionPlainText?: string;
+  scrapingError?: string;
+  aiEnhanced?: boolean;
+  workplaceType?: string;
+  [key: string]: unknown;
 }
 
 interface ApifyJobData {
@@ -62,7 +89,7 @@ interface ApifyJobData {
   benefits?: string[];
   descriptionText?: string;
   description?: string; // Indeed uses this field
-  platform?: "linkedin" | "indeed"; // Track which platform the job came from
+  platform?: "linkedin" | "indeed" | "glassdoor"; // Track which platform the job came from
 }
 
 interface ApifyPeopleData {
@@ -498,55 +525,57 @@ async function searchSimilarJobsOnIndeed(
     console.log(`✅ Found ${items.length} similar jobs from Indeed`);
 
     // Normalize Indeed data to match our interface
-    const normalizedJobs = items.map((job: Record<string, unknown>, idx: number) => ({
-      id: job.id || job.jobKey || `indeed-${Date.now()}-${idx}`,
-      title: job.title || job.jobTitle,
-      url: job.url || job.link,
-      company: {
-        name: job.company?.name || job.companyName || "Unknown Company",
-        logo: job.company?.logo || job.companyLogo,
-        employeeCount: job.company?.employeeCount,
-      },
-      location: {
-        city: job.location?.city || job.city,
-        state: job.location?.state || job.state,
-        country: job.location?.country || job.country,
-        linkedinText: (() => {
-          const text = job.location?.text || job.locationText;
-          if (text) return text;
+    const normalizedJobs: ApifyJobData[] = items.map((job: Record<string, unknown>, idx: number) => {
+      const companyObj = job.company as Record<string, unknown> | undefined;
+      const locationObj = job.location as Record<string, unknown> | undefined;
+      const salaryObj = job.salary as Record<string, unknown> | undefined;
+      
+      return {
+        id: String(job.id || job.jobKey || `indeed-${Date.now()}-${idx}`),
+        title: String(job.title || job.jobTitle || ""),
+        url: job.url ? String(job.url) : (job.link ? String(job.link) : undefined),
+        company: {
+          name: String(companyObj?.name || job.companyName || "Unknown Company"),
+          logo: companyObj?.logo ? String(companyObj.logo) : (job.companyLogo ? String(job.companyLogo) : undefined),
+          employeeCount: typeof companyObj?.employeeCount === "number" ? companyObj.employeeCount : undefined,
+        },
+        location: {
+          city: locationObj?.city ? String(locationObj.city) : (job.city ? String(job.city) : undefined),
+          state: locationObj?.state ? String(locationObj.state) : (job.state ? String(job.state) : undefined),
+          country: locationObj?.country ? String(locationObj.country) : (job.country ? String(job.country) : undefined),
+          linkedinText: (() => {
+            const text = (locationObj?.text as string | undefined) || (job.locationText as string | undefined);
+            if (text) return text;
 
-          // Build location string from available fields
-          const parts = [
-            job.location?.city || job.city,
-            job.location?.state || job.state,
-            job.location?.country || job.country,
-          ].filter(Boolean); // Remove empty/null/undefined values
+            // Build location string from available fields
+            const parts = [
+              (locationObj?.city as string | undefined) || (job.city as string | undefined),
+              (locationObj?.state as string | undefined) || (job.state as string | undefined),
+              (locationObj?.country as string | undefined) || (job.country as string | undefined),
+            ].filter(Boolean); // Remove empty/null/undefined values
 
-          return parts.length > 0 ? parts.join(", ") : "Location not specified";
-        })(),
-      },
-      salary: job.salary
-        ? {
-            text:
-              job.salary.salaryText ||
-              job.salary.text ||
-              (typeof job.salary === "string"
-                ? job.salary
-                : `${job.salary.salaryMin || ""} - ${
-                    job.salary.salaryMax || ""
-                  }`),
-            min: job.salary.salaryMin || job.salary.min,
-            max: job.salary.salaryMax || job.salary.max,
-            currency: job.salary.salaryCurrency || job.salary.currency || "USD",
-          }
-        : undefined,
-      employmentType: job.employmentType || job.jobType,
-      workplaceType: job.workplaceType || job.remote,
-      benefits: job.benefits || [],
-      description: job.description || job.descriptionText,
-      descriptionText: job.description || job.descriptionText,
-      platform: "indeed" as const,
-    }));
+            return parts.length > 0 ? parts.join(", ") : "Location not specified";
+          })(),
+        },
+        salary: salaryObj && typeof salaryObj === "object" && !Array.isArray(salaryObj)
+          ? {
+              text:
+                (salaryObj.salaryText as string | undefined) ||
+                (salaryObj.text as string | undefined) ||
+                `${salaryObj.salaryMin || ""} - ${salaryObj.salaryMax || ""}`,
+              min: (salaryObj.salaryMin as number | undefined) || (salaryObj.min as number | undefined),
+              max: (salaryObj.salaryMax as number | undefined) || (salaryObj.max as number | undefined),
+              currency: (salaryObj.salaryCurrency as string | undefined) || (salaryObj.currency as string | undefined) || "USD",
+            }
+          : undefined,
+        employmentType: job.employmentType ? String(job.employmentType) : (job.jobType ? String(job.jobType) : undefined),
+        workplaceType: job.workplaceType ? String(job.workplaceType) : (job.remote ? String(job.remote) : undefined),
+        benefits: Array.isArray(job.benefits) ? job.benefits as string[] : [],
+        description: job.description ? String(job.description) : (job.descriptionText ? String(job.descriptionText) : undefined),
+        descriptionText: job.description ? String(job.description) : (job.descriptionText ? String(job.descriptionText) : undefined),
+        platform: "indeed" as const,
+      };
+    });
 
     return normalizedJobs;
   } catch (error) {
@@ -559,6 +588,21 @@ async function searchSimilarJobsOnIndeed(
       try {
         const normalizedTitle = normalizeJobTitle(jobTitle);
         const locationForFallback = location?.replace(/\bnull\b,?\s*/gi, "").trim();
+        const extractCountryFromLocation = (loc: string): string => {
+          if (!loc) return "us";
+          const locationLower = loc.toLowerCase();
+          if (locationLower.includes("united states") || locationLower.includes("usa") || locationLower.includes("us,")) return "us";
+          if (locationLower.includes("united kingdom") || locationLower.includes("uk,") || locationLower.includes("england")) return "gb";
+          if (locationLower.includes("canada")) return "ca";
+          if (locationLower.includes("australia")) return "au";
+          if (locationLower.includes("germany")) return "de";
+          if (locationLower.includes("france")) return "fr";
+          if (locationLower.includes("spain")) return "es";
+          if (locationLower.includes("italy")) return "it";
+          if (locationLower.includes("netherlands")) return "nl";
+          if (locationLower.includes("india")) return "in";
+          return "us"; // Default
+        };
         const fallbackCountry = extractCountryFromLocation(locationForFallback || "");
         const safeInput: Record<string, unknown> = {
           country: fallbackCountry, // Required by Indeed
@@ -587,56 +631,57 @@ async function searchSimilarJobsOnIndeed(
         );
 
         // Normalize fallback results
-        const normalizedJobs = items.map((job: Record<string, unknown>, idx: number) => ({
-          id: job.id || job.jobKey || `indeed-fallback-${Date.now()}-${idx}`,
-          title: job.title || job.jobTitle,
-          url: job.url || job.link,
-          company: {
-            name: job.company?.name || job.companyName || "Unknown Company",
-            logo: job.company?.logo || job.companyLogo,
-          },
-          location: {
-            city: job.location?.city || job.city,
-            state: job.location?.state || job.state,
-            country: job.location?.country || job.country,
-            linkedinText: (() => {
-              const text = job.location?.text || job.locationText;
-              if (text) return text;
+        const normalizedJobs: ApifyJobData[] = items.map((job: Record<string, unknown>, idx: number) => {
+          const companyObj = job.company as Record<string, unknown> | undefined;
+          const locationObj = job.location as Record<string, unknown> | undefined;
+          const salaryObj = job.salary as Record<string, unknown> | undefined;
+          
+          return {
+            id: String(job.id || job.jobKey || `indeed-fallback-${Date.now()}-${idx}`),
+            title: String(job.title || job.jobTitle || ""),
+            url: job.url ? String(job.url) : (job.link ? String(job.link) : undefined),
+            company: {
+              name: String(companyObj?.name || job.companyName || "Unknown Company"),
+              logo: companyObj?.logo ? String(companyObj.logo) : (job.companyLogo ? String(job.companyLogo) : undefined),
+            },
+            location: {
+              city: locationObj?.city ? String(locationObj.city) : (job.city ? String(job.city) : undefined),
+              state: locationObj?.state ? String(locationObj.state) : (job.state ? String(job.state) : undefined),
+              country: locationObj?.country ? String(locationObj.country) : (job.country ? String(job.country) : undefined),
+              linkedinText: (() => {
+                const text = locationObj?.text || job.locationText;
+                if (text) return String(text);
 
-              // Build location string from available fields
-              const parts = [
-                job.location?.city || job.city,
-                job.location?.state || job.state,
-                job.location?.country || job.country,
-              ].filter(Boolean); // Remove empty/null/undefined values
+                // Build location string from available fields
+                const parts = [
+                  locationObj?.city || job.city,
+                  locationObj?.state || job.state,
+                  locationObj?.country || job.country,
+                ].filter(Boolean).map(p => String(p));
 
-              return parts.length > 0
-                ? parts.join(", ")
-                : "Location not specified";
-            })(),
-          },
-          salary: job.salary
-            ? {
-                text:
-                  job.salary.salaryText ||
-                  job.salary.text ||
-                  (typeof job.salary === "string"
-                    ? job.salary
-                    : `${job.salary.salaryMin || ""} - ${
-                        job.salary.salaryMax || ""
-                      }`),
-                min: job.salary.salaryMin || job.salary.min,
-                max: job.salary.salaryMax || job.salary.max,
-                currency:
-                  job.salary.salaryCurrency || job.salary.currency || "USD",
-              }
-            : undefined,
-          employmentType: job.employmentType || job.jobType,
-          workplaceType: job.workplaceType || job.remote,
-          benefits: job.benefits || [],
-          description: job.description || job.descriptionText,
-          platform: "indeed" as const,
-        }));
+                return parts.length > 0
+                  ? parts.join(", ")
+                  : "Location not specified";
+              })(),
+            },
+            salary: salaryObj && typeof salaryObj === "object" && !Array.isArray(salaryObj)
+              ? {
+                  text:
+                    (salaryObj.salaryText as string | undefined) ||
+                    (salaryObj.text as string | undefined) ||
+                    `${salaryObj.salaryMin || ""} - ${salaryObj.salaryMax || ""}`,
+                  min: (salaryObj.salaryMin as number | undefined) || (salaryObj.min as number | undefined),
+                  max: (salaryObj.salaryMax as number | undefined) || (salaryObj.max as number | undefined),
+                  currency: (salaryObj.salaryCurrency as string | undefined) || (salaryObj.currency as string | undefined) || "USD",
+                }
+              : undefined,
+            employmentType: job.employmentType ? String(job.employmentType) : (job.jobType ? String(job.jobType) : undefined),
+            workplaceType: job.workplaceType ? String(job.workplaceType) : (job.remote ? String(job.remote) : undefined),
+            benefits: Array.isArray(job.benefits) ? job.benefits as string[] : [],
+            description: job.description ? String(job.description) : (job.descriptionText ? String(job.descriptionText) : undefined),
+            platform: "indeed" as const,
+          };
+        });
 
         return normalizedJobs;
       } catch (e) {
@@ -761,8 +806,8 @@ async function searchSimilarJobsOnGlassdoor(
         let salaryData: { text: string; min: number; max: number; currency: string } | undefined = undefined;
         if (job.salary || job.salaryRange) {
           const salaryText = (typeof job.salary === 'string' ? job.salary : '') || (typeof job.salaryRange === 'string' ? job.salaryRange : '') || "";
-          const numbers = salaryText.match(/[\d,]+/g) || [];
-          if (numbers.length >= 2) {
+          const numbers = salaryText.match(/[\d,]+/g);
+          if (numbers && numbers.length >= 2 && numbers[0] && numbers[1]) {
             const min = parseInt(numbers[0].replace(/,/g, ""));
             const max = parseInt(numbers[1].replace(/,/g, ""));
             salaryData = {
@@ -771,7 +816,7 @@ async function searchSimilarJobsOnGlassdoor(
               max: max > 1000 ? max : max * 1000,
               currency: "USD",
             };
-          } else if (numbers.length === 1) {
+          } else if (numbers && numbers.length === 1 && numbers[0]) {
             const value = parseInt(numbers[0].replace(/,/g, ""));
             salaryData = {
               text: salaryText,
@@ -786,10 +831,20 @@ async function searchSimilarJobsOnGlassdoor(
         const locationText = (typeof job.location === 'string' ? job.location : '') || cleanedLocation || "Unknown";
         const locationParts = locationText.split(",").map((p: string) => p.trim());
 
+        // Get employmentType with proper type handling
+        const employmentType = typeof job.employmentType === 'string' && job.employmentType 
+          ? job.employmentType 
+          : (filters.employmentType || undefined);
+        
+        // Get workplaceType with proper type handling
+        const workplaceType = typeof job.workplaceType === 'string' && job.workplaceType
+          ? job.workplaceType
+          : (filters.workplaceType || undefined);
+
         return {
-          id: (typeof job.jobId === 'string' ? job.jobId : '') || (typeof job.id === 'string' ? job.id : '') || `glassdoor-${Date.now()}-${Math.random()}`,
+          id: (typeof job.jobId === 'string' && job.jobId) || (typeof job.id === 'string' && job.id) || `glassdoor-${Date.now()}-${Math.random()}`,
           title: (typeof job.jobTitle === 'string' ? job.jobTitle : '') || (typeof job.title === 'string' ? job.title : '') || normalizedJobTitle,
-          url: (typeof job.jobUrl === 'string' ? job.jobUrl : '') || (typeof job.url === 'string' ? job.url : ''),
+          url: (typeof job.jobUrl === 'string' ? job.jobUrl : undefined) || (typeof job.url === 'string' ? job.url : undefined),
           company: {
             name: (typeof job.companyName === 'string' ? job.companyName : '') || (typeof job.company === 'string' ? job.company : '') || "Unknown",
             logo: typeof job.companyLogo === 'string' ? job.companyLogo : undefined,
@@ -807,8 +862,8 @@ async function searchSimilarJobsOnGlassdoor(
             },
           },
           salary: salaryData,
-          employmentType: (typeof job.employmentType === 'string' ? job.employmentType : '') || filters.employmentType,
-          workplaceType: (typeof job.workplaceType === 'string' ? job.workplaceType : '') || filters.workplaceType,
+          employmentType,
+          workplaceType,
           applicants: typeof job.applicants === 'number' ? job.applicants : undefined,
           views: typeof job.views === 'number' ? job.views : undefined,
           benefits: Array.isArray(job.benefits) ? job.benefits as string[] : [],
@@ -816,7 +871,7 @@ async function searchSimilarJobsOnGlassdoor(
           platform: "glassdoor" as const, // Mark as Glassdoor
         };
       })
-      .filter((job: ApifyJobData) => job.title && job.company.name); // Filter out invalid jobs
+      .filter((job) => job.title && job.company.name); // Filter out invalid jobs
 
     return glassdoorJobs;
   } catch (error) {
@@ -853,9 +908,9 @@ async function searchSimilarJobsOnGlassdoor(
             .map((job: Record<string, unknown>) => {
               let salaryData: { text: string; min: number; max: number; currency: string } | undefined = undefined;
               if (job.salary || job.salaryRange) {
-                const salaryText = job.salary || job.salaryRange || "";
-                const numbers = salaryText.match(/[\d,]+/g) || [];
-                if (numbers.length >= 2) {
+                const salaryText = (typeof job.salary === "string" ? job.salary : "") || (typeof job.salaryRange === "string" ? job.salaryRange : "") || "";
+                const numbers = salaryText.match(/[\d,]+/g);
+                if (numbers && numbers.length >= 2 && numbers[0] && numbers[1]) {
                   const min = parseInt(numbers[0].replace(/,/g, ""));
                   const max = parseInt(numbers[1].replace(/,/g, ""));
                   salaryData = {
@@ -864,7 +919,7 @@ async function searchSimilarJobsOnGlassdoor(
                     max: max > 1000 ? max : max * 1000,
                     currency: "USD",
                   };
-                } else if (numbers.length === 1) {
+                } else if (numbers && numbers.length === 1 && numbers[0]) {
                   const value = parseInt(numbers[0].replace(/,/g, ""));
                   salaryData = {
                     text: salaryText,
@@ -875,17 +930,27 @@ async function searchSimilarJobsOnGlassdoor(
                 }
               }
 
-              const locationText = job.location || "Unknown";
+              const locationText = (typeof job.location === "string" ? job.location : "") || "Unknown";
               const locationParts = locationText.split(",").map((p: string) => p.trim());
 
+              // Get employmentType with proper type handling
+              const employmentType = typeof job.employmentType === 'string' && job.employmentType 
+                ? job.employmentType 
+                : (filters.employmentType || undefined);
+              
+              // Get workplaceType with proper type handling
+              const workplaceType = typeof job.workplaceType === 'string' && job.workplaceType
+                ? job.workplaceType
+                : (filters.workplaceType || undefined);
+
               return {
-                id: job.jobId || job.id || `glassdoor-${Date.now()}-${Math.random()}`,
-                title: job.jobTitle || job.title || normalizedJobTitle,
-                url: job.jobUrl || job.url,
+                id: (typeof job.jobId === "string" && job.jobId) || (typeof job.id === "string" && job.id) || `glassdoor-${Date.now()}-${Math.random()}`,
+                title: (typeof job.jobTitle === "string" ? job.jobTitle : "") || (typeof job.title === "string" ? job.title : "") || normalizedJobTitle,
+                url: (typeof job.jobUrl === "string" ? job.jobUrl : undefined) || (typeof job.url === "string" ? job.url : undefined),
                 company: {
-                  name: job.companyName || job.company || "Unknown",
-                  logo: job.companyLogo,
-                  employeeCount: job.employeeCount || job.companySize,
+                  name: (typeof job.companyName === "string" ? job.companyName : "") || (typeof job.company === "string" ? job.company : "") || "Unknown",
+                  logo: (typeof job.companyLogo === "string" ? job.companyLogo : undefined),
+                  employeeCount: (typeof job.employeeCount === "number" ? job.employeeCount : undefined) || (typeof job.companySize === "number" ? job.companySize : undefined),
                 },
                 location: {
                   linkedinText: locationText,
@@ -899,16 +964,16 @@ async function searchSimilarJobsOnGlassdoor(
                   },
                 },
                 salary: salaryData,
-                employmentType: job.employmentType || filters.employmentType,
-                workplaceType: job.workplaceType || filters.workplaceType,
-                applicants: job.applicants,
-                views: job.views,
-                benefits: job.benefits || [],
-                descriptionText: job.description || job.jobDescription,
+                employmentType,
+                workplaceType,
+                applicants: typeof job.applicants === "number" ? job.applicants : undefined,
+                views: typeof job.views === "number" ? job.views : undefined,
+                benefits: Array.isArray(job.benefits) ? job.benefits as string[] : [],
+                descriptionText: (typeof job.description === "string" ? job.description : undefined) || (typeof job.jobDescription === "string" ? job.jobDescription : undefined),
                 platform: "glassdoor" as const,
               };
             })
-            .filter((job: ApifyJobData) => job.title && job.company.name);
+            .filter((job) => job.title && job.company.name);
           
           return glassdoorJobs;
         }
@@ -1095,7 +1160,7 @@ async function searchCandidatesWithApify(
 ): Promise<CandidateSearchResult> {
   if (!apifyClient) {
     console.warn("Apify API key not configured, skipping candidate search");
-    return { candidates: [], sampleSize: 0 };
+    return { candidates: [], sampleSize: 0, source: "linkedin" };
   }
 
   try {
@@ -1213,7 +1278,7 @@ async function searchCandidatesWithApify(
     if (!totalResultCount) {
       try {
         const logs = await apifyClient.run(run.id).log().get();
-        const logText = logs?.log || "";
+        const logText = (typeof logs === "string") ? logs : "";
         
         // Look for patterns like "Found 164 profiles total" or "total: 164"
         const totalMatch = logText.match(/Found\s+(\d+)\s+profiles?\s+total/i) || 
@@ -1247,7 +1312,7 @@ async function searchCandidatesWithApify(
     }
 
     // Add platform property to LinkedIn candidates
-    const candidatesWithPlatform = (items as ApifyPeopleData[]).map(candidate => ({
+    const candidatesWithPlatform = (items as unknown as ApifyPeopleData[]).map(candidate => ({
       ...candidate,
       platform: "linkedin" as const,
     }));
@@ -1255,13 +1320,13 @@ async function searchCandidatesWithApify(
     return {
       candidates: candidatesWithPlatform,
       totalResultCount,
-      sampleSize: peopleInput.maxItems || 100,
+      sampleSize: (typeof peopleInput.maxItems === "number" ? peopleInput.maxItems : 100),
       source: "linkedin" as const,
     };
   } catch (error) {
     console.error("❌ Error searching candidates with Apify:", error);
 
-    if (error.type === "invalid-input") {
+    if (error && typeof error === "object" && "type" in error && error.type === "invalid-input") {
       console.error(
         "Invalid Apify People Search input. Please check the input format."
       );
@@ -1293,14 +1358,14 @@ async function searchCandidatesWithApify(
           .listItems();
         console.log(`✅ Fallback found ${items.length} candidates`);
         // Add platform property to LinkedIn candidates
-        const fallbackCandidates = (items as ApifyPeopleData[]).map(candidate => ({
+        const fallbackCandidates = (items as unknown as ApifyPeopleData[]).map(candidate => ({
           ...candidate,
           platform: "linkedin" as const,
         }));
 
         return {
           candidates: fallbackCandidates,
-          sampleSize: safeInput.maxItems || 50,
+          sampleSize: (typeof safeInput.maxItems === "number" ? safeInput.maxItems : 50),
           source: "linkedin" as const,
         };
       } catch (e) {
@@ -1353,23 +1418,26 @@ export async function POST(request: NextRequest) {
         const refreshNeeds = getCacheRefreshNeeds(cached);
         
         // Validate that cached cards are complete before returning
+        const jobCards = cached.job_analysis_cards as Record<string, unknown> | undefined;
+        const combinedCards = cached.combined_analysis_cards as Record<string, unknown> | undefined;
+        const derivedCards = cached.derived_strategy_cards as Record<string, unknown> | undefined;
         const hasCompleteCards = 
-          cached.job_analysis_cards &&
-          cached.combined_analysis_cards &&
-          cached.derived_strategy_cards &&
+          jobCards &&
+          combinedCards &&
+          derivedCards &&
           // Check required cards exist
-          cached.job_analysis_cards.roleCard &&
-          cached.job_analysis_cards.skillCard &&
-          cached.job_analysis_cards.fitCard &&
-          cached.job_analysis_cards.messageCard &&
-          cached.job_analysis_cards.outreachCard &&
-          cached.combined_analysis_cards.marketCard &&
-          cached.combined_analysis_cards.payCard &&
-          cached.combined_analysis_cards.funnelCard &&
-          cached.combined_analysis_cards.realityCard &&
-          cached.derived_strategy_cards.interviewCard &&
-          cached.derived_strategy_cards.scorecardCard &&
-          cached.derived_strategy_cards.planCard;
+          jobCards.roleCard &&
+          jobCards.skillCard &&
+          jobCards.fitCard &&
+          jobCards.messageCard &&
+          jobCards.outreachCard &&
+          combinedCards.marketCard &&
+          combinedCards.payCard &&
+          combinedCards.funnelCard &&
+          combinedCards.realityCard &&
+          derivedCards.interviewCard &&
+          derivedCards.scorecardCard &&
+          derivedCards.planCard;
         
         if (!hasCompleteCards) {
           console.warn("⚠️ Cached cards incomplete, will regenerate");
@@ -1418,14 +1486,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let scrapedData: Record<string, unknown>;
+    let scrapedData: ScrapedJobData | Record<string, unknown>;
     let inputType: string;
     let scrapingError: string | null = null;
 
     if (isURL) {
       // If it's a URL, scrape it
       try {
-        scrapedData = await scrapeJobURL(input.trim());
+        scrapedData = await scrapeJobURL(input.trim()) as ScrapedJobData;
         inputType = "url";
       } catch (scrapeError) {
         const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
@@ -1442,7 +1510,7 @@ export async function POST(request: NextRequest) {
           rawText: "",
           source: "ScrapingBee (Failed)",
           url: input.trim(),
-          scrapingError: scrapeError.message,
+          scrapingError: scrapeError instanceof Error ? scrapeError.message : String(scrapeError),
         };
         inputType = "url";
       }
@@ -1459,15 +1527,15 @@ export async function POST(request: NextRequest) {
 
     // Use AI to extract additional details from the description
     const textToAnalyze =
-      scrapedData.description ||
-      scrapedData.descriptionPlainText ||
-      scrapedData.rawText ||
+      (typeof scrapedData === "object" && scrapedData !== null && "description" in scrapedData ? String(scrapedData.description || "") : "") ||
+      (typeof scrapedData === "object" && scrapedData !== null && "descriptionPlainText" in scrapedData ? String(scrapedData.descriptionPlainText || "") : "") ||
+      (typeof scrapedData === "object" && scrapedData !== null && "rawText" in scrapedData ? String(scrapedData.rawText || "") : "") ||
       "";
 
     let aiExtractedData: ExtractedJobData = {};
     let similarJobs: ApifyJobData[] = [];
 
-    if (textToAnalyze && textToAnalyze.length > 50) {
+    if (textToAnalyze && typeof textToAnalyze === "string" && textToAnalyze.length > 50) {
       aiExtractedData = await extractJobDetailsWithAI(
         textToAnalyze,
         scrapedData
@@ -1479,12 +1547,12 @@ export async function POST(request: NextRequest) {
       
       // Ensure company is the actual hiring company, not the job board
       const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
-      let finalCompany = scrapedData.company || aiExtractedData.company;
+      let finalCompany: string | undefined = (typeof scrapedData.company === 'string' ? scrapedData.company : undefined) || aiExtractedData.company;
       
       // If company matches job board name, try to get it from AI extraction or keep scraped
       if (finalCompany && jobBoardNames.some(board => finalCompany?.toLowerCase().includes(board.toLowerCase()))) {
         console.warn(`⚠️ Company name "${finalCompany}" appears to be a job board name, using scraped company instead`);
-        finalCompany = scrapedData.company; // Prefer scraped company name
+        finalCompany = typeof scrapedData.company === 'string' ? scrapedData.company : undefined; // Prefer scraped company name
       }
       
       scrapedData = {
@@ -1509,20 +1577,25 @@ export async function POST(request: NextRequest) {
       };
 
       // Search for similar jobs on both LinkedIn and Indeed using Apify
-      const jobTitle = scrapedData.title || aiExtractedData.department;
-      const location = scrapedData.location || aiExtractedData.location;
+      const jobTitle = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.department || "";
+      const location = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || "";
 
-      if (jobTitle && apifyClient) {
+      if (jobTitle && typeof jobTitle === "string" && apifyClient) {
         console.log("Searching for similar jobs on LinkedIn and Indeed...");
 
         // Normalize job title with AI for better search results
         const normalizedJobTitle = await normalizeJobTitleWithAI(jobTitle);
 
-        const filters = {
-          workplaceType: scrapedData.locationType,
-          employmentType: scrapedData.employmentType,
-          experienceLevel: scrapedData.experienceLevel,
-          salary: scrapedData.salary,
+        const filters: {
+          workplaceType?: string;
+          employmentType?: string;
+          experienceLevel?: string;
+          salary?: string;
+        } = {
+          workplaceType: typeof scrapedData.locationType === 'string' ? scrapedData.locationType : undefined,
+          employmentType: typeof scrapedData.employmentType === 'string' ? scrapedData.employmentType : undefined,
+          experienceLevel: typeof scrapedData.experienceLevel === 'string' ? scrapedData.experienceLevel : undefined,
+          salary: typeof scrapedData.salary === 'string' ? scrapedData.salary : undefined,
         };
 
         // Search all platforms in parallel with normalized title
@@ -1549,8 +1622,8 @@ export async function POST(request: NextRequest) {
     // Search for candidates with matching job title and location from LinkedIn
     let candidates: ApifyPeopleData[] = [];
     let candidateSearchResult: CandidateSearchResult = { candidates: [], sampleSize: 0, source: "linkedin" };
-    const jobTitle = scrapedData.title || aiExtractedData.department;
-    const location = scrapedData.location || aiExtractedData.location;
+    const jobTitle = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.department || "";
+    const location = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || "";
 
     if (jobTitle) {
       console.log("🔍 Searching for candidates from LinkedIn...");
@@ -1577,20 +1650,23 @@ export async function POST(request: NextRequest) {
     // Extract salary range if available
     let minSalary: string | null = null;
     let maxSalary: string | null = null;
-    if (scrapedData.salary || aiExtractedData.salary) {
-      const salaryText = scrapedData.salary || aiExtractedData.salary || "";
-      // Try to extract salary range (e.g., "$120,000 - $150,000" or "120K-150K")
-      const rangeMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)\s*[-–—]\s*\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
-      if (rangeMatch) {
-        minSalary = rangeMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
-        maxSalary = rangeMatch[2].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
-      } else {
-        // Try single value
-        const singleMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
-        if (singleMatch) {
-          const value = singleMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
-          minSalary = value;
-          maxSalary = value;
+    const scrapedSalary = typeof scrapedData === "object" && scrapedData !== null && "salary" in scrapedData ? scrapedData.salary : undefined;
+    if (scrapedSalary || aiExtractedData.salary) {
+      const salaryText = (typeof scrapedSalary === "string" ? scrapedSalary : "") || aiExtractedData.salary || "";
+      if (typeof salaryText === "string") {
+        // Try to extract salary range (e.g., "$120,000 - $150,000" or "120K-150K")
+        const rangeMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)\s*[-–—]\s*\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
+        if (rangeMatch) {
+          minSalary = rangeMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+          maxSalary = rangeMatch[2].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+        } else {
+          // Try single value
+          const singleMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
+          if (singleMatch) {
+            const value = singleMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
+            minSalary = value;
+            maxSalary = value;
+          }
         }
       }
     }
@@ -1606,8 +1682,8 @@ export async function POST(request: NextRequest) {
       criticalSkills: scrapedData.skills || aiExtractedData.skills || null,
       minSalary: minSalary,
       maxSalary: maxSalary,
-      nonNegotiables: scrapedData.requirements?.join(", ") || aiExtractedData.requirements?.join(", ") || null,
-      flexible: scrapedData.benefits?.join(", ") || aiExtractedData.benefits?.join(", ") || null,
+      nonNegotiables: (Array.isArray(scrapedData.requirements) ? scrapedData.requirements.join(", ") : scrapedData.requirements) || aiExtractedData.requirements?.join(", ") || null,
+      flexible: (Array.isArray(scrapedData.benefits) ? scrapedData.benefits.join(", ") : scrapedData.benefits) || aiExtractedData.benefits?.join(", ") || null,
       timeline: null, // Timeline is rarely in job descriptions
     };
     
@@ -1687,16 +1763,51 @@ export async function POST(request: NextRequest) {
     let derivedStrategyCards = null;
 
     try {
+      // Transform scraped data to match card generator JobData interface
+      const jobDataForCards: {
+        title?: string;
+        description?: string;
+        company?: string;
+        source?: string;
+        location?: string;
+        requirements?: string;
+        responsibilities?: string;
+        skills?: string[];
+        employmentType?: string;
+        workplaceType?: string;
+        salary?: string;
+        department?: string;
+      } = {
+        title: typeof scrapedData.title === 'string' ? scrapedData.title : undefined,
+        description: typeof scrapedData.description === 'string' ? scrapedData.description : undefined,
+        company: typeof scrapedData.company === 'string' ? scrapedData.company : undefined,
+        source: typeof scrapedData.source === 'string' ? scrapedData.source : undefined,
+        location: typeof scrapedData.location === 'string' ? scrapedData.location : undefined,
+        requirements: Array.isArray(scrapedData.requirements) 
+          ? scrapedData.requirements.join(", ") 
+          : (typeof scrapedData.requirements === 'string' ? scrapedData.requirements : undefined),
+        responsibilities: Array.isArray(scrapedData.responsibilities) 
+          ? scrapedData.responsibilities.join(", ") 
+          : (typeof scrapedData.responsibilities === 'string' ? scrapedData.responsibilities : undefined),
+        skills: Array.isArray(scrapedData.skills) ? scrapedData.skills as string[] : undefined,
+        employmentType: typeof scrapedData.employmentType === 'string' ? scrapedData.employmentType : undefined,
+        workplaceType: typeof scrapedData.workplaceType === 'string' 
+          ? scrapedData.workplaceType 
+          : (typeof scrapedData.locationType === 'string' ? scrapedData.locationType : undefined),
+        salary: typeof scrapedData.salary === 'string' ? scrapedData.salary : undefined,
+        department: typeof scrapedData.department === 'string' ? scrapedData.department : undefined,
+      };
+      
       // GROUP 1: JOB ANALYSIS CARDS (5 cards)
       console.log("🟢 Generating Group 1: Job Analysis Cards...");
       const [roleCard, skillCard, fitCard] = await Promise.all([
-        cardGenerators.generateRoleCard(scrapedData, similarJobs),
-        cardGenerators.generateSkillCard(scrapedData, similarJobs),
-        cardGenerators.generateFitCard(scrapedData),
+        cardGenerators.generateRoleCard(jobDataForCards, similarJobs),
+        cardGenerators.generateSkillCard(jobDataForCards, similarJobs),
+        cardGenerators.generateFitCard(jobDataForCards),
       ]);
 
-      const messageCard = await cardGenerators.generateMessageCard(scrapedData, roleCard);
-      const outreachCard = await cardGenerators.generateOutreachCard(scrapedData, messageCard);
+      const messageCard = roleCard ? await cardGenerators.generateMessageCard(jobDataForCards, roleCard) : null;
+      const outreachCard = messageCard ? await cardGenerators.generateOutreachCard(jobDataForCards, messageCard) : null;
 
       jobAnalysisCards = {
         roleCard,
@@ -1722,7 +1833,7 @@ export async function POST(request: NextRequest) {
       if (similarJobs.length > 0 || candidates.length > 0 || dataSources) {
         console.log("🟠 Generating Group 3: Combined Analysis Cards...");
         const marketCard = await cardGenerators.generateMarketCard(
-          scrapedData, 
+          jobDataForCards, 
           similarJobs, 
           candidates,
           candidateSearchResult,
@@ -1731,16 +1842,16 @@ export async function POST(request: NextRequest) {
         
         // PayCard now uses Glassdoor data
         const payCard = await cardGenerators.generatePayCard(
-          scrapedData,
+          jobDataForCards,
           similarJobs,
           dataSources?.glassdoorSalaries
         );
         
         // FunnelCard now uses industry benchmarks
-        const funnelCard = await cardGenerators.generateFunnelCard(marketCard, benchmarks);
+        const funnelCard = marketCard ? await cardGenerators.generateFunnelCard(marketCard, benchmarks ?? undefined) : null;
         
         const allCardsForReality = { roleCard, skillCard, marketCard, payCard, funnelCard };
-        const realityCard = await cardGenerators.generateRealityCard(allCardsForReality);
+        const realityCard = (roleCard && skillCard && marketCard && payCard && funnelCard) ? await cardGenerators.generateRealityCard(allCardsForReality as Record<string, CardData>) : null;
 
         combinedAnalysisCards = { marketCard, payCard, funnelCard, realityCard };
         console.log("✅ Combined Analysis Cards complete");
@@ -1748,16 +1859,17 @@ export async function POST(request: NextRequest) {
 
       // GROUP 4: DERIVED STRATEGY CARDS (3 cards)
       console.log("🟣 Generating Group 4: Derived Strategy Cards...");
-      const interviewCard = await cardGenerators.generateInterviewCard(skillCard, roleCard);
-      const scorecardCard = await cardGenerators.generateScorecardCard(skillCard, interviewCard);
+      const interviewCard = (skillCard && roleCard) ? await cardGenerators.generateInterviewCard(skillCard, roleCard) : null;
+      const scorecardCard = (skillCard && interviewCard) ? await cardGenerators.generateScorecardCard(skillCard, interviewCard) : null;
       
-      const allCardsForPlan = {
-        roleCard,
-        skillCard,
-        marketCard: combinedAnalysisCards?.marketCard,
-        realityCard: combinedAnalysisCards?.realityCard,
-      };
-      const planCard = await cardGenerators.generatePlanCard(allCardsForPlan);
+      // Filter out null cards for planCard generation
+      const allCardsForPlan: Record<string, CardData> = {};
+      if (roleCard) allCardsForPlan.roleCard = roleCard;
+      if (skillCard) allCardsForPlan.skillCard = skillCard;
+      if (combinedAnalysisCards?.marketCard) allCardsForPlan.marketCard = combinedAnalysisCards.marketCard as CardData;
+      if (combinedAnalysisCards?.realityCard) allCardsForPlan.realityCard = combinedAnalysisCards.realityCard as CardData;
+      
+      const planCard = Object.keys(allCardsForPlan).length > 0 ? await cardGenerators.generatePlanCard(allCardsForPlan) : null;
 
       derivedStrategyCards = { interviewCard, scorecardCard, planCard };
       console.log("✅ Derived Strategy Cards complete");
@@ -1774,18 +1886,18 @@ export async function POST(request: NextRequest) {
       try {
         const { saveToCache } = await import("@/lib/jobCache");
         const cacheResult = await saveToCache(input.trim(), {
-          scrapedData,
-          aiExtractedData,
-          similarJobs,
-          candidates,
-          salaryData: dataSources?.glassdoorSalaries,
-          jobAnalysisCards,
-          peopleAnalysisCards,
-          combinedAnalysisCards,
-          derivedStrategyCards,
-          company: scrapedData.company || aiExtractedData.company,
-          title: scrapedData.title || aiExtractedData.jobTitle,
-          location: scrapedData.location || aiExtractedData.location,
+          scrapedData: scrapedData as Record<string, unknown>,
+          aiExtractedData: aiExtractedData as Record<string, unknown>,
+          similarJobs: similarJobs as unknown as Array<Record<string, unknown>>,
+          candidates: candidates as unknown as Array<Record<string, unknown>>,
+          salaryData: dataSources?.glassdoorSalaries as Record<string, unknown> | undefined,
+          jobAnalysisCards: jobAnalysisCards as Record<string, unknown> | undefined,
+          peopleAnalysisCards: peopleAnalysisCards as Record<string, unknown> | undefined,
+          combinedAnalysisCards: combinedAnalysisCards as Record<string, unknown> | undefined,
+          derivedStrategyCards: derivedStrategyCards as Record<string, unknown> | undefined,
+          company: (typeof scrapedData === "object" && scrapedData !== null && "company" in scrapedData ? String(scrapedData.company || "") : "") || aiExtractedData.company || undefined,
+          title: (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.jobTitle || undefined,
+          location: (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || undefined,
           platform,
         });
         
@@ -1796,7 +1908,7 @@ export async function POST(request: NextRequest) {
           console.warn("   This is expected if card generation was incomplete");
         }
       } catch (cacheError) {
-        console.error("⚠️ Failed to save to cache:", cacheError.message);
+        console.error("⚠️ Failed to save to cache:", cacheError instanceof Error ? cacheError.message : String(cacheError));
         // Don't fail the request if cache save fails
       }
     }
