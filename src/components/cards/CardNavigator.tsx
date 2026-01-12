@@ -13,6 +13,10 @@ interface CardNavigatorProps {
 export function CardNavigator({ currentCardId, onNavigateToCard }: CardNavigatorProps) {
   const [isVisible, setIsVisible] = useState(true);
 
+  // All 13 dynamic cards
+  const allCardIds = ["reality", "role", "skill", "fit", "message", "outreach", "talentmap", "market", "pay", "funnel", "interview", "scorecard", "plan"];
+  const allDynamicCards = allCards.filter((card) => allCardIds.includes(card.id));
+
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY;
@@ -30,18 +34,18 @@ export function CardNavigator({ currentCardId, onNavigateToCard }: CardNavigator
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const currentIndex = allCards.findIndex((card) => card.id === currentCardId);
+  const currentIndex = allDynamicCards.findIndex((card) => card.id === currentCardId);
   const currentCard = getCardById(currentCardId);
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      onNavigateToCard(allCards[currentIndex - 1].id);
+      onNavigateToCard(allDynamicCards[currentIndex - 1].id);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex < allCards.length - 1) {
-      onNavigateToCard(allCards[currentIndex + 1].id);
+    if (currentIndex < allDynamicCards.length - 1) {
+      onNavigateToCard(allDynamicCards[currentIndex + 1].id);
     }
   };
 
@@ -72,14 +76,14 @@ export function CardNavigator({ currentCardId, onNavigateToCard }: CardNavigator
 
           <div className="flex-1 mx-4 text-center">
             <div className="text-sm text-gray-600">
-              Card {currentIndex + 1} of {allCards.length}
+              Card {currentIndex + 1} of {allDynamicCards.length}
             </div>
             <div className="font-semibold text-gray-900">{currentCard.label}</div>
           </div>
 
           <button
             onClick={handleNext}
-            disabled={currentIndex === allCards.length - 1}
+            disabled={currentIndex === allDynamicCards.length - 1}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
               currentIndex === allCards.length - 1

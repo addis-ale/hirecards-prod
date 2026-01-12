@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DollarSign, TrendingUp, AlertTriangle, Wrench, XCircle } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
+import { DollarSign, TrendingUp, AlertTriangle, XCircle } from "lucide-react";
 import { EditableKeyValue, EditableList, EditableText } from "@/components/EditableCard";
 import { ScoreImpactTable, ScoreImpactRow } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface PayCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -109,35 +107,47 @@ export const EditablePayCard: React.FC<PayCardProps> = ({ data, onNavigateToCard
     }
   ]);
 
-  // Update when data prop changes
+  // Update when data prop changes - PRIORITY: data prop overrides everything
   useEffect(() => {
-    console.log("💳 useEffect triggered - data changed");
-    if (data?.marketCompensation) {
-      console.log("💳 Updating marketComp from data:", data.marketCompensation);
-      setMarketComp(data.marketCompensation);
+    console.log("💳 ============================================");
+    console.log("💳 UPDATING PAY CARD FROM DYNAMIC DATA");
+    console.log("💳 ============================================");
+    console.log("💳 Data received:", JSON.stringify(data, null, 2));
+    
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      if (data.marketCompensation !== undefined && Array.isArray(data.marketCompensation) && data.marketCompensation.length > 0) {
+        console.log("💳 Updating marketComp from data:", data.marketCompensation.length, "items");
+        setMarketComp(data.marketCompensation);
+      }
+      if (data.recommendedRange !== undefined && data.recommendedRange !== null) {
+        console.log("💳 Updating recommendedRange from data:", data.recommendedRange);
+        setRecommendedRange(data.recommendedRange);
+      }
+      if (data.brutalTruth !== undefined && data.brutalTruth !== null) {
+        console.log("💳 Updating brutalTruth from data:", data.brutalTruth);
+        setBrutalTruth(data.brutalTruth);
+      }
+      if (data.redFlags !== undefined && Array.isArray(data.redFlags) && data.redFlags.length > 0) {
+        console.log("💳 Updating redFlags from data:", data.redFlags.length, "items");
+        setRedFlags(data.redFlags);
+      }
+      if (data.donts !== undefined && Array.isArray(data.donts) && data.donts.length > 0) {
+        console.log("💳 Updating donts from data:", data.donts.length, "items");
+        setDonts(data.donts);
+      }
+      if (data.fixes !== undefined && Array.isArray(data.fixes) && data.fixes.length > 0) {
+        console.log("💳 Updating fixes from data:", data.fixes.length, "items");
+        setFixes(data.fixes);
+      }
+      if (data.hiddenBottleneck !== undefined && data.hiddenBottleneck !== null) {
+        console.log("💳 Updating hiddenBottleneck from data:", data.hiddenBottleneck);
+        setHiddenBottleneck(data.hiddenBottleneck);
+      }
+      if (data.timelineToFailure !== undefined && data.timelineToFailure !== null) {
+        console.log("💳 Updating timelineToFailure from data:", data.timelineToFailure);
+        setTimelineToFailure(data.timelineToFailure);
+      }
     }
-    if (data?.recommendedRange) {
-      console.log("💳 Updating recommendedRange from data:", data.recommendedRange);
-      setRecommendedRange(data.recommendedRange);
-    }
-    if (data?.brutalTruth) {
-      console.log("💳 Updating brutalTruth from data:", data.brutalTruth);
-      setBrutalTruth(data.brutalTruth);
-    }
-    if (data?.redFlags) {
-      console.log("💳 Updating redFlags from data:", data.redFlags.length, "items");
-      setRedFlags(data.redFlags);
-    }
-    if (data?.donts) {
-      console.log("💳 Updating donts from data:", data.donts.length, "items");
-      setDonts(data.donts);
-    }
-    if (data?.fixes) {
-      console.log("💳 Updating fixes from data:", data.fixes.length, "items");
-      setFixes(data.fixes);
-    }
-    if (data?.hiddenBottleneck) setHiddenBottleneck(data.hiddenBottleneck);
-    if (data?.timelineToFailure) setTimelineToFailure(data.timelineToFailure);
   }, [data]);
 
   // Save to sessionStorage
@@ -157,29 +167,33 @@ export const EditablePayCard: React.FC<PayCardProps> = ({ data, onNavigateToCard
     sessionStorage.setItem("editablePayCard", JSON.stringify(data));
   }, [marketComp, recommendedRange, brutalTruth, redFlags, donts, fixes, hiddenBottleneck, timelineToFailure, scoreImpactRows]);
 
-  // Load from sessionStorage
+  // Fallback: Load from sessionStorage if data prop is not available
   useEffect(() => {
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      // Data prop is available, skip sessionStorage
+      return;
+    }
+    
     const saved = sessionStorage.getItem("editablePayCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.marketComp) setMarketComp(data.marketComp);
-        if (data.recommendedRange) setRecommendedRange(data.recommendedRange);
-        if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
-        if (data.redFlags) setRedFlags(data.redFlags);
-        if (data.donts) setDonts(data.donts);
-        if (data.fixes) setFixes(data.fixes);
-        if (data.hiddenBottleneck) setHiddenBottleneck(data.hiddenBottleneck);
-        if (data.timelineToFailure) setTimelineToFailure(data.timelineToFailure);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.marketComp) setMarketComp(savedData.marketComp);
+        if (savedData.recommendedRange) setRecommendedRange(savedData.recommendedRange);
+        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+        if (savedData.redFlags) setRedFlags(savedData.redFlags);
+        if (savedData.donts) setDonts(savedData.donts);
+        if (savedData.fixes) setFixes(savedData.fixes);
+        if (savedData.hiddenBottleneck) setHiddenBottleneck(savedData.hiddenBottleneck);
+        if (savedData.timelineToFailure) setTimelineToFailure(savedData.timelineToFailure);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const sections = [
     {
@@ -305,7 +319,6 @@ export const EditablePayCard: React.FC<PayCardProps> = ({ data, onNavigateToCard
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

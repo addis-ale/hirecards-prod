@@ -21,8 +21,7 @@ interface ExtractedJobData {
 }
 
 async function extractJobDetailsWithAI(
-  description: string,
-  existingData: any
+  description: string
 ): Promise<ExtractedJobData> {
   if (!openai) {
     console.warn("OpenAI API key not configured, skipping AI extraction");
@@ -77,9 +76,16 @@ Format example:
     });
 
     const content = response.choices[0]?.message?.content || "{}";
-    const extracted = JSON.parse(content);
+    
+    // Remove markdown code blocks if present
+    const jsonContent = content
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+    
+    const extracted = JSON.parse(jsonContent) as ExtractedJobData;
     return extracted;
-  } catch (error: any) {
+  } catch (error) {
     console.error("AI extraction error:", error);
     return {};
   }
@@ -108,33 +114,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Scrape using ScrapingBee
-    let scrapedData: any;
+    let scrapedData: Record<string, unknown>;
     try {
-      scrapedData = await scrapeJobURL(url.trim());
-    } catch (scrapeError: any) {
+      scrapedData = await scrapeJobURL(url.trim()) as Record<string, unknown>;
+    } catch (scrapeError) {
+      const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
       return NextResponse.json(
-        { error: `Scraping failed: ${scrapeError.message}` },
+        { error: `Scraping failed: ${errorMessage}` },
         { status: 500 }
       );
     }
 
     // Use AI to extract additional details
     const textToAnalyze =
-      scrapedData.description ||
-      scrapedData.descriptionPlainText ||
-      scrapedData.rawText ||
+      (typeof scrapedData.description === 'string' ? scrapedData.description : '') ||
+      (typeof scrapedData.descriptionPlainText === 'string' ? scrapedData.descriptionPlainText : '') ||
+      (typeof scrapedData.rawText === 'string' ? scrapedData.rawText : '') ||
       "";
 
     let aiExtractedData: ExtractedJobData = {};
     if (textToAnalyze.length > 100) {
-      aiExtractedData = await extractJobDetailsWithAI(textToAnalyze, scrapedData);
+      aiExtractedData = await extractJobDetailsWithAI(textToAnalyze);
     }
 
     // Extract salary range
     let minSalary: string | null = null;
     let maxSalary: string | null = null;
-    if (scrapedData.salary || aiExtractedData.salary) {
-      const salaryText = scrapedData.salary || aiExtractedData.salary || "";
+    const scrapedSalary = typeof scrapedData.salary === 'string' ? scrapedData.salary : null;
+    if (scrapedSalary || aiExtractedData.salary) {
+      const salaryText = scrapedSalary || aiExtractedData.salary || "";
       const rangeMatch = salaryText.match(/\$?(\d+(?:,\d{3})*(?:K|M)?)\s*[-–—]\s*\$?(\d+(?:,\d{3})*(?:K|M)?)/i);
       if (rangeMatch) {
         minSalary = rangeMatch[1].replace(/[Kk]/g, "000").replace(/[Mm]/g, "000000").replace(/,/g, "");
@@ -151,16 +159,16 @@ export async function POST(request: NextRequest) {
 
     // Extract the 10 required fields
     const extractedFields = {
-      roleTitle: scrapedData.title || null,
-      department: scrapedData.department || aiExtractedData.department || null,
-      experienceLevel: scrapedData.experienceLevel || aiExtractedData.experienceLevel || null,
-      location: scrapedData.location || aiExtractedData.location || null,
-      workModel: scrapedData.locationType || aiExtractedData.locationType || null,
-      criticalSkills: scrapedData.skills || aiExtractedData.skills || null,
+      roleTitle: (typeof scrapedData.title === 'string' ? scrapedData.title : null),
+      department: (typeof scrapedData.department === 'string' ? scrapedData.department : null) || aiExtractedData.department || null,
+      experienceLevel: (typeof scrapedData.experienceLevel === 'string' ? scrapedData.experienceLevel : null) || aiExtractedData.experienceLevel || null,
+      location: (typeof scrapedData.location === 'string' ? scrapedData.location : null) || aiExtractedData.location || null,
+      workModel: (typeof scrapedData.locationType === 'string' ? scrapedData.locationType : null) || aiExtractedData.locationType || null,
+      criticalSkills: (Array.isArray(scrapedData.skills) ? scrapedData.skills : null) || aiExtractedData.skills || null,
       minSalary: minSalary,
       maxSalary: maxSalary,
-      nonNegotiables: scrapedData.requirements?.join(", ") || aiExtractedData.requirements?.join(", ") || null,
-      flexible: scrapedData.benefits?.join(", ") || aiExtractedData.benefits?.join(", ") || null,
+      nonNegotiables: (Array.isArray(scrapedData.requirements) ? scrapedData.requirements.join(", ") : null) || aiExtractedData.requirements?.join(", ") || null,
+      flexible: (Array.isArray(scrapedData.benefits) ? scrapedData.benefits.join(", ") : null) || aiExtractedData.benefits?.join(", ") || null,
       timeline: null, // Timeline is rarely in job descriptions
     };
 
@@ -184,12 +192,14 @@ export async function POST(request: NextRequest) {
       missingFields,
       hasMissingFields: missingFields.length > 0,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in quick-scrape API:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to scrape job URL";
+    const errorDetails = error instanceof Error ? error.toString() : String(error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to scrape job URL",
-        details: error.toString(),
+        error: errorMessage,
+        details: errorDetails,
       },
       { status: 500 }
     );

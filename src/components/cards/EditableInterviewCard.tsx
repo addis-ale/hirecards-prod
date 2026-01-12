@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  Mic,
   CheckCircle,
   AlertTriangle,
   Wrench,
@@ -16,7 +15,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface InterviewCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -150,26 +149,41 @@ export const EditableInterviewCard: React.FC<InterviewCardProps> = ({
     scoreImpactRows,
   ]);
 
+  // Load from data prop first, then sessionStorage as fallback
   useEffect(() => {
+    // Prioritize data prop if provided
+    if (data) {
+      if (data.optimalLoop) setOptimalLoop(data.optimalLoop);
+      if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
+      if (data.redFlags) setRedFlags(data.redFlags);
+      if (data.donts) setDonts(data.donts);
+      if (data.fixes) setFixes(data.fixes);
+      if (data.signalQuestions) setSignalQuestions(data.signalQuestions);
+      if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        setScoreImpactRows(data.scoreImpactRows);
+      }
+      return; // Don't load from sessionStorage if data prop is provided
+    }
+    
+    // Fallback to sessionStorage
     const saved = sessionStorage.getItem("editableInterviewCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.optimalLoop) setOptimalLoop(data.optimalLoop);
-        if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
-        if (data.redFlags) setRedFlags(data.redFlags);
-        if (data.donts) setDonts(data.donts);
-        if (data.fixes) setFixes(data.fixes);
-        if (data.signalQuestions) setSignalQuestions(data.signalQuestions);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.optimalLoop) setOptimalLoop(savedData.optimalLoop);
+        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+        if (savedData.redFlags) setRedFlags(savedData.redFlags);
+        if (savedData.donts) setDonts(savedData.donts);
+        if (savedData.fixes) setFixes(savedData.fixes);
+        if (savedData.signalQuestions) setSignalQuestions(savedData.signalQuestions);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const optimalLoopContent = (
     <div className="space-y-6">
@@ -331,7 +345,6 @@ export const EditableInterviewCard: React.FC<InterviewCardProps> = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

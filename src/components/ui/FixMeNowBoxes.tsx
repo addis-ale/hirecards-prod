@@ -16,10 +16,10 @@ interface FixMeNowBoxesProps {
 export function FixMeNowBoxes({
   rows,
   totalUplift,
-  cardId,
-  onNavigateToCard,
-  currentCardId,
-  feasibilityScore,
+  cardId: _cardId,
+  onNavigateToCard: _onNavigateToCard,
+  currentCardId: _currentCardId,
+  feasibilityScore: _feasibilityScore,
   onOpenSuggestions,
 }: FixMeNowBoxesProps) {
   // Show empty state if no suggestions available

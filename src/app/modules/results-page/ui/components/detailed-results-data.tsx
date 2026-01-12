@@ -7,7 +7,6 @@ import {
   Send, 
   CheckSquare,
   Target,
-  FileText,
   MessageSquare,
   ClipboardCheck,
   Calendar,
@@ -45,11 +44,6 @@ const jobAnalysisCards = getDynamicCardData();
 const roleCard = jobAnalysisCards?.roleCard;
 const skillCard = jobAnalysisCards?.skillCard;
 
-// Helper to format array as string for display
-function formatArrayAsString(arr: string[] | undefined, fallback: string = "Not specified"): string {
-  if (!arr || arr.length === 0) return fallback;
-  return arr.join(", ");
-}
 
 // Helper to format array as bullet list
 function formatArrayAsList(arr: string[] | undefined, maxItems: number = 5): string {

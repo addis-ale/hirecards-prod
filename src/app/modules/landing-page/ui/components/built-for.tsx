@@ -1,9 +1,7 @@
 "use client";
 
 import { FeaturesSectionWithHoverEffects } from "@/app/modules/landing-page/ui/components/feature-section-with-hover-effects";
-import { Rocket, Users, Briefcase, Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { Rocket, Users, Briefcase, Building2, ArrowRight } from "lucide-react";
 
 const scrollToHeroInput = () => {
   const inputSection = document.getElementById("hero-input-section");

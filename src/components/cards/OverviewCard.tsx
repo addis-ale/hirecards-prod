@@ -3,10 +3,10 @@
 import React from "react";
 
 interface OverviewCardProps {
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
-export function OverviewCard({ data }: OverviewCardProps) {
+export function OverviewCard({ data: _data }: OverviewCardProps) {
   return (
     <div className="p-6">
       <h3 className="text-lg font-bold mb-4" style={{ color: "#102a63" }}>

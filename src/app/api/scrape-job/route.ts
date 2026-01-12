@@ -3,7 +3,7 @@ import { scrapeJobURL } from "@/lib/jobScraper";
 import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
 import * as cardGenerators from "./cardGenerators";
-import { fetchAllDataSources, scrapeIndustryBenchmarks, searchGitHubCandidatesByTitle } from "./dataSources";
+import { fetchAllDataSources, scrapeIndustryBenchmarks } from "./dataSources";
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY
@@ -96,11 +96,11 @@ interface ApifyPeopleData {
     industry?: string;
     link?: string;
   };
-  experience?: any[];
-  education?: any[];
-  certifications?: any[];
-  projects?: any[];
-  platform?: "linkedin" | "github"; // Track which platform the candidate came from
+  experience?: Array<Record<string, unknown>>;
+  education?: Array<Record<string, unknown>>;
+  certifications?: Array<Record<string, unknown>>;
+  projects?: Array<Record<string, unknown>>;
+  platform?: "linkedin"; // Track which platform the candidate came from
 }
 
 interface NormalizedApifyInput {
@@ -129,7 +129,7 @@ interface NormalizedApifyInput {
 
 async function extractJobDetailsWithAI(
   description: string,
-  existingData: any
+  _existingData: unknown
 ): Promise<ExtractedJobData> {
   if (!openai) {
     console.warn("OpenAI API key not configured, skipping AI extraction");
@@ -356,7 +356,7 @@ Return ONLY valid JSON object matching this TypeScript type:
     // Always cap maxItems
     data.maxItems = 200; // Increased from 50 to 200
     return data as NormalizedApifyInput;
-  } catch (e) {
+  } catch {
     console.error("Failed to parse OpenAI normalization response:", json);
     // Fallback minimal input
     const minimal: NormalizedApifyInput = {
@@ -436,7 +436,7 @@ async function searchSimilarJobsOnIndeed(
     const countryCode = extractCountryFromLocation(cleanedLocation || "");
 
     // Build Indeed search input - country is REQUIRED by Indeed API
-    const indeedInput: any = {
+    const indeedInput: Record<string, unknown> = {
       country: countryCode,
       query: normalizedJobTitle,
       maxRows: 200,
@@ -454,7 +454,7 @@ async function searchSimilarJobsOnIndeed(
 
     // Map filters to Indeed format
     if (filters.employmentType) {
-      const typeMap: any = {
+      const typeMap: Record<string, string> = {
         "Full-time": "fulltime",
         "Part-time": "parttime",
         Contract: "contract",
@@ -466,7 +466,7 @@ async function searchSimilarJobsOnIndeed(
     }
 
     if (filters.workplaceType) {
-      const remoteMap: any = {
+      const remoteMap: Record<string, string> = {
         Remote: "remote",
         Hybrid: "hybrid",
       };
@@ -498,7 +498,7 @@ async function searchSimilarJobsOnIndeed(
     console.log(`✅ Found ${items.length} similar jobs from Indeed`);
 
     // Normalize Indeed data to match our interface
-    const normalizedJobs = items.map((job: any, idx: number) => ({
+    const normalizedJobs = items.map((job: Record<string, unknown>, idx: number) => ({
       id: job.id || job.jobKey || `indeed-${Date.now()}-${idx}`,
       title: job.title || job.jobTitle,
       url: job.url || job.link,
@@ -549,10 +549,10 @@ async function searchSimilarJobsOnIndeed(
     }));
 
     return normalizedJobs;
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error searching similar jobs on Indeed:", error);
 
-    if (error.type === "invalid-input") {
+    if (error && typeof error === 'object' && 'type' in error && error.type === "invalid-input") {
       console.error(
         "Invalid Indeed Apify input. Trying with minimal parameters..."
       );
@@ -560,7 +560,7 @@ async function searchSimilarJobsOnIndeed(
         const normalizedTitle = normalizeJobTitle(jobTitle);
         const locationForFallback = location?.replace(/\bnull\b,?\s*/gi, "").trim();
         const fallbackCountry = extractCountryFromLocation(locationForFallback || "");
-        const safeInput: any = {
+        const safeInput: Record<string, unknown> = {
           country: fallbackCountry, // Required by Indeed
           query: normalizedTitle,
           maxRows: 200,
@@ -587,7 +587,7 @@ async function searchSimilarJobsOnIndeed(
         );
 
         // Normalize fallback results
-        const normalizedJobs = items.map((job: any, idx: number) => ({
+        const normalizedJobs = items.map((job: Record<string, unknown>, idx: number) => ({
           id: job.id || job.jobKey || `indeed-fallback-${Date.now()}-${idx}`,
           title: job.title || job.jobTitle,
           url: job.url || job.link,
@@ -723,7 +723,7 @@ async function searchSimilarJobsOnGlassdoor(
     });
 
     // Build Glassdoor search input using bebity/glassdoor-jobs-scraper
-    const glassdoorInput: any = {
+    const glassdoorInput: Record<string, unknown> = {
       keyword: normalizedJobTitle,
       maxItems: 100, // Limit to 100 jobs
       includeCompanyDetails: true,
@@ -756,11 +756,11 @@ async function searchSimilarJobsOnGlassdoor(
     // Transform Glassdoor results to ApifyJobData format
     const glassdoorJobs: ApifyJobData[] = items
       .slice(0, 100) // Limit to 100 jobs
-      .map((job: any) => {
+      .map((job: Record<string, unknown>) => {
         // Parse salary if available
-        let salaryData: any = undefined;
+        let salaryData: { text: string; min: number; max: number; currency: string } | undefined = undefined;
         if (job.salary || job.salaryRange) {
-          const salaryText = job.salary || job.salaryRange || "";
+          const salaryText = (typeof job.salary === 'string' ? job.salary : '') || (typeof job.salaryRange === 'string' ? job.salaryRange : '') || "";
           const numbers = salaryText.match(/[\d,]+/g) || [];
           if (numbers.length >= 2) {
             const min = parseInt(numbers[0].replace(/,/g, ""));
@@ -783,17 +783,17 @@ async function searchSimilarJobsOnGlassdoor(
         }
 
         // Parse location
-        const locationText = job.location || cleanedLocation || "Unknown";
+        const locationText = (typeof job.location === 'string' ? job.location : '') || cleanedLocation || "Unknown";
         const locationParts = locationText.split(",").map((p: string) => p.trim());
 
         return {
-          id: job.jobId || job.id || `glassdoor-${Date.now()}-${Math.random()}`,
-          title: job.jobTitle || job.title || normalizedJobTitle,
-          url: job.jobUrl || job.url,
+          id: (typeof job.jobId === 'string' ? job.jobId : '') || (typeof job.id === 'string' ? job.id : '') || `glassdoor-${Date.now()}-${Math.random()}`,
+          title: (typeof job.jobTitle === 'string' ? job.jobTitle : '') || (typeof job.title === 'string' ? job.title : '') || normalizedJobTitle,
+          url: (typeof job.jobUrl === 'string' ? job.jobUrl : '') || (typeof job.url === 'string' ? job.url : ''),
           company: {
-            name: job.companyName || job.company || "Unknown",
-            logo: job.companyLogo,
-            employeeCount: job.employeeCount || job.companySize,
+            name: (typeof job.companyName === 'string' ? job.companyName : '') || (typeof job.company === 'string' ? job.company : '') || "Unknown",
+            logo: typeof job.companyLogo === 'string' ? job.companyLogo : undefined,
+            employeeCount: typeof job.employeeCount === 'number' ? job.employeeCount : (typeof job.companySize === 'number' ? job.companySize : undefined),
           },
           location: {
             linkedinText: locationText,
@@ -807,26 +807,27 @@ async function searchSimilarJobsOnGlassdoor(
             },
           },
           salary: salaryData,
-          employmentType: job.employmentType || filters.employmentType,
-          workplaceType: job.workplaceType || filters.workplaceType,
-          applicants: job.applicants,
-          views: job.views,
-          benefits: job.benefits || [],
-          descriptionText: job.description || job.jobDescription,
+          employmentType: (typeof job.employmentType === 'string' ? job.employmentType : '') || filters.employmentType,
+          workplaceType: (typeof job.workplaceType === 'string' ? job.workplaceType : '') || filters.workplaceType,
+          applicants: typeof job.applicants === 'number' ? job.applicants : undefined,
+          views: typeof job.views === 'number' ? job.views : undefined,
+          benefits: Array.isArray(job.benefits) ? job.benefits as string[] : [],
+          descriptionText: (typeof job.description === 'string' ? job.description : '') || (typeof job.jobDescription === 'string' ? job.jobDescription : ''),
           platform: "glassdoor" as const, // Mark as Glassdoor
         };
       })
       .filter((job: ApifyJobData) => job.title && job.company.name); // Filter out invalid jobs
 
     return glassdoorJobs;
-  } catch (error: any) {
-    console.error("❌ Glassdoor jobs search error:", error.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Glassdoor jobs search error:", errorMessage);
     
     // If location error, try again without location as fallback
-    if (error.message?.includes("Location not found") && cleanedLocation) {
+    if (errorMessage.includes("Location not found") && cleanedLocation) {
       console.log("⚠️ Location not found, retrying Glassdoor search without location...");
       try {
-        const fallbackInput: any = {
+        const fallbackInput: Record<string, unknown> = {
           keyword: normalizedJobTitle,
           maxItems: 100,
           includeCompanyDetails: true,
@@ -849,8 +850,8 @@ async function searchSimilarJobsOnGlassdoor(
           // Transform results (same as above)
           const glassdoorJobs: ApifyJobData[] = fallbackItems
             .slice(0, 100)
-            .map((job: any) => {
-              let salaryData: any = undefined;
+            .map((job: Record<string, unknown>) => {
+              let salaryData: { text: string; min: number; max: number; currency: string } | undefined = undefined;
               if (job.salary || job.salaryRange) {
                 const salaryText = job.salary || job.salaryRange || "";
                 const numbers = salaryText.match(/[\d,]+/g) || [];
@@ -911,8 +912,9 @@ async function searchSimilarJobsOnGlassdoor(
           
           return glassdoorJobs;
         }
-      } catch (fallbackError: any) {
-        console.error("❌ Glassdoor fallback search also failed:", fallbackError.message);
+      } catch (fallbackError) {
+        const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        console.error("❌ Glassdoor fallback search also failed:", errorMessage);
       }
     }
     
@@ -957,7 +959,7 @@ async function searchSimilarJobsWithApify(
     });
 
     // Build Apify input from normalized values
-    const apifyInput: any = {
+    const apifyInput: Record<string, unknown> = {
       jobTitles: normalized.jobTitles,
       maxItems: normalized.maxItems ?? 200, // Increased from 50 to 200
       // postedLimit removed - search all jobs regardless of posting date
@@ -990,7 +992,7 @@ async function searchSimilarJobsWithApify(
     console.log(`✅ Found ${items.length} similar jobs from LinkedIn`);
 
     // Mark all LinkedIn jobs with platform identifier
-    const linkedInJobs = items.map((job: any) => ({
+    const linkedInJobs = items.map((job: Record<string, unknown>) => ({
       ...job,
       platform: "linkedin" as const,
     }));
@@ -1000,7 +1002,7 @@ async function searchSimilarJobsWithApify(
       console.log("⚠️ No jobs found with filters, trying broader search...");
       try {
         const normalizedTitle = normalizeJobTitle(jobTitle);
-        const broadInput: any = {
+        const broadInput: Record<string, unknown> = {
           jobTitles: [normalizedTitle],
           maxItems: 200, // Increased from 50 to 200
           // No postedLimit - search all jobs
@@ -1027,7 +1029,7 @@ async function searchSimilarJobsWithApify(
           `✅ Broader search found ${broadItems.length} similar jobs`
         );
         // Mark all LinkedIn jobs with platform identifier
-        const linkedInJobs = broadItems.map((job: any) => ({
+        const linkedInJobs = broadItems.map((job: Record<string, unknown>) => ({
           ...job,
           platform: "linkedin" as const,
         }));
@@ -1038,15 +1040,15 @@ async function searchSimilarJobsWithApify(
     }
 
     return linkedInJobs as ApifyJobData[];
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error searching similar jobs with Apify:", error);
 
-    if (error.type === "invalid-input") {
+    if (error && typeof error === 'object' && 'type' in error && error.type === "invalid-input") {
       console.error("Invalid Apify input. Please check the input format.");
       try {
         // Attempt to re-run without optional filters as a safe fallback
         const normalizedTitle = normalizeJobTitle(jobTitle);
-        const safeInput: any = { jobTitles: [normalizedTitle], maxItems: 200 }; // Increased from 50 to 200
+        const safeInput: Record<string, unknown> = { jobTitles: [normalizedTitle], maxItems: 200 }; // Increased from 50 to 200
         const cleanedLocation = location
           ?.replace(/\bnull\b,?\s*/gi, "")
           .replace(/\s+,/g, ",")
@@ -1066,7 +1068,7 @@ async function searchSimilarJobsWithApify(
           .listItems();
         console.log(`✅ Fallback found ${items.length} similar jobs`);
         // Mark all LinkedIn jobs with platform identifier
-        const linkedInJobs = items.map((job: any) => ({
+        const linkedInJobs = items.map((job: Record<string, unknown>) => ({
           ...job,
           platform: "linkedin" as const,
         }));
@@ -1084,14 +1086,7 @@ interface CandidateSearchResult {
   candidates: ApifyPeopleData[];
   totalResultCount?: number; // LinkedIn's total result count if available
   sampleSize: number; // How many we requested
-  source: "linkedin" | "github" | "combined";
-}
-
-interface MultiSourceCandidateResult {
-  linkedIn: CandidateSearchResult;
-  github: { candidates: any[]; count: number };
-  totalCandidates: number;
-  totalResultCount?: number;
+  source: "linkedin";
 }
 
 async function searchCandidatesWithApify(
@@ -1165,7 +1160,7 @@ async function searchCandidatesWithApify(
     }
 
     // Build input for LinkedIn People Search actor
-    const peopleInput: any = {
+    const peopleInput: Record<string, unknown> = {
       profileScraperMode: "Short", // Use "Short" mode for cost efficiency
       currentJobTitles: [normalizedJobTitle],
       maxItems: 100, // Increased from 50 to 100 for better candidate coverage
@@ -1199,18 +1194,56 @@ async function searchCandidatesWithApify(
 
     console.log(`✅ Found ${items.length} candidates from LinkedIn`);
 
-    // Try to get total result count from dataset metadata or run stats
+    // Try to get total result count from multiple sources
     let totalResultCount: number | undefined;
+    
+    // Method 1: Try dataset metadata
     try {
       const dataset = await apifyClient.dataset(run.defaultDatasetId).get();
       // Some Apify actors include total count in metadata
-      if ((dataset as any).itemCount) {
-        totalResultCount = (dataset as any).itemCount;
-        console.log(`📊 Total results available: ${totalResultCount}`);
+      if (dataset && typeof dataset === 'object' && 'itemCount' in dataset && typeof dataset.itemCount === 'number') {
+        totalResultCount = dataset.itemCount;
+        console.log(`📊 Total results available from dataset: ${totalResultCount}`);
       }
-    } catch (e) {
-      // Metadata not available, that's okay - we'll use ratio-based estimation
-      console.log("ℹ️ Total result count not available, will use ratio-based estimation");
+    } catch {
+      // Metadata not available, continue to other methods
+    }
+    
+    // Method 2: Try to extract from actor logs (some actors log "Found X profiles total")
+    if (!totalResultCount) {
+      try {
+        const logs = await apifyClient.run(run.id).log().get();
+        const logText = logs?.log || "";
+        
+        // Look for patterns like "Found 164 profiles total" or "total: 164"
+        const totalMatch = logText.match(/Found\s+(\d+)\s+profiles?\s+total/i) || 
+                          logText.match(/total[:\s]+(\d+)\s+profiles?/i) ||
+                          logText.match(/profiles?\s+total[:\s]+(\d+)/i);
+        
+        if (totalMatch && totalMatch[1]) {
+          totalResultCount = parseInt(totalMatch[1], 10);
+          console.log(`📊 Total results extracted from actor logs: ${totalResultCount}`);
+        }
+      } catch {
+        // Logs not available or parsing failed
+        console.log("ℹ️ Could not extract total count from logs");
+      }
+    }
+    
+    // Method 3: Check if any item in the dataset has a totalCount field
+    if (!totalResultCount && items.length > 0) {
+      const firstItem = items[0] as Record<string, unknown>;
+      const totalCount = typeof firstItem.totalCount === 'number' ? firstItem.totalCount : undefined;
+      const totalResults = typeof firstItem.totalResults === 'number' ? firstItem.totalResults : undefined;
+      const total = typeof firstItem.total === 'number' ? firstItem.total : undefined;
+      if (totalCount || totalResults || total) {
+        totalResultCount = totalCount || totalResults || total;
+        console.log(`📊 Total results from item metadata: ${totalResultCount}`);
+      }
+    }
+    
+    if (!totalResultCount) {
+      console.log("ℹ️ Total result count not available from any source, will use sample + GitHub signal");
     }
 
     // Add platform property to LinkedIn candidates
@@ -1225,7 +1258,7 @@ async function searchCandidatesWithApify(
       sampleSize: peopleInput.maxItems || 100,
       source: "linkedin" as const,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error searching candidates with Apify:", error);
 
     if (error.type === "invalid-input") {
@@ -1234,7 +1267,7 @@ async function searchCandidatesWithApify(
       );
       try {
         // Attempt a minimal fallback search
-        const safeInput: any = {
+        const safeInput: Record<string, unknown> = {
           profileScraperMode: "Short",
           currentJobTitles: [jobTitle],
           maxItems: 50, // Fallback: reduced from 100 to 50 for error recovery
@@ -1279,111 +1312,6 @@ async function searchCandidatesWithApify(
   }
 }
 
-/**
- * Search GitHub for candidates by job title
- * Converts GitHub data to ApifyPeopleData format for consistency
- */
-async function searchGitHubCandidates(
-  jobTitle: string,
-  location: string,
-  maxResults: number = 50
-): Promise<{ candidates: any[]; count: number }> {
-  try {
-    console.log("🔍 Searching GitHub for candidates...");
-    
-    const githubCandidates = await searchGitHubCandidatesByTitle(
-      jobTitle,
-      location,
-      maxResults
-    );
-
-    // Convert GitHub format to ApifyPeopleData-like format for consistency
-    const convertedCandidates = githubCandidates.map((gh) => ({
-      id: `github-${gh.username}`,
-      publicIdentifier: gh.username,
-      linkedinUrl: gh.profileUrl, // Use GitHub URL as primary link
-      firstName: gh.name.split(" ")[0] || gh.username,
-      lastName: gh.name.split(" ").slice(1).join(" ") || "",
-      headline: gh.headline || gh.bio?.substring(0, 100) || jobTitle,
-      location: {
-        linkedinText: gh.location,
-        parsed: {
-          text: gh.location,
-        },
-      },
-      avatar: `https://github.com/${gh.username}.png`,
-      about: gh.bio,
-      topSkills: gh.topLanguages.join(", "),
-      followers: gh.followers,
-      connections: 0, // GitHub doesn't have connections
-      premium: false,
-      openToWork: false, // GitHub doesn't have this field
-      currentCompany: gh.currentCompany,
-      experience: [],
-      education: [],
-      certifications: [],
-      projects: [],
-      source: "GitHub",
-      platform: "github" as const,
-    }));
-
-    console.log(`✅ Found ${convertedCandidates.length} candidates from GitHub`);
-    return {
-      candidates: convertedCandidates,
-      count: convertedCandidates.length,
-    };
-  } catch (error: any) {
-    console.error("❌ GitHub candidate search error:", error.message);
-    return { candidates: [], count: 0 };
-  }
-}
-
-/**
- * Search candidates from multiple sources (LinkedIn + GitHub)
- */
-async function searchCandidatesMultiSource(
-  jobTitle: string,
-  location: string
-): Promise<MultiSourceCandidateResult> {
-  console.log("🔍 Searching candidates from multiple sources...");
-
-  // Search both sources in parallel
-  const [linkedInResult, githubResult] = await Promise.allSettled([
-    apifyClient
-      ? searchCandidatesWithApify(jobTitle, location)
-      : Promise.resolve({ candidates: [], sampleSize: 0, source: "linkedin" as const }),
-    searchGitHubCandidates(jobTitle, location, 50), // Get 50 from GitHub
-  ]);
-
-  const linkedIn = linkedInResult.status === "fulfilled" 
-    ? linkedInResult.value 
-    : { candidates: [], sampleSize: 0, source: "linkedin" as const };
-  
-  const github = githubResult.status === "fulfilled"
-    ? githubResult.value
-    : { candidates: [], count: 0 };
-
-  // Combine candidates (deduplicate by identifier if possible)
-  const allCandidates = [
-    ...linkedIn.candidates,
-    ...github.candidates,
-  ];
-
-  // Estimate total result count (combine if both have counts)
-  let totalResultCount: number | undefined;
-  if (linkedIn.totalResultCount) {
-    totalResultCount = linkedIn.totalResultCount + (github.count * 5); // Estimate GitHub total
-  }
-
-  console.log(`✅ Combined results: ${linkedIn.candidates.length} LinkedIn + ${github.count} GitHub = ${allCandidates.length} total candidates`);
-
-  return {
-    linkedIn,
-    github,
-    totalCandidates: allCandidates.length,
-    totalResultCount,
-  };
-}
 
 /**
  * Detect the platform (LinkedIn or Indeed) from a URL
@@ -1398,7 +1326,7 @@ function detectPlatform(url: string): "linkedin" | "indeed" | "unknown" {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { input } = body;
+    const { input, extractedFields: providedExtractedFields } = body;
 
     if (!input || typeof input !== "string") {
       return NextResponse.json(
@@ -1413,7 +1341,84 @@ export async function POST(request: NextRequest) {
     const isURL = urlPattern.test(input.trim());
     const platform = isURL ? detectPlatform(input.trim()) : "unknown";
 
-    let scrapedData: any;
+    // ============================================
+    // CACHE LOOKUP (for URLs only)
+    // ============================================
+    if (isURL) {
+      const { findCachedJob, getCacheRefreshNeeds } = await import("@/lib/jobCache");
+      const cached = await findCachedJob(input.trim());
+      
+      if (cached) {
+        console.log("📦 Found cached job data");
+        const refreshNeeds = getCacheRefreshNeeds(cached);
+        
+        // Validate that cached cards are complete before returning
+        const hasCompleteCards = 
+          cached.job_analysis_cards &&
+          cached.combined_analysis_cards &&
+          cached.derived_strategy_cards &&
+          // Check required cards exist
+          cached.job_analysis_cards.roleCard &&
+          cached.job_analysis_cards.skillCard &&
+          cached.job_analysis_cards.fitCard &&
+          cached.job_analysis_cards.messageCard &&
+          cached.job_analysis_cards.outreachCard &&
+          cached.combined_analysis_cards.marketCard &&
+          cached.combined_analysis_cards.payCard &&
+          cached.combined_analysis_cards.funnelCard &&
+          cached.combined_analysis_cards.realityCard &&
+          cached.derived_strategy_cards.interviewCard &&
+          cached.derived_strategy_cards.scorecardCard &&
+          cached.derived_strategy_cards.planCard;
+        
+        if (!hasCompleteCards) {
+          console.warn("⚠️ Cached cards incomplete, will regenerate");
+          // Continue with full scrape below
+        } else if (
+          !refreshNeeds.needsScrapedRefresh &&
+          !refreshNeeds.needsExternalRefresh &&
+          !refreshNeeds.needsCardRefresh
+        ) {
+          console.log("✅ All cached data is valid and cards are complete, returning from cache");
+          
+          // Update access metadata
+          const { updateAccessMetadata } = await import("@/lib/jobCache");
+          await updateAccessMetadata(input.trim());
+          
+          return NextResponse.json({
+            success: true,
+            data: cached.scraped_data,
+            platform: cached.platform,
+            similarJobs: cached.similar_jobs || [],
+            similarJobsCount: cached.similar_jobs_count || 0,
+            linkedInJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "linkedin").length : 0),
+            indeedJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "indeed").length : 0),
+            glassdoorJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "glassdoor").length : 0),
+            candidates: cached.candidates || [],
+            candidatesCount: cached.candidates_count || 0,
+            inputType: "url",
+            extractedFields: cached.ai_extracted_data || null,
+            missingFields: [],
+            hasMissingFields: false,
+            jobAnalysisCards: cached.job_analysis_cards || null,
+            peopleAnalysisCards: cached.people_analysis_cards || null,
+            combinedAnalysisCards: cached.combined_analysis_cards || null,
+            derivedStrategyCards: cached.derived_strategy_cards || null,
+            dataSources: cached.salary_data ? {
+              glassdoorSalaries: cached.salary_data,
+              benchmarks: null,
+              fetchedAt: cached.external_data_fetched_at,
+            } : null,
+            fromCache: true,
+          });
+        } else {
+          console.log("⚠️ Cached data expired, refreshing:", refreshNeeds);
+          // Will continue with scraping below, but can use cached scraped data if still valid
+        }
+      }
+    }
+
+    let scrapedData: Record<string, unknown>;
     let inputType: string;
     let scrapingError: string | null = null;
 
@@ -1422,12 +1427,13 @@ export async function POST(request: NextRequest) {
       try {
         scrapedData = await scrapeJobURL(input.trim());
         inputType = "url";
-      } catch (scrapeError: any) {
+      } catch (scrapeError) {
+        const errorMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
         console.error(
           "Initial scraping failed, will try to continue:",
-          scrapeError.message
+          errorMessage
         );
-        scrapingError = scrapeError.message;
+        scrapingError = errorMessage;
 
         // Create minimal data object to try AI extraction with the URL
         scrapedData = {
@@ -1540,28 +1546,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Search for candidates with matching job title and location from multiple sources
+    // Search for candidates with matching job title and location from LinkedIn
     let candidates: ApifyPeopleData[] = [];
     let candidateSearchResult: CandidateSearchResult = { candidates: [], sampleSize: 0, source: "linkedin" };
-    let multiSourceResult: MultiSourceCandidateResult | null = null;
     const jobTitle = scrapedData.title || aiExtractedData.department;
     const location = scrapedData.location || aiExtractedData.location;
 
     if (jobTitle) {
-      console.log("🔍 Searching for candidates from multiple sources (LinkedIn + GitHub)...");
-      multiSourceResult = await searchCandidatesMultiSource(jobTitle, location);
-      candidates = [
-        ...multiSourceResult.linkedIn.candidates,
-        ...multiSourceResult.github.candidates,
-      ];
-      
-      // Update candidateSearchResult with combined data for market analysis
-      candidateSearchResult = {
-        candidates: multiSourceResult.linkedIn.candidates, // Keep LinkedIn for primary analysis
-        totalResultCount: multiSourceResult.totalResultCount,
-        sampleSize: multiSourceResult.linkedIn.sampleSize + multiSourceResult.github.count,
-        source: "combined",
-      };
+      console.log("🔍 Searching for candidates from LinkedIn...");
+      candidateSearchResult = apifyClient
+        ? await searchCandidatesWithApify(jobTitle, location)
+        : { candidates: [], sampleSize: 0, source: "linkedin" };
+      candidates = candidateSearchResult.candidates;
     } else {
       console.warn("⚠️ No job title available - skipping candidate search");
       candidates = [];
@@ -1600,7 +1596,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for missing fields (the 10 fields from chatbot)
-    const extractedFields = {
+    // Use provided extractedFields if available (from chatbot completion), otherwise extract from scraped data
+    const extractedFields = providedExtractedFields || {
       roleTitle: scrapedData.title || null,
       department: scrapedData.department || aiExtractedData.department || null,
       experienceLevel: scrapedData.experienceLevel || aiExtractedData.experienceLevel || null,
@@ -1613,6 +1610,20 @@ export async function POST(request: NextRequest) {
       flexible: scrapedData.benefits?.join(", ") || aiExtractedData.benefits?.join(", ") || null,
       timeline: null, // Timeline is rarely in job descriptions
     };
+    
+    // If providedExtractedFields were passed, update scrapedData with new values for Apify scraping
+    if (providedExtractedFields) {
+      console.log("📝 Using provided extractedFields from chatbot completion");
+      // Update scrapedData with new roleTitle and location for Apify scraping
+      if (providedExtractedFields.roleTitle && providedExtractedFields.roleTitle !== scrapedData.title) {
+        scrapedData.title = providedExtractedFields.roleTitle;
+        console.log(`🔄 Updated job title for Apify: "${providedExtractedFields.roleTitle}"`);
+      }
+      if (providedExtractedFields.location && providedExtractedFields.location !== scrapedData.location) {
+        scrapedData.location = providedExtractedFields.location;
+        console.log(`🔄 Updated location for Apify: "${providedExtractedFields.location}"`);
+      }
+    }
 
     // Count missing fields
     const missingFields = [];
@@ -1643,7 +1654,7 @@ export async function POST(request: NextRequest) {
       const location = scrapedData.location || extractedFields?.location || "Remote";
       const jobTitle = scrapedData.title || extractedFields?.roleTitle || "Software Engineer";
       
-      // Fetch all data sources in parallel (Glassdoor, Levels.fyi, Crunchbase, GitHub)
+      // Fetch all data sources in parallel (Glassdoor)
       dataSources = await fetchAllDataSources(
         jobTitle,
         company,
@@ -1679,8 +1690,8 @@ export async function POST(request: NextRequest) {
       // GROUP 1: JOB ANALYSIS CARDS (5 cards)
       console.log("🟢 Generating Group 1: Job Analysis Cards...");
       const [roleCard, skillCard, fitCard] = await Promise.all([
-        cardGenerators.generateRoleCard(scrapedData),
-        cardGenerators.generateSkillCard(scrapedData),
+        cardGenerators.generateRoleCard(scrapedData, similarJobs),
+        cardGenerators.generateSkillCard(scrapedData, similarJobs),
         cardGenerators.generateFitCard(scrapedData),
       ]);
 
@@ -1697,20 +1708,17 @@ export async function POST(request: NextRequest) {
       console.log("✅ Job Analysis Cards complete");
 
       // GROUP 2: PEOPLE ANALYSIS CARDS (1 card)
-      // Now includes GitHub talent data
-      if (candidates.length > 0 || (dataSources?.githubTalent && dataSources.githubTalent.length > 0)) {
+      if (candidates.length > 0) {
         console.log("🔵 Generating Group 2: People Analysis Cards...");
         const talentMapCard = await cardGenerators.generateTalentMapCard(
-          candidates,
-          dataSources?.githubTalent,
-          dataSources?.companyData
+          candidates
         );
         peopleAnalysisCards = { talentMapCard };
         console.log("✅ People Analysis Cards complete");
       }
 
       // GROUP 3: COMBINED ANALYSIS CARDS (4 cards)
-      // Now includes Glassdoor/Levels.fyi salary data and industry benchmarks
+      // Now includes Glassdoor salary data and industry benchmarks
       if (similarJobs.length > 0 || candidates.length > 0 || dataSources) {
         console.log("🟠 Generating Group 3: Combined Analysis Cards...");
         const marketCard = await cardGenerators.generateMarketCard(
@@ -1718,15 +1726,14 @@ export async function POST(request: NextRequest) {
           similarJobs, 
           candidates,
           candidateSearchResult,
-          multiSourceResult // Pass multi-source data for better analysis
+          null // No multi-source data
         );
         
-        // PayCard now uses Glassdoor and Levels.fyi data
+        // PayCard now uses Glassdoor data
         const payCard = await cardGenerators.generatePayCard(
           scrapedData,
           similarJobs,
-          dataSources?.glassdoorSalaries,
-          dataSources?.levelsFyiSalaries
+          dataSources?.glassdoorSalaries
         );
         
         // FunnelCard now uses industry benchmarks
@@ -1759,6 +1766,41 @@ export async function POST(request: NextRequest) {
       console.error("❌ Error during AI card generation:", error);
     }
 
+    // ============================================
+    // SAVE TO CACHE (for URLs only)
+    // Only saves if ALL cards are fully generated
+    // ============================================
+    if (isURL && scrapedData) {
+      try {
+        const { saveToCache } = await import("@/lib/jobCache");
+        const cacheResult = await saveToCache(input.trim(), {
+          scrapedData,
+          aiExtractedData,
+          similarJobs,
+          candidates,
+          salaryData: dataSources?.glassdoorSalaries,
+          jobAnalysisCards,
+          peopleAnalysisCards,
+          combinedAnalysisCards,
+          derivedStrategyCards,
+          company: scrapedData.company || aiExtractedData.company,
+          title: scrapedData.title || aiExtractedData.jobTitle,
+          location: scrapedData.location || aiExtractedData.location,
+          platform,
+        });
+        
+        if (cacheResult.success) {
+          console.log("✅ Saved complete job data and all cards to cache");
+        } else {
+          console.warn("⚠️ Did not save to cache:", cacheResult.reason);
+          console.warn("   This is expected if card generation was incomplete");
+        }
+      } catch (cacheError) {
+        console.error("⚠️ Failed to save to cache:", cacheError.message);
+        // Don't fail the request if cache save fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: scrapedData,
@@ -1785,19 +1827,18 @@ export async function POST(request: NextRequest) {
       // Additional data sources
       dataSources: dataSources ? {
         glassdoorSalaries: dataSources.glassdoorSalaries,
-        levelsFyiSalaries: dataSources.levelsFyiSalaries,
-        companyData: dataSources.companyData,
-        githubTalent: dataSources.githubTalent,
         benchmarks: benchmarks,
         fetchedAt: dataSources.fetchedAt,
       } : null,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in scrape-job API:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to process job input";
+    const errorDetails = error instanceof Error ? error.toString() : String(error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to process job input",
-        details: error.toString(),
+        error: errorMessage,
+        details: errorDetails,
       },
       { status: 500 }
     );

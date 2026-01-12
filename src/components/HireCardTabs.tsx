@@ -2,26 +2,11 @@
 
 import React, { useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  LayoutDashboard,
-  Briefcase,
-  Code,
-  TrendingUp,
-  Map,
-  DollarSign,
-  Target,
-  BarChart3,
-  UserCheck,
   MessageSquare,
-  Send,
-  Mic,
-  ClipboardList,
-  CalendarCheck,
-  Lock,
 } from "lucide-react";
 import { EditModeProvider } from "./EditModeContext";
-import { OverviewCard } from "./cards/OverviewCard";
 import { EditableRealityCard } from "./cards/EditableRealityCard";
 import { ImprovementSignalsPanel } from "./ImprovementSignalsPanel";
 import { EditableRoleCard } from "./cards/EditableRoleCard";
@@ -43,36 +28,8 @@ interface HireCardTabsProps {
   initialCardId?: string;
 }
 
-// Helper function to get card descriptions for tooltips
-const getCardDescription = (id: string): string => {
-  const descriptions: Record<string, string> = {
-    reality:
-      "Feasibility score, market conditions, what helps or hurts your case, and the truth about making this hire.",
-    role: "What this person will actually do and what success looks like in the first 6–12 months.",
-    skill:
-      "The must-have abilities, tools, and experience needed to perform the role.",
-    market:
-      "How big the talent pool is and how competitive the market is for this profile.",
-    talentmap:
-      "Where the strongest candidates come from, companies, locations, and common backgrounds.",
-    pay: "What candidates expect to earn in this market and how your budget compares.",
-    funnel:
-      "The volume of outreach and interviews you'll need to fill the role.",
-    fit: "What motivates this persona, what they care about, and what usually makes them say yes or no.",
-    message: "How to pitch the role in a way that actually gets replies.",
-    outreach:
-      "Ready-to-send email and DM templates for reaching ideal candidates.",
-    interview:
-      "The recommended interview process and competencies to assess at each stage.",
-    scorecard:
-      "A simple evaluation framework to keep the team aligned and reduce bias.",
-    plan: "Your next steps, the checklist, SLAs, and actions to kick off and run the hiring process well.",
-  };
-  return descriptions[id] || "Card details";
-};
 
 export const HireCardTabs: React.FC<HireCardTabsProps> = ({
-  isSubscribed = false,
   initialCardId,
 }) => {
   // Track score changes globally for all cards
@@ -81,39 +38,46 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   
-  const [activeTab, setActiveTab] = useState(initialCardId || "reality");
-  // Update active tab when initialCardId changes
+  // All cards are now dynamic - show all 13 cards
+  const allCardIds = React.useMemo(() => ["reality", "role", "skill", "fit", "message", "outreach", "talentmap", "market", "pay", "funnel", "interview", "scorecard", "plan"], []);
+  
+  // Default to first card if initialCardId is not in the list
+  const defaultTab = allCardIds.includes(initialCardId || "") 
+    ? initialCardId 
+    : allCardIds[0]; // Default to "reality"
+  
+  const [activeTab, setActiveTab] = useState(defaultTab || "reality");
+  
+  // Update active tab when initialCardId changes (only if it's in our card list)
   React.useEffect(() => {
-    if (initialCardId) {
+    if (initialCardId && allCardIds.includes(initialCardId)) {
       setActiveTab(initialCardId);
+    } else if (!allCardIds.includes(activeTab)) {
+      // If current tab is not in our list, switch to default
+      setActiveTab(allCardIds[0]);
     }
-  }, [initialCardId]);
+  }, [initialCardId, activeTab, allCardIds]);
 
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode] = useState(false);
   const [showImprovementPanel, setShowImprovementPanel] = useState(false);
   const [realityScore, setRealityScore] = useState(5.5);
   const [acceptedImprovementsBoost, setAcceptedImprovementsBoost] = useState(0);
   const lastRealityScoreRef = useRef<number>(5.5);
 
   // Dynamic data for cards
-  const [payCardData, setPayCardData] = useState<any>(null);
-  const [marketCardData, setMarketCardData] = useState<any>(null);
-  const [roleCardData, setRoleCardData] = useState<any>(null);
-  const [skillCardData, setSkillCardData] = useState<any>(null);
-  const [talentMapCardData, setTalentMapCardData] = useState<any>(null);
-  const [realityCardData, setRealityCardData] = useState<any>(null);
-  const [funnelCardData, setFunnelCardData] = useState<any>(null);
-  const [fitCardData, setFitCardData] = useState<any>(null);
-  const [messageCardData, setMessageCardData] = useState<any>(null);
-  const [outreachCardData, setOutreachCardData] = useState<any>(null);
-  const [interviewCardData, setInterviewCardData] = useState<any>(null);
-  const [scorecardCardData, setScorecardCardData] = useState<any>(null);
-  const [planCardData, setPlanCardData] = useState<any>(null);
-  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
-
-  // Separate state for Reality Card (used by improvement panel)
-  const [realityCardDataForPanel, setRealityCardDataForPanel] =
-    useState<any>(null);
+  const [payCardData, setPayCardData] = useState<Record<string, unknown> | null>(null);
+  const [marketCardData, setMarketCardData] = useState<Record<string, unknown> | null>(null);
+  const [roleCardData, setRoleCardData] = useState<Record<string, unknown> | null>(null);
+  const [skillCardData, setSkillCardData] = useState<Record<string, unknown> | null>(null);
+  const [talentMapCardData, setTalentMapCardData] = useState<Record<string, unknown> | null>(null);
+  const [realityCardData, setRealityCardData] = useState<Record<string, unknown> | null>(null);
+  const [funnelCardData, setFunnelCardData] = useState<Record<string, unknown> | null>(null);
+  const [fitCardData, setFitCardData] = useState<Record<string, unknown> | null>(null);
+  const [messageCardData, setMessageCardData] = useState<Record<string, unknown> | null>(null);
+  const [outreachCardData, setOutreachCardData] = useState<Record<string, unknown> | null>(null);
+  const [interviewCardData, setInterviewCardData] = useState<Record<string, unknown> | null>(null);
+  const [scorecardCardData, setScorecardCardData] = useState<Record<string, unknown> | null>(null);
+  const [planCardData, setPlanCardData] = useState<Record<string, unknown> | null>(null);
 
   // Load dynamic card data from sessionStorage
   React.useEffect(() => {
@@ -144,7 +108,30 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
             console.log("⚠️ No skillCard found in jobAnalysisCards");
           }
           
-          // Set other card data if available
+          // Set other job analysis cards
+          if (jobAnalysisCards.fitCard) {
+            setFitCardData(jobAnalysisCards.fitCard);
+          }
+          
+          if (jobAnalysisCards.messageCard) {
+            setMessageCardData(jobAnalysisCards.messageCard);
+          }
+          
+          if (jobAnalysisCards.outreachCard) {
+            setOutreachCardData(jobAnalysisCards.outreachCard);
+          }
+          
+          // Set people analysis cards
+          if (data.peopleAnalysisCards?.talentMapCard) {
+            console.log("🗺️ Setting talentMapCardData:", JSON.stringify(data.peopleAnalysisCards.talentMapCard, null, 2));
+            setTalentMapCardData(data.peopleAnalysisCards.talentMapCard);
+            console.log("✅ Talent Map Card data loaded and state updated");
+          } else {
+            console.log("⚠️ No talentMapCard found in peopleAnalysisCards");
+            console.log("   peopleAnalysisCards:", data.peopleAnalysisCards);
+          }
+          
+          // Set combined analysis cards
           if (data.combinedAnalysisCards) {
             if (data.combinedAnalysisCards.marketCard) {
               setMarketCardData(data.combinedAnalysisCards.marketCard);
@@ -160,22 +147,7 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
             }
           }
           
-          if (data.peopleAnalysisCards?.talentMapCard) {
-            setTalentMapCardData(data.peopleAnalysisCards.talentMapCard);
-          }
-          
-          if (jobAnalysisCards.fitCard) {
-            setFitCardData(jobAnalysisCards.fitCard);
-          }
-          
-          if (jobAnalysisCards.messageCard) {
-            setMessageCardData(jobAnalysisCards.messageCard);
-          }
-          
-          if (jobAnalysisCards.outreachCard) {
-            setOutreachCardData(jobAnalysisCards.outreachCard);
-          }
-          
+          // Set derived strategy cards
           if (data.derivedStrategyCards) {
             if (data.derivedStrategyCards.interviewCard) {
               setInterviewCardData(data.derivedStrategyCards.interviewCard);
@@ -198,21 +170,6 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
     }
   }, []);
 
-  const tabs = [
-    { id: "reality", label: "Reality Card", Icon: Target },
-    { id: "role", label: "Role Card", Icon: Briefcase },
-    { id: "skill", label: "Skills Card", Icon: Code },
-    { id: "market", label: "Market Card", Icon: TrendingUp },
-    { id: "talentmap", label: "Talent Map Card", Icon: Map },
-    { id: "pay", label: "Pay Card", Icon: DollarSign },
-    { id: "funnel", label: "Funnel Card", Icon: BarChart3 },
-    { id: "fit", label: "Fit Card", Icon: UserCheck },
-    { id: "message", label: "Message Card", Icon: MessageSquare },
-    { id: "outreach", label: "Outreach Card", Icon: Send },
-    { id: "interview", label: "Interview Card", Icon: Mic },
-    { id: "scorecard", label: "Scorecard Card", Icon: ClipboardList },
-    { id: "plan", label: "Plan Card", Icon: CalendarCheck },
-  ];
 
   // Load reality card data for improvement panel
   React.useEffect(() => {
@@ -339,15 +296,6 @@ export const HireCardTabs: React.FC<HireCardTabsProps> = ({
     }
   };
 
-  const handleToggleEdit = () => {
-    if (isEditMode) {
-      // Saving - trigger save to sessionStorage (already automatic in each card)
-      setIsEditMode(false);
-    } else {
-      // Enter edit mode
-      setIsEditMode(true);
-    }
-  };
 
   return (
     <div className="w-full">

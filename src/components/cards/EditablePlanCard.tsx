@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  CalendarCheck,
   Calendar,
   TrendingUp,
   AlertTriangle,
@@ -17,7 +16,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface PlanCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -182,27 +181,43 @@ export const EditablePlanCard: React.FC<PlanCardProps> = ({
     scoreImpactRows,
   ]);
 
+  // Load from data prop first, then sessionStorage as fallback
   useEffect(() => {
+    // Prioritize data prop if provided
+    if (data) {
+      if (data.first7Days) setFirst7Days(data.first7Days);
+      if (data.weeklyRhythm) setWeeklyRhythm(data.weeklyRhythm);
+      if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
+      if (data.redFlags) setRedFlags(data.redFlags);
+      if (data.donts) setDonts(data.donts);
+      if (data.fixes) setFixes(data.fixes);
+      if (data.fastestPath) setFastestPath(data.fastestPath);
+      if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        setScoreImpactRows(data.scoreImpactRows);
+      }
+      return; // Don't load from sessionStorage if data prop is provided
+    }
+    
+    // Fallback to sessionStorage
     const saved = sessionStorage.getItem("editablePlanCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.first7Days) setFirst7Days(data.first7Days);
-        if (data.weeklyRhythm) setWeeklyRhythm(data.weeklyRhythm);
-        if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
-        if (data.redFlags) setRedFlags(data.redFlags);
-        if (data.donts) setDonts(data.donts);
-        if (data.fixes) setFixes(data.fixes);
-        if (data.fastestPath) setFastestPath(data.fastestPath);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.first7Days) setFirst7Days(savedData.first7Days);
+        if (savedData.weeklyRhythm) setWeeklyRhythm(savedData.weeklyRhythm);
+        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+        if (savedData.redFlags) setRedFlags(savedData.redFlags);
+        if (savedData.donts) setDonts(savedData.donts);
+        if (savedData.fixes) setFixes(savedData.fixes);
+        if (savedData.fastestPath) setFastestPath(savedData.fastestPath);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const first7DaysContent = (
     <div className="space-y-6">
@@ -383,7 +398,6 @@ export const EditablePlanCard: React.FC<PlanCardProps> = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

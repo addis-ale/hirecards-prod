@@ -1,11 +1,7 @@
 import OpenAI from "openai";
 import type { 
   GlassdoorSalaryData, 
-  LevelsFyiSalaryData, 
-  CrunchbaseCompanyData,
-  GitHubTalentData,
   IndustryBenchmarks,
-  AggregatedDataSources 
 } from "./dataSources";
 import { analyzeMarket, formatMarketAnalysis, type MarketAnalysisInput } from "./marketAnalysis";
 
@@ -14,13 +10,82 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+// Type definitions for job data and cards
+interface JobData {
+  title?: string;
+  description?: string;
+  company?: string;
+  source?: string;
+  location?: string;
+  requirements?: string;
+  responsibilities?: string;
+  skills?: string[];
+  employmentType?: string;
+  workplaceType?: string;
+  salary?: string;
+  department?: string;
+}
+
+interface SimilarJob {
+  title?: string;
+  company?: { name?: string };
+  platform?: string;
+  descriptionText?: string;
+  salary?: {
+    min?: number;
+    max?: number;
+    text?: string;
+  };
+}
+
+interface Candidate {
+  currentPositions?: Array<{ companyName?: string; current?: boolean }>;
+  currentCompany?: { name?: string; company_name?: string };
+  company?: { name?: string } | string;
+  experience?: Array<{ companyName?: string; company?: { name?: string } }>;
+  platform?: string;
+}
+
+interface CardData {
+  [key: string]: unknown;
+}
+
+/**
+ * Extract JSON from OpenAI response, handling markdown code blocks
+ * Sometimes OpenAI returns JSON wrapped in ```json ... ``` blocks
+ */
+function extractJSON(content: string): Record<string, unknown> {
+  if (!content) return {};
+  
+  // Remove markdown code blocks if present
+  const jsonContent = content
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
+  
+  // If content still starts with { or [, it's valid JSON
+  if (jsonContent.startsWith("{") || jsonContent.startsWith("[")) {
+    try {
+      return JSON.parse(jsonContent);
+    } catch (error) {
+      console.error("❌ Failed to parse JSON after removing markdown:", error);
+      console.error("Content:", jsonContent.substring(0, 200));
+      return {};
+    }
+  }
+  
+  // If no valid JSON found, return empty object
+  console.warn("⚠️ No valid JSON found in response");
+  return {};
+}
+
 /**
  * Ensure company name is the actual hiring company, not the job board/platform
  */
-function ensureHiringCompany(company: string | undefined, source: string | undefined): string {
+function ensureHiringCompany(company: string | undefined): string {
   if (!company) return "Unknown";
   
-  const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic", "ScrapingBee"];
+  const jobBoardNames = ["LinkedIn", "Indeed", "Workday", "Ashby", "Generic", "ScrapingBee"];
   const isJobBoard = jobBoardNames.some(board => 
     company.toLowerCase().includes(board.toLowerCase()) || 
     company.toLowerCase() === board.toLowerCase()
@@ -37,8 +102,8 @@ function ensureHiringCompany(company: string | undefined, source: string | undef
 // Data sources mapping for each card type
 const CARD_DATA_SOURCES: Record<string, string> = {
   roleCard: "Manual intake from HM; internal job descriptions (if they have it)",
-  marketCard: "LinkedIn X-ray, Github, StackOverflow, public job boards, Crunchbase",
-  payCard: "Glassdoor/Indeed scraping, Levels.fyi, Salary Project (open), job ads etc...",
+  marketCard: "LinkedIn X-ray, StackOverflow, public job boards",
+  payCard: "Glassdoor/Indeed scraping, Salary Project (open), job ads etc...",
   realityCard: "Derived from MarketCard/PayCard + benchmarks; Quality of Hire data",
   funnelCard: "Benchmarks, open reports, agency funnel datasets",
   fitCard: "Public persona research; DISC, industry reports, Psychometrics, Similar to https://www.crystalknows",
@@ -47,7 +112,7 @@ const CARD_DATA_SOURCES: Record<string, string> = {
   planCard: "Public Industry frameworks, best practices, recruiter knowledge",
   skillCard: "Manual intake from HM; competency frameworks; reference JDs from similar companies.",
   scoreCard: "Interview guides; external interview frameworks; recruiter inputs.",
-  talentMapCard: "LinkedIn X-ray, job boards, Crunchbase, public org charts, funding databases.",
+  talentMapCard: "LinkedIn X-ray, job boards, public org charts, funding databases.",
 };
 
 /**
@@ -58,7 +123,7 @@ const CARD_DATA_SOURCES: Record<string, string> = {
 /**
  * Generate Role Card - What the person will do and success criteria
  */
-export async function generateRoleCard(jobData: any): Promise<any> {
+export async function generateRoleCard(jobData: JobData, similarJobs?: SimilarJob[]): Promise<CardData | null> {
   if (!openai) {
     console.warn("OpenAI not configured, returning mock role card");
     return null;
@@ -66,9 +131,26 @@ export async function generateRoleCard(jobData: any): Promise<any> {
 
   try {
     console.log("🤖 Generating Role Card with AI...");
-    
-    // Ensure we use the actual hiring company, not the job board
-    const company = ensureHiringCompany(jobData.company, jobData.source);
+
+    // Extract job descriptions from similar jobs (especially Glassdoor)
+    let similarJobsContext = "";
+    if (similarJobs && similarJobs.length > 0) {
+      const jobsWithDescriptions = similarJobs
+        .filter(job => job.descriptionText && job.descriptionText.length > 100)
+        .slice(0, 5); // Use top 5 similar jobs with descriptions
+      
+      if (jobsWithDescriptions.length > 0) {
+        console.log(`📋 Using ${jobsWithDescriptions.length} similar job descriptions to improve JD`);
+        similarJobsContext = `\n\nSIMILAR JOBS FOR REFERENCE (use these to improve the JD):
+${jobsWithDescriptions.map((job, idx) => `
+Job ${idx + 1} (${job.company?.name || 'Company'} - ${job.platform || 'platform'}):
+Title: ${job.title}
+Description: ${job.descriptionText?.substring(0, 500) || 'No description'}
+`).join('\n')}
+
+Use insights from these similar jobs to create a better, more competitive job description.`;
+      }
+    }
 
     const prompt = `Analyze this job posting and create a comprehensive Role Card with the following structure.
 
@@ -77,7 +159,7 @@ Title: ${jobData.title || "Not provided"}
 Description: ${jobData.description || "Not provided"}
 Company: ${ensureHiringCompany(jobData.company, jobData.source) || "Not provided"}
 Responsibilities: ${jobData.responsibilities || "Not provided"}
-Requirements: ${jobData.requirements || "Not provided"}
+Requirements: ${jobData.requirements || "Not provided"}${similarJobsContext}
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -97,7 +179,9 @@ Return ONLY valid JSON with this exact structure:
   "brutalTruth": "One honest, direct insight about this role"
 }
 
-Be specific to THIS job. Avoid generic advice. Focus on what's actually in the description. Extract tools/technologies from the JD for whatYoullWorkWith.`;
+Be specific to THIS job. Avoid generic advice. Focus on what's actually in the description. Extract tools/technologies from the JD for whatYoullWorkWith.
+
+When creating jdBefore, jdAfter, and fullJdSnippet, use insights from the similar jobs above to make the improved JD more competitive and aligned with market standards.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -113,7 +197,7 @@ Be specific to THIS job. Avoid generic advice. Focus on what's actually in the d
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const roleCard = JSON.parse(content);
+    const roleCard = extractJSON(content);
     
     // Generate scoreImpactRows from fixes if not provided
     if (roleCard.fixes && Array.isArray(roleCard.fixes) && roleCard.fixes.length > 0 && !roleCard.scoreImpactRows) {
@@ -143,7 +227,7 @@ Be specific to THIS job. Avoid generic advice. Focus on what's actually in the d
 /**
  * Generate Skill Card - Technical, product, and behavioral skills
  */
-export async function generateSkillCard(jobData: any): Promise<any> {
+export async function generateSkillCard(jobData: JobData, similarJobs?: SimilarJob[]): Promise<CardData | null> {
   if (!openai) {
     console.warn("OpenAI not configured, returning mock skill card");
     return null;
@@ -156,6 +240,26 @@ export async function generateSkillCard(jobData: any): Promise<any> {
     const fullDescription = jobData.description || jobData.requirements || "";
     const descriptionSample = fullDescription.substring(0, 2000); // First 2000 chars
 
+    // Extract skills context from similar jobs
+    let similarJobsSkillsContext = "";
+    if (similarJobs && similarJobs.length > 0) {
+      const jobsWithDescriptions = similarJobs
+        .filter(job => job.descriptionText && job.descriptionText.length > 100)
+        .slice(0, 5); // Use top 5 similar jobs
+      
+      if (jobsWithDescriptions.length > 0) {
+        console.log(`🔧 Using ${jobsWithDescriptions.length} similar job descriptions for skill extraction`);
+        similarJobsSkillsContext = `\n\nSIMILAR JOBS FOR SKILL REFERENCE (extract additional skills from these):
+${jobsWithDescriptions.map((job, idx) => `
+Job ${idx + 1} (${job.company?.name || 'Company'} - ${job.platform || 'platform'}):
+Title: ${job.title}
+Description: ${job.descriptionText?.substring(0, 800) || 'No description'}
+`).join('\n')}
+
+Use these similar jobs to identify additional skills, tools, and technologies that might be relevant but not explicitly mentioned in the main job description.`;
+      }
+    }
+
     const prompt = `Analyze this job posting and extract required skills into categories.
 
 Job Title: ${jobData.title || "Not provided"}
@@ -163,7 +267,7 @@ Job Title: ${jobData.title || "Not provided"}
 Full Job Description/Requirements:
 ${descriptionSample}
 
-Explicitly Mentioned Skills: ${JSON.stringify(jobData.skills || [])}
+Explicitly Mentioned Skills: ${JSON.stringify(jobData.skills || [])}${similarJobsSkillsContext}
 
 IMPORTANT: You MUST fill ALL arrays with actual skills from the description above. Do NOT return empty arrays.
 
@@ -179,7 +283,9 @@ Return ONLY valid JSON with this exact structure (each array MUST have the speci
   "brutalTruth": "One honest insight about the skill requirements"
 }
 
-Extract from the actual job description above. If not explicitly mentioned, infer from the role requirements.`;
+Extract from the actual job description above. If not explicitly mentioned, infer from the role requirements.
+
+Use the similar jobs above to identify additional skills, tools, and technologies that are commonly required for this type of role but may not be explicitly stated in the main job description.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -195,7 +301,7 @@ Extract from the actual job description above. If not explicitly mentioned, infe
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const skillCard = JSON.parse(content);
+    const skillCard = extractJSON(content);
     
     // Generate scoreImpactRows from donts/redFlags if not provided
     if ((skillCard.donts || skillCard.redFlags) && !skillCard.scoreImpactRows) {
@@ -228,7 +334,7 @@ Extract from the actual job description above. If not explicitly mentioned, infe
 /**
  * Generate Message Card - How to pitch the role
  */
-export async function generateMessageCard(jobData: any, roleCard: any): Promise<any> {
+export async function generateMessageCard(jobData: JobData, roleCard: CardData): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -264,7 +370,7 @@ Make it specific to THIS role and company.`;
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const messageCard = JSON.parse(content);
+    const messageCard = extractJSON(content);
     
     // Add data sources
     messageCard.dataSources = CARD_DATA_SOURCES.messageCard;
@@ -279,7 +385,7 @@ Make it specific to THIS role and company.`;
 /**
  * Generate Outreach Card - Email templates
  */
-export async function generateOutreachCard(jobData: any, messageCard: any): Promise<any> {
+export async function generateOutreachCard(jobData: JobData, messageCard: CardData): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -321,7 +427,7 @@ Templates should be professional but conversational. Mention specific role detai
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const outreachCard = JSON.parse(content);
+    const outreachCard = extractJSON(content);
     
     // Add data sources (same as messageCard since it's derived from it)
     outreachCard.dataSources = CARD_DATA_SOURCES.messageCard;
@@ -336,7 +442,7 @@ Templates should be professional but conversational. Mention specific role detai
 /**
  * Generate Fit Card - Candidate motivations
  */
-export async function generateFitCard(jobData: any): Promise<any> {
+export async function generateFitCard(jobData: JobData): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -374,7 +480,7 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const fitCard = JSON.parse(content);
+    const fitCard = extractJSON(content);
     
     // Add data sources
     fitCard.dataSources = CARD_DATA_SOURCES.fitCard;
@@ -393,86 +499,94 @@ Return ONLY valid JSON:
 
 /**
  * Generate Talent Map Card - Where candidates come from
- * Uses LinkedIn candidates + GitHub talent data
+ * Uses LinkedIn candidates data
  */
 export async function generateTalentMapCard(
-  candidates: any[],
-  githubTalent?: GitHubTalentData[],
-  companyData?: CrunchbaseCompanyData | null
-): Promise<any> {
-  if (!openai || (!candidates || candidates.length === 0) && (!githubTalent || githubTalent.length === 0)) return null;
+  candidates: Candidate[],
+  _githubTalent?: undefined,
+  _companyData?: undefined
+): Promise<CardData | null> {
+  if (!openai || !candidates || candidates.length === 0) return null;
 
   try {
     console.log("🤖 Generating Talent Map Card with AI...");
     console.log("   📊 LinkedIn candidates:", candidates?.length || 0);
-    console.log("   📊 GitHub talent:", githubTalent?.length || 0);
 
-    // Extract company data from LinkedIn candidates
+    // Extract company data from LinkedIn candidates - try multiple fields
     const companies = (candidates || [])
-      .map(c => c.currentCompany?.name || c.company)
-      .filter(Boolean);
+      .map(c => {
+        // Try multiple possible fields where company name might be stored
+        // Priority order based on actual Apify response structure
+        return c.currentPositions?.[0]?.companyName ||  // NEW: Apify returns companyName in currentPositions array
+               c.currentCompany?.name || 
+               c.currentCompany?.company_name ||
+               (typeof c.company === 'object' ? c.company?.name : c.company) ||
+               c.experience?.[0]?.companyName ||
+               c.experience?.[0]?.company?.name ||
+               // Also check if currentPositions has multiple entries
+               (c.currentPositions && Array.isArray(c.currentPositions) && c.currentPositions.length > 0 
+                 ? c.currentPositions.find((pos) => pos.current)?.companyName || c.currentPositions[0]?.companyName
+                 : null) ||
+               null;
+      })
+      .filter((name): name is string => Boolean(name))
+      .filter((name: string) => {
+        // Filter out generic/placeholder names
+        const lower = name.toLowerCase().trim();
+        return !lower.includes('company') && 
+               !lower.match(/^[a-z]$/i) && // Single letters like "A", "B"
+               !lower.match(/^[a-z]{1,3}$/i) && // Short codes like "BCD"
+               name.length > 2; // Must be at least 3 characters
+      });
     
-    const uniqueCompanies = [...new Set(companies)];
-    const companyCount = companies.reduce((acc: any, company) => {
+    console.log(`📊 Extracted ${companies.length} company names from ${candidates.length} candidates`);
+    console.log(`📊 Sample companies: ${companies.slice(0, 10).join(", ")}`);
+    
+    if (companies.length === 0) {
+      console.warn("⚠️ No valid company names found in candidate data. Checking candidate structure...");
+      console.log("📋 Sample candidate structure:", JSON.stringify(candidates[0], null, 2));
+      return null;
+    }
+    
+    const companyCount = companies.reduce((acc: Record<string, number>, company) => {
       acc[company] = (acc[company] || 0) + 1;
       return acc;
     }, {});
 
     const topCompanies = Object.entries(companyCount)
-      .sort(([,a]: any, [,b]: any) => b - a)
-      .slice(0, 15)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 20) // Increased to 20 to give AI more options
       .map(([company, count]) => `${company} (${count} candidates)`);
 
-    console.log(`📊 Candidate company analysis: ${topCompanies.join(", ")}`);
+    console.log(`📊 Top companies with counts: ${topCompanies.join(", ")}`);
 
-    // Build GitHub talent context
-    let githubContext = "";
-    if (githubTalent && githubTalent.length > 0) {
-      const topGithubDevs = githubTalent.slice(0, 5).map(g => 
-        `- ${g.name} (@${g.username}): ${g.followers} followers, ${g.publicRepos} repos, ${g.company || 'Independent'}`
-      ).join("\n");
-      githubContext = `
-GITHUB TALENT DATA (${githubTalent.length} developers):
-${topGithubDevs}`;
-    }
+    // Create a strict list of ONLY real company names for the AI
+    const realCompanyList = Object.keys(companyCount)
+      .sort((a, b) => (companyCount[b] as number) - (companyCount[a] as number))
+      .slice(0, 30)
+      .map((company, index) => `${index + 1}. ${company} (${companyCount[company]} candidates)`)
+      .join("\n");
 
-    // Build Crunchbase context
-    let companyContext = "";
-    if (companyData) {
-      companyContext = `
-TARGET COMPANY DATA (Crunchbase):
-- Company: ${companyData.name}
-- Employees: ${companyData.employeeCount}
-- Funding: $${(companyData.funding.totalRaised / 1000000).toFixed(1)}M raised
-- Industry: ${companyData.industry.join(", ")}
-- Competitors: ${companyData.competitors.join(", ")}`;
-    }
+    const prompt = `You are analyzing talent sourcing data. You MUST use ONLY the real company names provided below.
 
-    const prompt = `Analyze where the best candidates for this role come from using REAL DATA.
+REAL COMPANY DATA FROM ${candidates?.length || 0} LINKEDIN CANDIDATES:
+${realCompanyList}
 
-LINKEDIN DATA (${candidates?.length || 0} CANDIDATES):
-Top Companies (with candidate counts): ${topCompanies.join(", ")}
-All Unique Companies: ${uniqueCompanies.slice(0, 30).join(", ")}
-${githubContext}
-${companyContext}
+CRITICAL RULES:
+1. You MUST use ONLY company names from the list above
+2. Copy the EXACT company names as they appear (case-sensitive)
+3. DO NOT create fake company names like "Company A", "BCD", "XYZ Corp", etc.
+4. If you need more companies than listed, use the ones with fewer candidates
+5. Every company name in your response MUST appear in the list above
 
-IMPORTANT: Use ONLY the REAL company names and data listed above. Do NOT make up fake data.
-
-Return ONLY valid JSON using ACTUAL data:
+Return ONLY valid JSON using EXACT company names from the list:
 {
-  "primaryFeeders": ["List 6-8 ACTUAL companies from the data above with most candidates"],
-  "secondaryFeeders": ["List 4-6 ACTUAL companies from the data above with fewer candidates"],
-  "githubTalent": ${githubTalent && githubTalent.length > 0 ? JSON.stringify(githubTalent.slice(0, 5).map(g => ({
-    name: g.name,
-    username: g.username,
-    followers: g.followers,
-    company: g.company || "Independent",
-    profileUrl: g.profileUrl
-  }))) : "[]"},
-  "avoidList": ["List 3 companies that might not be good fits"],
+  "primaryFeeders": ["EXACT company names from list above with most candidates (6-8 companies)"],
+  "secondaryFeeders": ["EXACT company names from list above with fewer candidates (4-6 companies)"],
+  "avoidList": ["EXACT company names from list above that might not be good fits (3 companies)"],
   "talentFlowMap": [
     {
-      "flow": "Real Company → Industry/Stage",
+      "flow": "EXACT Company Name → Industry/Stage",
       "path": "Career progression pattern",
       "note": "Why this path matters"
     }
@@ -491,24 +605,84 @@ Return ONLY valid JSON using ACTUAL data:
   "fixes": ["3 sourcing improvements"],
   "hiddenBottleneck": "What limits talent pool",
   "dataSourcesSummary": {
-    "linkedin": "${candidates?.length || 0} candidates analyzed",
-    "github": "${githubTalent?.length || 0} developers found",
-    "crunchbase": "${companyData ? 'Company data available' : 'Not available'}"
+    "linkedin": "${candidates?.length || 0} candidates analyzed"
   }
 }`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a talent sourcing strategist. Analyze where to find the best candidates. Return only valid JSON." },
+        { 
+          role: "system", 
+          content: "You are a talent sourcing strategist. You MUST use ONLY the exact company names provided in the user's message. Never invent or create fake company names. Return only valid JSON with real company names." 
+        },
         { role: "user", content: prompt }
       ],
-      temperature: 0.3,
+      temperature: 0.2, // Lower temperature for more deterministic output
       max_tokens: 1500,
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const talentMapCard = JSON.parse(content);
+    const talentMapCard = extractJSON(content);
+    
+    // Validate that all company names in the response are from the real list
+    const allRealCompanies = Object.keys(companyCount);
+    const validateCompanyName = (name: string): string | null => {
+      if (!name || typeof name !== 'string') return null;
+      // Check if it's an exact match (case-insensitive)
+      const matched = allRealCompanies.find(real => 
+        real.toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      return matched || null;
+    };
+    
+    // Clean up primaryFeeders
+    if (talentMapCard.primaryFeeders && Array.isArray(talentMapCard.primaryFeeders)) {
+      talentMapCard.primaryFeeders = talentMapCard.primaryFeeders
+        .map((name: string) => validateCompanyName(name))
+        .filter(Boolean)
+        .slice(0, 8);
+    }
+    
+    // Clean up secondaryFeeders
+    if (talentMapCard.secondaryFeeders && Array.isArray(talentMapCard.secondaryFeeders)) {
+      talentMapCard.secondaryFeeders = talentMapCard.secondaryFeeders
+        .map((name: string) => validateCompanyName(name))
+        .filter(Boolean)
+        .slice(0, 6);
+    }
+    
+    // Clean up avoidList
+    if (talentMapCard.avoidList && Array.isArray(talentMapCard.avoidList)) {
+      talentMapCard.avoidList = talentMapCard.avoidList
+        .map((name: string) => validateCompanyName(name))
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+    
+    // Clean up talentFlowMap
+    if (talentMapCard.talentFlowMap && Array.isArray(talentMapCard.talentFlowMap)) {
+      talentMapCard.talentFlowMap = talentMapCard.talentFlowMap.map((flow: Record<string, unknown>) => {
+        if (flow.flow && typeof flow.flow === 'string') {
+          // Extract company name from flow string (format: "Company Name → Industry")
+          const companyMatch = flow.flow.split('→')[0]?.trim();
+          const validated = validateCompanyName(companyMatch);
+          if (validated) {
+            flow.flow = flow.flow.replace(companyMatch, validated);
+          }
+        }
+        return flow;
+      }).filter((flow: Record<string, unknown>) => {
+        // Only keep flows that have a valid company name
+        if (flow.flow && typeof flow.flow === 'string') {
+          const companyMatch = flow.flow.split('→')[0]?.trim();
+          return validateCompanyName(companyMatch) !== null;
+        }
+        return false;
+      });
+    }
+    
+    console.log(`✅ Validated Talent Map Card - Primary Feeders: ${talentMapCard.primaryFeeders?.length || 0}, Secondary: ${talentMapCard.secondaryFeeders?.length || 0}`);
     
     // Add data sources
     talentMapCard.dataSources = CARD_DATA_SOURCES.talentMapCard;
@@ -529,12 +703,12 @@ Return ONLY valid JSON using ACTUAL data:
  * Generate Market Card - Supply vs demand analysis
  */
 export async function generateMarketCard(
-  jobData: any,
-  similarJobs: any[],
-  candidates: any[],
+  jobData: JobData,
+  similarJobs: SimilarJob[],
+  candidates: Candidate[],
   candidateSearchResult?: { totalResultCount?: number; sampleSize: number; source?: string },
-  multiSourceResult?: { linkedIn: any; github: any; totalCandidates: number; totalResultCount?: number } | null
-): Promise<any> {
+  multiSourceResult?: { linkedIn: unknown; github: unknown; totalCandidates: number; totalResultCount?: number } | null
+): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -546,10 +720,26 @@ export async function generateMarketCard(
     const candidateCount = candidates.length;
     
     // Get source breakdown if available
-    const linkedInCandidates = multiSourceResult?.linkedIn?.candidates?.length || 
-      candidates.filter((c: any) => c.platform !== "github").length;
-    const githubCandidates = multiSourceResult?.github?.count || 
-      candidates.filter((c: any) => c.platform === "github").length;
+    const linkedInCandidates = (multiSourceResult?.linkedIn && typeof multiSourceResult.linkedIn === 'object' && 'candidates' in multiSourceResult.linkedIn && Array.isArray(multiSourceResult.linkedIn.candidates) ? multiSourceResult.linkedIn.candidates.length : 0) || 
+      candidates.filter((c) => c.platform !== "github").length;
+    const githubCandidates = (multiSourceResult?.github && typeof multiSourceResult.github === 'object' && 'count' in multiSourceResult.github && typeof multiSourceResult.github.count === 'number' ? multiSourceResult.github.count : 0) || 
+      candidates.filter((c) => c.platform === "github").length;
+
+    // Get GitHub market signal
+    let githubMarketSignal: { totalProfiles: number; confidence: string } | null = null;
+    try {
+      const { getGithubMarketSignal } = await import("./githubMarketSignal");
+      const jobTitle = jobData.title || jobData.department || "";
+      const location = jobData.location || "";
+      
+      if (jobTitle && location) {
+        githubMarketSignal = await getGithubMarketSignal(jobTitle, location);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn("⚠️ Failed to get GitHub market signal:", errorMessage);
+      // Continue without GitHub signal
+    }
 
     // Use market analysis algorithm
     const marketInput: MarketAnalysisInput = {
@@ -557,9 +747,17 @@ export async function generateMarketCard(
       sampleJobs: totalJobs,
       totalResultCount: candidateSearchResult?.totalResultCount,
       sampleSize: candidateSearchResult?.sampleSize || 100,
+      githubProfileCount: githubMarketSignal?.totalProfiles,
     };
 
     const marketAnalysis = analyzeMarket(marketInput);
+    
+    // Only generate Market Card if we have LinkedIn's total result count
+    if (!marketAnalysis) {
+      console.warn("⚠️ Cannot generate Market Card: LinkedIn total result count not available");
+      return null;
+    }
+    
     const formattedAnalysis = formatMarketAnalysis(marketAnalysis);
 
     console.log("📊 Market Analysis:", {
@@ -568,19 +766,29 @@ export async function generateMarketCard(
       estimatedJobs: marketAnalysis.estimatedTotalJobs,
       confidence: marketAnalysis.confidenceLevel,
       method: marketAnalysis.extrapolationMethod,
+      githubSignal: githubMarketSignal?.totalProfiles || "N/A",
     });
+
+    // Build data sources summary
+    let dataSourcesSummary = `LinkedIn: ${marketAnalysis.estimatedTotalCandidates.toLocaleString()} candidates`;
+    if (githubMarketSignal) {
+      dataSourcesSummary += `, GitHub: ${githubMarketSignal.totalProfiles.toLocaleString()} profiles (${githubMarketSignal.confidence} confidence)`;
+    }
 
     const prompt = `Analyze the talent market for this role.
 
 Job: ${jobData.title}
 Location: ${jobData.location}
 Similar Jobs Found: ${totalJobs} (LinkedIn: ${linkedInJobs}, Indeed: ${indeedJobs})
-Sample Candidates: ${candidateCount} (LinkedIn: ${linkedInCandidates}, GitHub: ${githubCandidates})
+Sample Candidates: ${candidateCount} (LinkedIn: ${linkedInCandidates}${githubCandidates > 0 ? `, GitHub: ${githubCandidates}` : ""})
+${githubMarketSignal ? `GitHub Market Signal: ${githubMarketSignal.totalProfiles.toLocaleString()} profiles (${githubMarketSignal.confidence} confidence)` : ""}
 Estimated Total Candidates: ${marketAnalysis.estimatedTotalCandidates.toLocaleString()} (${marketAnalysis.candidateConfidenceInterval.min.toLocaleString()}-${marketAnalysis.candidateConfidenceInterval.max.toLocaleString()})
+${githubMarketSignal ? `(Combined LinkedIn + GitHub signal)` : `(LinkedIn total count)`}
 Estimated Total Jobs: ${marketAnalysis.estimatedTotalJobs.toLocaleString()}
 Candidates per Job: ${marketAnalysis.candidatesPerJob.toFixed(2)}
 Market Tightness: ${marketAnalysis.marketTightness} (${formattedAnalysis.summary})
 Confidence Level: ${marketAnalysis.confidenceLevel}
+Data Sources: ${dataSourcesSummary}
 ${formattedAnalysis.details}
 
 Return ONLY valid JSON:
@@ -636,7 +844,7 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const marketCard = JSON.parse(content);
+    const marketCard = extractJSON(content);
     
     // Add market analysis data and data sources
     marketCard.marketAnalysis = {
@@ -664,20 +872,18 @@ Return ONLY valid JSON:
 
 /**
  * Generate Pay Card - Compensation analysis
- * Uses real data from Glassdoor, Levels.fyi, and Indeed
+ * Uses real data from Glassdoor and Indeed
  */
 export async function generatePayCard(
-  jobData: any,
-  similarJobs: any[],
-  glassdoorData?: GlassdoorSalaryData[],
-  levelsFyiData?: LevelsFyiSalaryData[]
-): Promise<any> {
+  jobData: JobData,
+  similarJobs: SimilarJob[],
+  glassdoorData?: GlassdoorSalaryData[]
+): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
     console.log("🤖 Generating Pay Card with AI...");
     console.log("   📊 Glassdoor entries:", glassdoorData?.length || 0);
-    console.log("   📊 Levels.fyi entries:", levelsFyiData?.length || 0);
 
     // Extract salary data from similar jobs
     const salariesWithData = similarJobs
@@ -707,16 +913,6 @@ Glassdoor Data (${gd.sampleSize} reports):
 - Source: ${gd.source}`;
     }
 
-    let levelsFyiContext = "";
-    if (levelsFyiData && levelsFyiData.length > 0) {
-      const topCompanies = levelsFyiData.slice(0, 3).map(l => 
-        `${l.company}: $${l.totalCompensation.toLocaleString()} total comp (base: $${l.baseSalary.toLocaleString()}, stock: $${l.stockGrant.toLocaleString()})`
-      ).join("\n");
-      levelsFyiContext = `
-Levels.fyi Data (Tech Companies):
-${topCompanies}`;
-    }
-
     const prompt = `Analyze compensation for this role using REAL MARKET DATA.
 
 Job: ${jobData.title}
@@ -725,7 +921,6 @@ Posted Salary: ${jobData.salary || "Not disclosed"}
 
 REAL MARKET DATA:
 ${glassdoorContext || "No Glassdoor data available"}
-${levelsFyiContext || "No Levels.fyi data available"}
 
 Similar Jobs Data: ${salariesWithData.length} jobs with salary info
 Average Range from Jobs: ${avgMin ? `$${avgMin.toLocaleString()}-$${avgMax?.toLocaleString()}` : "Insufficient data"}
@@ -743,7 +938,6 @@ Based on this REAL DATA, return ONLY valid JSON:
   "location": "${jobData.location}",
   "currency": "USD",
   "glassdoorMedian": ${glassdoorData?.[0]?.baseSalary.median || "null"},
-  "levelsFyiAverage": ${levelsFyiData?.length ? Math.round(levelsFyiData.reduce((sum, l) => sum + l.totalCompensation, 0) / levelsFyiData.length) : "null"},
   "brutalTruth": "Honest assessment based on real market data",
   "redFlags": ["3 compensation issues based on data"],
   "donts": ["3 compensation mistakes"],
@@ -752,7 +946,6 @@ Based on this REAL DATA, return ONLY valid JSON:
   "timelineToFailure": "When comp kills offers",
   "dataSourcesSummary": {
     "glassdoor": "${glassdoorData?.[0]?.source || 'Not available'}",
-    "levelsFyi": "${levelsFyiData?.[0]?.source || 'Not available'}",
     "jobBoards": "${salariesWithData.length} jobs analyzed"
   }
 }`;
@@ -768,7 +961,7 @@ Based on this REAL DATA, return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const payCard = JSON.parse(content);
+    const payCard = extractJSON(content);
     
     // Add data sources
     payCard.dataSources = CARD_DATA_SOURCES.payCard;
@@ -785,9 +978,9 @@ Based on this REAL DATA, return ONLY valid JSON:
  * Uses real industry benchmarks data
  */
 export async function generateFunnelCard(
-  marketCard: any,
+  marketCard: CardData,
   benchmarks?: IndustryBenchmarks
-): Promise<any> {
+): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -814,11 +1007,15 @@ QUALITY METRICS:
 - Promotion rate: ${(benchmarks.qualityMetrics.promotionRate * 100).toFixed(0)}%`;
     }
 
-    // Calculate funnel based on real benchmarks
-    const applicantsPerHire = benchmarks?.funnelMetrics.applicantsPerHire || 150;
-    const phoneScreenRate = benchmarks?.funnelMetrics.phoneScreenPassRate || 0.25;
-    const onsiteRate = benchmarks?.funnelMetrics.onsitePassRate || 0.40;
-    const offerAcceptRate = benchmarks?.funnelMetrics.offerAcceptRate || 0.85;
+    // Calculate funnel based on real benchmarks only (no fallbacks)
+    if (!benchmarks) {
+      console.warn("⚠️ No benchmark data available, cannot generate Funnel Card");
+      return null;
+    }
+    
+    const applicantsPerHire = benchmarks.funnelMetrics.applicantsPerHire;
+    const phoneScreenRate = benchmarks.funnelMetrics.phoneScreenPassRate;
+    const onsiteRate = benchmarks.funnelMetrics.onsitePassRate;
 
     const outreach = Math.round(applicantsPerHire * 1.5);
     const replies = Math.round(outreach * 0.20);
@@ -853,11 +1050,11 @@ Using this REAL DATA, return ONLY valid JSON:
   ],
   "benchmarks": [
     { "label": "Reply rate", "value": "20%" },
-    { "label": "Screen pass rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.phoneScreenPassRate * 100).toFixed(0) : 25}%" },
-    { "label": "Onsite pass rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.onsitePassRate * 100).toFixed(0) : 40}%" },
-    { "label": "Offer accept rate", "value": "${benchmarks ? (benchmarks.funnelMetrics.offerAcceptRate * 100).toFixed(0) : 85}%" }
+    { "label": "Screen pass rate", "value": "${(benchmarks.funnelMetrics.phoneScreenPassRate * 100).toFixed(0)}%" },
+    { "label": "Onsite pass rate", "value": "${(benchmarks.funnelMetrics.onsitePassRate * 100).toFixed(0)}%" },
+    { "label": "Offer accept rate", "value": "${(benchmarks.funnelMetrics.offerAcceptRate * 100).toFixed(0)}%" }
   ],
-  "timeToHire": "${benchmarks?.funnelMetrics.averageTimeToHire || 45} days",
+  "timeToHire": "${benchmarks.funnelMetrics.averageTimeToHire} days",
   "funnelHealthComparison": [
     { "type": "Weak funnel", "outcome": "Result if metrics 30% below benchmark" },
     { "type": "Average funnel", "outcome": "Result matching industry benchmark" },
@@ -870,9 +1067,9 @@ Using this REAL DATA, return ONLY valid JSON:
   "hiddenBottleneck": "What kills conversion based on data",
   "bottomLine": "Key takeaway based on real metrics",
   "dataSourcesSummary": {
-    "benchmarkSource": "${benchmarks?.source || 'Industry average'}",
+    "benchmarkSource": "${benchmarks.source}",
     "applicantsPerHire": ${applicantsPerHire},
-    "timeToHire": ${benchmarks?.funnelMetrics.averageTimeToHire || 45}
+    "timeToHire": ${benchmarks.funnelMetrics.averageTimeToHire}
   }
 }
 
@@ -889,7 +1086,7 @@ Analyze the funnel based on the real benchmarks provided.`;
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const funnelCard = JSON.parse(content);
+    const funnelCard = extractJSON(content);
     
     // Add data sources
     funnelCard.dataSources = CARD_DATA_SOURCES.funnelCard;
@@ -904,7 +1101,7 @@ Analyze the funnel based on the real benchmarks provided.`;
 /**
  * Generate Reality Card - Master score and feasibility
  */
-export async function generateRealityCard(allCards: any): Promise<any> {
+export async function generateRealityCard(allCards: Record<string, CardData>): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -951,7 +1148,7 @@ Score 0-10 where:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const realityCard = JSON.parse(content);
+    const realityCard = extractJSON(content);
     
     // Add data sources
     realityCard.dataSources = CARD_DATA_SOURCES.realityCard;
@@ -971,7 +1168,7 @@ Score 0-10 where:
 /**
  * Generate Interview Card - Interview process
  */
-export async function generateInterviewCard(skillCard: any, roleCard: any): Promise<any> {
+export async function generateInterviewCard(skillCard: CardData, roleCard: CardData): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -1016,7 +1213,7 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const interviewCard = JSON.parse(content);
+    const interviewCard = extractJSON(content);
     
     // Add data sources
     interviewCard.dataSources = CARD_DATA_SOURCES.interviewCard;
@@ -1031,7 +1228,7 @@ Return ONLY valid JSON:
 /**
  * Generate Scorecard Card - Evaluation framework
  */
-export async function generateScorecardCard(skillCard: any, interviewCard: any): Promise<any> {
+export async function generateScorecardCard(skillCard: CardData, _interviewCard: CardData): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -1075,7 +1272,7 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const scoreCard = JSON.parse(content);
+    const scoreCard = extractJSON(content);
     
     // Add data sources
     scoreCard.dataSources = CARD_DATA_SOURCES.scoreCard;
@@ -1090,7 +1287,7 @@ Return ONLY valid JSON:
 /**
  * Generate Plan Card - Action plan
  */
-export async function generatePlanCard(allCards: any): Promise<any> {
+export async function generatePlanCard(allCards: Record<string, CardData>): Promise<CardData | null> {
   if (!openai) return null;
 
   try {
@@ -1136,7 +1333,7 @@ Return ONLY valid JSON:
     });
 
     const content = response.choices[0]?.message?.content?.trim() || "{}";
-    const planCard = JSON.parse(content);
+    const planCard = extractJSON(content);
     
     // Add data sources
     planCard.dataSources = CARD_DATA_SOURCES.planCard;

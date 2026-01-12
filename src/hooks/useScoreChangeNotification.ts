@@ -11,10 +11,10 @@ export function useScoreChangeNotification() {
       // You can add toast notifications or other UI feedback here
     };
 
-    window.addEventListener("scoreChange" as any, handleScoreChange as EventListener);
+    window.addEventListener("scoreChange", handleScoreChange as EventListener);
 
     return () => {
-      window.removeEventListener("scoreChange" as any, handleScoreChange as EventListener);
+      window.removeEventListener("scoreChange", handleScoreChange as EventListener);
     };
   }, []);
 

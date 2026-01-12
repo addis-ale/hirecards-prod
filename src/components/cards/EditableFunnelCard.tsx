@@ -5,12 +5,9 @@ import {
   BarChart3,
   TrendingUp,
   AlertTriangle,
-  Wrench,
   XCircle,
   Target,
 } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
 import {
   EditableList,
   EditableKeyValue,
@@ -21,7 +18,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface FunnelCardProps {
   data?: {
@@ -207,7 +204,7 @@ export const EditableFunnelCard = ({
           // Only load if the saved data has valid values (not empty arrays/zeros)
           if (savedData.funnelStages && Array.isArray(savedData.funnelStages) && savedData.funnelStages.length > 0) {
             // Check if values are not all zeros/empty/invalid
-            const hasValidValues = savedData.funnelStages.some((stage: any) => 
+            const hasValidValues = savedData.funnelStages.some((stage: Record<string, unknown>) => 
               stage.value && 
               stage.value !== "0" && 
               stage.value !== "0–0" && 
@@ -249,7 +246,6 @@ export const EditableFunnelCard = ({
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const sections = [
@@ -393,7 +389,6 @@ export const EditableFunnelCard = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

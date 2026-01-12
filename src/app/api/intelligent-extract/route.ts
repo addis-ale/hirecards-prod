@@ -98,7 +98,7 @@ Return ONLY valid JSON:
     const extracted = JSON.parse(data.choices[0].message.content);
 
     // Filter out null values and check if we got any new data
-    const validExtracted: any = {};
+    const validExtracted: Record<string, unknown> = {};
     let hasNewData = false;
 
     Object.keys(extracted).forEach((key) => {

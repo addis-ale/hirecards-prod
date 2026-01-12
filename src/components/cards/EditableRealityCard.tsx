@@ -6,26 +6,20 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  TrendingUp,
   Info,
-  Lightbulb,
   XCircle,
 } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
 import { EditableText, EditableList } from "@/components/EditableCard";
 import { ScoreProgressRing } from "@/components/ScoreProgressRing";
 import {
   calculateRealityScore,
-  getScoreLabel,
-  getScoreSubtext,
 } from "@/components/RealityScoreCalculator";
 import {
   ScoreImpactTable,
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { useAcceptedFixes } from "@/contexts/AcceptedFixesContext";
 
 interface RealityCardProps {
@@ -238,31 +232,54 @@ export const EditableRealityCard = ({
     scoreImpactRows,
   ]);
 
+  // Load from data prop first, then sessionStorage as fallback
   useEffect(() => {
+    // Prioritize data prop if provided
+    if (data) {
+      if (data.feasibilityScore) setFeasibilityScore(data.feasibilityScore);
+      if (data.feasibilityTitle) setFeasibilityTitle(data.feasibilityTitle);
+      if (data.feasibilitySubtext) setFeasibilitySubtext(data.feasibilitySubtext);
+      if (data.keyInsights) setKeyInsights(data.keyInsights);
+      if (data.helpsCase) setHelpsCase(data.helpsCase);
+      if (data.hurtsCase) setHurtsCase(data.hurtsCase);
+      if (data.hiddenBottleneck) setHiddenBottleneck(data.hiddenBottleneck);
+      if (data.timelineToFailure) setTimelineToFailure(data.timelineToFailure);
+      if (data.bottomLine1) setBottomLine1(data.bottomLine1);
+      if (data.bottomLine2) setBottomLine2(data.bottomLine2);
+      if (data.whatsReallyGoingOn) setWhatsReallyGoingOn(data.whatsReallyGoingOn);
+      if (data.redFlags) setRedFlags(data.redFlags);
+      if (data.donts) setDonts(data.donts);
+      if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        setScoreImpactRows(data.scoreImpactRows);
+      }
+      return; // Don't load from sessionStorage if data prop is provided
+    }
+    
+    // Fallback to sessionStorage
     const saved = sessionStorage.getItem("editableRealityCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.feasibilityScore) setFeasibilityScore(data.feasibilityScore);
-        if (data.feasibilityTitle) setFeasibilityTitle(data.feasibilityTitle);
-        if (data.feasibilitySubtext)
-          setFeasibilitySubtext(data.feasibilitySubtext);
-        if (data.realityCheck1) setRealityCheck1(data.realityCheck1);
-        if (data.realityCheck2) setRealityCheck2(data.realityCheck2);
-        if (data.keyInsights) setKeyInsights(data.keyInsights);
-        if (data.helpsCase) setHelpsCase(data.helpsCase);
-        if (data.hurtsCase) setHurtsCase(data.hurtsCase);
-        if (data.hiddenBottleneck) setHiddenBottleneck(data.hiddenBottleneck);
-        if (data.timelineToFailure)
-          setTimelineToFailure(data.timelineToFailure);
-        if (data.bottomLine1) setBottomLine1(data.bottomLine1);
-        if (data.bottomLine2) setBottomLine2(data.bottomLine2);
-        if (data.whatsReallyGoingOn)
-          setWhatsReallyGoingOn(data.whatsReallyGoingOn);
-        if (data.redFlags) setRedFlags(data.redFlags);
-        if (data.donts) setDonts(data.donts);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.feasibilityScore) setFeasibilityScore(savedData.feasibilityScore);
+        if (savedData.feasibilityTitle) setFeasibilityTitle(savedData.feasibilityTitle);
+        if (savedData.feasibilitySubtext)
+          setFeasibilitySubtext(savedData.feasibilitySubtext);
+        if (savedData.realityCheck1) setRealityCheck1(savedData.realityCheck1);
+        if (savedData.realityCheck2) setRealityCheck2(savedData.realityCheck2);
+        if (savedData.keyInsights) setKeyInsights(savedData.keyInsights);
+        if (savedData.helpsCase) setHelpsCase(savedData.helpsCase);
+        if (savedData.hurtsCase) setHurtsCase(savedData.hurtsCase);
+        if (savedData.hiddenBottleneck) setHiddenBottleneck(savedData.hiddenBottleneck);
+        if (savedData.timelineToFailure)
+          setTimelineToFailure(savedData.timelineToFailure);
+        if (savedData.bottomLine1) setBottomLine1(savedData.bottomLine1);
+        if (savedData.bottomLine2) setBottomLine2(savedData.bottomLine2);
+        if (savedData.whatsReallyGoingOn)
+          setWhatsReallyGoingOn(savedData.whatsReallyGoingOn);
+        if (savedData.redFlags) setRedFlags(savedData.redFlags);
+        if (savedData.donts) setDonts(savedData.donts);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
@@ -521,7 +538,6 @@ export const EditableRealityCard = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

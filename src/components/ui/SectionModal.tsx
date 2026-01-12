@@ -22,7 +22,7 @@ export function SectionModal({
   subtitle,
   Icon,
   tone = "info",
-  allowEdit = false,
+  allowEdit: _allowEdit = false,
   children,
 }: SectionModalProps) {
   const toneColors: Record<string, { accent: string; bg: string }> = {

@@ -19,7 +19,7 @@ interface ScoreImpactTableProps {
 export function ScoreImpactTable({
   rows,
   totalUplift,
-  cardId,
+  cardId: _cardId,
 }: ScoreImpactTableProps) {
   return (
     <div className="space-y-2">

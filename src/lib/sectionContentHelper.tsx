@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export function shouldShowInline(content: React.ReactNode, sectionId: string): boolean {
+export function shouldShowInline(_content: React.ReactNode, _sectionId: string): boolean {
   // Show all content inline - no modals needed
   return true;
 }
@@ -13,8 +13,8 @@ export function renderContentPreview(
   title: string,
   onOpen: () => void,
   tone: string,
-  sectionId: string,
-  allowEdit: boolean
+  _sectionId: string,
+  _allowEdit: boolean
 ): React.ReactNode {
   const toneColors: Record<string, { accent: string }> = {
     info: { accent: "#2563eb" },

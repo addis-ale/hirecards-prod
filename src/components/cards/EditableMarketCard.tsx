@@ -8,7 +8,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface MarketCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -167,48 +167,40 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
     },
   ]);
 
-  // Update when data changes
+  // Update when data prop changes - PRIORITY: data prop overrides everything
   useEffect(() => {
-    console.log("📊 useEffect triggered - data changed");
-    if (data?.talentAvailability?.total) {
-      console.log(
-        "📊 Updating primaryLocationCount from data:",
-        data.talentAvailability.total
-      );
-      setPrimaryLocationCount(`${data.talentAvailability.total}`);
-    }
-    if (data?.supplyDemand?.availableCandidates) {
-      console.log(
-        "📊 Updating counts from availableCandidates:",
-        data.supplyDemand.availableCandidates
-      );
-      setEuRelocationCount(
-        `~${Math.round(data.supplyDemand.availableCandidates * 0.3)}+`
-      );
-      setRemoteFlexCount(
-        `~${Math.round(data.supplyDemand.availableCandidates * 0.6)}+`
-      );
-    }
-    if (data?.redFlags && data.redFlags.length > 0) {
-      console.log(
-        "📊 Updating marketConditions from data:",
-        data.redFlags.length,
-        "items"
-      );
-      setMarketConditions(data.redFlags);
-    }
-    if (data?.insights && data.insights.length > 0) {
-      console.log("📊 Updating brutalTruth from insights:", data.insights[0]);
-      setBrutalTruth(data.insights[0]);
-    }
-    if (data?.talentSupply?.midLevel) {
-      setTalentSupplyMidLevel(data.talentSupply.midLevel);
-    }
-    if (data?.talentSupply?.senior) {
-      setTalentSupplySenior(data.talentSupply.senior);
-    }
-    if (data?.talentSupply?.productMinded) {
-      setTalentSupplyProductMinded(data.talentSupply.productMinded);
+    console.log("📊 ============================================");
+    console.log("📊 UPDATING MARKET CARD FROM DYNAMIC DATA");
+    console.log("📊 ============================================");
+    console.log("📊 Data received:", JSON.stringify(data, null, 2));
+    
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      if (data.talentAvailability?.total !== undefined && data.talentAvailability.total > 0) {
+        console.log("📊 Updating primaryLocationCount from data:", data.talentAvailability.total);
+        setPrimaryLocationCount(`${data.talentAvailability.total}`);
+      }
+      if (data.supplyDemand?.availableCandidates !== undefined && data.supplyDemand.availableCandidates > 0) {
+        console.log("📊 Updating counts from availableCandidates:", data.supplyDemand.availableCandidates);
+        setEuRelocationCount(`~${Math.round(data.supplyDemand.availableCandidates * 0.3)}+`);
+        setRemoteFlexCount(`~${Math.round(data.supplyDemand.availableCandidates * 0.6)}+`);
+      }
+      if (data.redFlags !== undefined && Array.isArray(data.redFlags) && data.redFlags.length > 0) {
+        console.log("📊 Updating marketConditions from data:", data.redFlags.length, "items");
+        setMarketConditions(data.redFlags);
+      }
+      if (data.insights !== undefined && Array.isArray(data.insights) && data.insights.length > 0) {
+        console.log("📊 Updating brutalTruth from insights:", data.insights[0]);
+        setBrutalTruth(data.insights[0]);
+      }
+      if (data.talentSupply?.midLevel !== undefined) {
+        setTalentSupplyMidLevel(data.talentSupply.midLevel);
+      }
+      if (data.talentSupply?.senior !== undefined) {
+        setTalentSupplySenior(data.talentSupply.senior);
+      }
+      if (data.talentSupply?.productMinded !== undefined) {
+        setTalentSupplyProductMinded(data.talentSupply.productMinded);
+      }
     }
   }, [data]);
 
@@ -234,29 +226,34 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
     scoreImpactRows,
   ]);
 
+  // Fallback: Load from sessionStorage if data prop is not available
   useEffect(() => {
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      // Data prop is available, skip sessionStorage
+      return;
+    }
+    
     const saved = sessionStorage.getItem("editableMarketCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.primaryLocationCount)
-          setPrimaryLocationCount(data.primaryLocationCount);
-        if (data.euRelocationCount)
-          setEuRelocationCount(data.euRelocationCount);
-        if (data.remoteFlexCount) setRemoteFlexCount(data.remoteFlexCount);
-        if (data.marketConditions) setMarketConditions(data.marketConditions);
-        if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
-        if (data.marketExpansionLevers)
-          setMarketExpansionLevers(data.marketExpansionLevers);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.primaryLocationCount)
+          setPrimaryLocationCount(savedData.primaryLocationCount);
+        if (savedData.euRelocationCount)
+          setEuRelocationCount(savedData.euRelocationCount);
+        if (savedData.remoteFlexCount) setRemoteFlexCount(savedData.remoteFlexCount);
+        if (savedData.marketConditions) setMarketConditions(savedData.marketConditions);
+        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+        if (savedData.marketExpansionLevers)
+          setMarketExpansionLevers(savedData.marketExpansionLevers);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const talentPoolContent = (
     <div className="space-y-6">
@@ -500,7 +497,6 @@ export const EditableMarketCard: React.FC<MarketCardProps> = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

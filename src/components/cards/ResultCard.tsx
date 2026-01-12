@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/lib/cardCategories";
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
@@ -11,14 +11,147 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ card, onClick }: ResultCardProps) {
-  const Icon = card.icon;
+  const [hasDynamicData, setHasDynamicData] = useState(false);
+  const [dynamicPreview, setDynamicPreview] = useState<string | null>(null);
 
-  // Generate key insights from teaser
-  const keyInsights = [
-    card.teaser,
-    `Focus on ${card.category.replace(/-/g, " ")} strategies`,
-    `Impact score: ${card.impact || "N/A"}`,
-  ];
+  // Check for dynamic data from sessionStorage
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("scrapedJobData");
+      if (stored) {
+        const data = JSON.parse(stored);
+        const jobAnalysisCards = data.jobAnalysisCards;
+        
+        if (jobAnalysisCards) {
+          // Check if this specific card has data
+          let cardData = null;
+          if (card.id === "role" && jobAnalysisCards.roleCard) {
+            cardData = jobAnalysisCards.roleCard;
+            setDynamicPreview(cardData.roleSummary || cardData.roleMission || null);
+          } else if (card.id === "skill" && jobAnalysisCards.skillCard) {
+            cardData = jobAnalysisCards.skillCard;
+            const skills = [
+              ...(cardData.technicalSkills || []),
+              ...(cardData.mustHaveSkills || [])
+            ].slice(0, 3);
+            setDynamicPreview(skills.length > 0 ? `Skills: ${skills.join(", ")}` : null);
+          } else if (card.id === "fit" && jobAnalysisCards.fitCard) {
+            cardData = jobAnalysisCards.fitCard;
+            setDynamicPreview(cardData.persona || cardData.brutalTruth || null);
+          } else if (card.id === "message" && jobAnalysisCards.messageCard) {
+            cardData = jobAnalysisCards.messageCard;
+            setDynamicPreview(cardData.corePitch || null);
+          } else if (card.id === "outreach" && jobAnalysisCards.outreachCard) {
+            cardData = jobAnalysisCards.outreachCard;
+            setDynamicPreview(cardData.introduction || null);
+          }
+          
+          if (cardData) {
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Talent Map Card (in peopleAnalysisCards)
+        if (card.id === "talentmap" && data.peopleAnalysisCards?.talentMapCard) {
+          const talentMapData = data.peopleAnalysisCards.talentMapCard;
+          const primaryFeeders = talentMapData.primaryFeeders || [];
+          if (primaryFeeders.length > 0) {
+            setDynamicPreview(`Top companies: ${primaryFeeders.slice(0, 3).join(", ")}`);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Market Card (in combinedAnalysisCards)
+        if (card.id === "market" && data.combinedAnalysisCards?.marketCard) {
+          const marketData = data.combinedAnalysisCards.marketCard;
+          const tightness = marketData.supplyDemand?.marketTightness || marketData.marketTightness;
+          const candidates = marketData.talentAvailability?.total || marketData.estimatedTotalCandidates;
+          if (tightness || candidates) {
+            setDynamicPreview(tightness ? `${tightness} market - ${candidates?.toLocaleString() || 'N/A'} candidates` : null);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Pay Card (in combinedAnalysisCards)
+        if (card.id === "pay" && data.combinedAnalysisCards?.payCard) {
+          const payData = data.combinedAnalysisCards.payCard;
+          const recommendedRange = payData.recommendedRange;
+          const median = payData.glassdoorMedian || payData.marketCompensation?.find((c: Record<string, unknown>) => typeof c.label === 'string' && c.label.includes("P50"))?.value;
+          if (recommendedRange || median) {
+            setDynamicPreview(recommendedRange || `Median: ${median}`);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Funnel Card (in combinedAnalysisCards)
+        if (card.id === "funnel" && data.combinedAnalysisCards?.funnelCard) {
+          const funnelData = data.combinedAnalysisCards.funnelCard;
+          const stages = funnelData.funnelStages || [];
+          if (stages.length > 0) {
+            const firstStage = stages[0];
+            setDynamicPreview(`${firstStage.label}: ${firstStage.value}`);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Reality Card (in combinedAnalysisCards)
+        if (card.id === "reality" && data.combinedAnalysisCards?.realityCard) {
+          const realityData = data.combinedAnalysisCards.realityCard;
+          const score = realityData.feasibilityScore || realityData.score;
+          const insights = realityData.keyInsights || [];
+          if (score || insights.length > 0) {
+            setDynamicPreview(score ? `Feasibility Score: ${score}` : insights[0] || null);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Interview Card (in derivedStrategyCards)
+        if (card.id === "interview" && data.derivedStrategyCards?.interviewCard) {
+          const interviewData = data.derivedStrategyCards.interviewCard;
+          const loop = interviewData.optimalLoop || [];
+          if (loop.length > 0) {
+            setDynamicPreview(`Interview process: ${loop.length} stages`);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Scorecard Card (in derivedStrategyCards)
+        if (card.id === "scorecard" && data.derivedStrategyCards?.scorecardCard) {
+          const scorecardData = data.derivedStrategyCards.scorecardCard;
+          const competencies = scorecardData.competencies || [];
+          if (competencies.length > 0) {
+            setDynamicPreview(`${competencies.length} competencies: ${competencies.slice(0, 3).join(", ")}`);
+            setHasDynamicData(true);
+          }
+        }
+        
+        // Check for Plan Card (in derivedStrategyCards)
+        if (card.id === "plan" && data.derivedStrategyCards?.planCard) {
+          const planData = data.derivedStrategyCards.planCard;
+          const first7Days = planData.first7Days || [];
+          if (first7Days.length > 0) {
+            setDynamicPreview(`First 7 days: ${first7Days.length} action items`);
+            setHasDynamicData(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading dynamic card data:", error);
+    }
+  }, [card.id]);
+
+  // Generate key insights - use dynamic data if available
+  const keyInsights = hasDynamicData && dynamicPreview
+    ? [
+        dynamicPreview.substring(0, 80) + (dynamicPreview.length > 80 ? "..." : ""),
+        `Generated from your job description`,
+        `Impact score: ${card.impact || "N/A"}`,
+      ]
+    : [
+        card.teaser,
+        `Focus on ${card.category.replace(/-/g, " ")} strategies`,
+        `Impact score: ${card.impact || "N/A"}`,
+      ];
 
   // Generate helps and hurts based on category
   const getHelpsAndHurts = () => {
@@ -97,6 +230,12 @@ export function ResultCard({ card, onClick }: ResultCardProps) {
             <h4 className="text-xl font-black text-white leading-tight">
               {card.label}
             </h4>
+            {hasDynamicData && (
+              <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 border border-green-400/30 rounded text-xs font-bold text-green-300">
+                <span>✨</span>
+                <span>Dynamic</span>
+              </span>
+            )}
           </div>
           <div className="flex items-center">
             <button

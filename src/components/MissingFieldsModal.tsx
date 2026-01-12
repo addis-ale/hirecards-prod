@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { AlertCircle, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 interface MissingFieldsModalProps {
   open: boolean;
@@ -21,7 +20,6 @@ export default function MissingFieldsModal({
   onCompleteFields,
   onBackToLanding,
 }: MissingFieldsModalProps) {
-  const router = useRouter();
   console.log("MissingFieldsModal render:", {
     open,
     missingFieldsCount: missingFields.length,
@@ -62,7 +60,7 @@ export default function MissingFieldsModal({
         {/* Main Description */}
         <div className="mb-6 space-y-3">
           <p className="text-base text-foreground leading-relaxed">
-            We've successfully extracted information from your job description, but we found{" "}
+            We&apos;ve successfully extracted information from your job description, but we found{" "}
             <span className="font-semibold text-amber-600 dark:text-amber-500">
               {missingFields.length} additional field{missingFields.length !== 1 ? "s" : ""}
             </span>{" "}

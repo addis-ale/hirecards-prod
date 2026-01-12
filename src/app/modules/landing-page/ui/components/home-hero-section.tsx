@@ -2,13 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Bug, AlertCircle, X, Bot, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollMorphHero from "@/app/modules/landing-page/ui/components/scroll-morph-hero";
 import { heroCards } from "./hero-cards-data";
 import Loader1 from "./loader1";
 import ConversationalChatbotModal from "@/components/ConversationalChatbotModal";
 import MissingFieldsModal from "@/components/MissingFieldsModal";
+// Import card components for dynamic rendering
+import { EditableRoleCard } from "@/components/cards/EditableRoleCard";
+import { EditableSkillCard } from "@/components/cards/EditableSkillCard";
+import { EditableFitCard } from "@/components/cards/EditableFitCard";
+import { EditableMessageCard } from "@/components/cards/EditableMessageCard";
+import { EditableOutreachCard } from "@/components/cards/EditableOutreachCard";
+import { EditableTalentMapCard } from "@/components/cards/EditableTalentMapCard";
+import { EditableMarketCard } from "@/components/cards/EditableMarketCard";
+import { EditablePayCard } from "@/components/cards/EditablePayCard";
+import { EditableFunnelCard } from "@/components/cards/EditableFunnelCard";
+import { EditableRealityCard } from "@/components/cards/EditableRealityCard";
+import { EditableInterviewCard } from "@/components/cards/EditableInterviewCard";
+import { EditableScorecardCard } from "@/components/cards/EditableScorecardCard";
+import { EditablePlanCard } from "@/components/cards/EditablePlanCard";
 
 interface ScrapedJobData {
   title: string;
@@ -91,10 +106,10 @@ interface ApifyPeopleData {
     industry?: string;
     link?: string;
   };
-  experience?: any[];
-  education?: any[];
-  certifications?: any[];
-  projects?: any[];
+  experience?: unknown[];
+  education?: unknown[];
+  certifications?: unknown[];
+  projects?: unknown[];
 }
 
 export const HomeHeroSection = () => {
@@ -123,24 +138,27 @@ export const HomeHeroSection = () => {
   const [apifyJobsOpen, setApifyJobsOpen] = useState(false);
   const [apifyCandidatesOpen, setApifyCandidatesOpen] = useState(false);
   
-  const [jobAnalysisCards, setJobAnalysisCards] = useState<any>(null);
-  const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<any>(null);
-  const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<any>(null);
-  const [derivedStrategyCards, setDerivedStrategyCards] = useState<any>(null);
+  const [jobAnalysisCards, setJobAnalysisCards] = useState<Record<string, unknown> | null>(null);
+  const [peopleAnalysisCards, setPeopleAnalysisCards] = useState<Record<string, unknown> | null>(null);
+  const [combinedAnalysisCards, setCombinedAnalysisCards] = useState<Record<string, unknown> | null>(null);
+  const [derivedStrategyCards, setDerivedStrategyCards] = useState<Record<string, unknown> | null>(null);
   
   // Additional data sources state
-  const [additionalDataSources, setAdditionalDataSources] = useState<any>(null);
+  const [additionalDataSources, setAdditionalDataSources] = useState<Record<string, unknown> | null>(null);
   
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const [extractedFields, setExtractedFields] = useState<any>(null);
+  const [extractedFields, setExtractedFields] = useState<Record<string, unknown> | null>(null);
   const [missingFieldsModalOpen, setMissingFieldsModalOpen] = useState(false);
   const [chatbotModalOpen, setChatbotModalOpen] = useState(false);
   
-  // Quick scrape state for real-time scraping
-  const [quickScrapeData, setQuickScrapeData] = useState<any>(null);
+  // Quick scrape state for real-time scraping (removed automatic scraping)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [quickScrapeData, setQuickScrapeData] = useState<Record<string, unknown> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [quickScrapeLoading, setQuickScrapeLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [quickScrapeError, setQuickScrapeError] = useState<string | null>(null);
   const [quickScrapeDebugOpen, setQuickScrapeDebugOpen] = useState(false);
 
@@ -154,54 +172,9 @@ export const HomeHeroSection = () => {
     }
   }, [missingFieldsModalOpen, missingFields]);
 
-  // Real-time scraping when URL is pasted
-  useEffect(() => {
-    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
-    const isURL = urlPattern.test(roleDescription.trim());
-    
-    if (isURL && roleDescription.trim().length > 10) {
-      // Debounce the scraping
-      const timer = setTimeout(async () => {
-        setQuickScrapeLoading(true);
-        setQuickScrapeError(null);
-        
-        try {
-          const response = await fetch("/api/quick-scrape", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ url: roleDescription.trim() }),
-          });
-
-          const result = await response.json();
-
-          if (!response.ok) {
-            throw new Error(result.error || "Failed to scrape URL");
-          }
-
-          setQuickScrapeData(result);
-          setQuickScrapeDebugOpen(true);
-          console.log("✅ Quick scrape successful:", result);
-          console.log("📊 Extracted Fields:", result.extractedFields);
-          console.log("❌ Missing Fields:", result.missingFields);
-        } catch (err: any) {
-          setQuickScrapeError(err.message);
-          console.error("Quick scrape error:", err);
-        } finally {
-          setQuickScrapeLoading(false);
-        }
-      }, 1500); // Wait 1.5 seconds after user stops typing
-
-      return () => clearTimeout(timer);
-    } else {
-      // Clear data if not a URL
-      if (quickScrapeData) {
-        setQuickScrapeData(null);
-      }
-      // Keep panel open but collapsed
-    }
-  }, [roleDescription]);
+  // Removed automatic scraping on URL detection
+  // Scraping now only happens when user clicks the submit button
+  // This prevents double scraping (automatic + button click)
 
   const proceedToResults = () => {
     console.log("📊 Proceeding to results page");
@@ -272,37 +245,238 @@ export const HomeHeroSection = () => {
     router.push("/");
   };
 
-  const handleChatbotComplete = (completedData: any) => {
-    console.log("✅ Chatbot completed with data:", completedData);
-    // Hide loading screen and chatbot
-    setChatbotModalOpen(false);
-    setIsLoading(false);
-    document.body.style.overflow = 'auto';
+  /**
+   * Check if completed fields affect Apify scraping
+   * Fields that affect Apify: roleTitle (job title), location, company
+   */
+  const doCompletedFieldsAffectApify = (
+    originalFields: Record<string, unknown> | null,
+    completedFields: Record<string, unknown>
+  ): boolean => {
+    // Fields that affect Apify scraping
+    const apifyAffectingFields = ['roleTitle', 'location'];
     
+    // Check if any completed field is different from original and affects Apify
+    for (const field of apifyAffectingFields) {
+      const originalValue = originalFields?.[field];
+      const completedValue = completedFields[field];
+      
+      // If field was completed and is different from original, it affects Apify
+      if (completedValue && completedValue !== originalValue) {
+        console.log(`🔄 Field "${field}" changed: "${originalValue}" → "${completedValue}" - will redo Apify scraping`);
+        return true;
+      }
+      
+      // If field was missing and now provided, it affects Apify
+      if (!originalValue && completedValue) {
+        console.log(`🔄 Field "${field}" was missing, now provided: "${completedValue}" - will redo Apify scraping`);
+        return true;
+      }
+    }
+    
+    // Company also affects salary data (optional but improves accuracy)
+    const originalCompany = scrapedData?.company || originalFields?.company;
+    const completedCompany = completedFields.company;
+    if (completedCompany && completedCompany !== originalCompany) {
+      console.log(`🔄 Company changed: "${originalCompany}" → "${completedCompany}" - will redo salary data`);
+      return true;
+    }
+    
+    console.log("✅ Completed fields don't affect Apify scraping - using existing data");
+    return false;
+  };
+
+  const handleChatbotComplete = async (completedData: Record<string, unknown>) => {
+    console.log("✅ Chatbot completed with data:", completedData);
+    console.log("📊 Current extractedFields:", extractedFields);
+    console.log("📊 Current scrapedData:", scrapedData);
+    console.log("📊 Current roleDescription:", roleDescription);
+    
+    // If no initial scraping has been done yet, trigger it now with completed fields
+    if (!scrapedData && roleDescription.trim()) {
+      console.log("🚀 No initial scraping done yet - starting full scrape with completed fields");
+      setChatbotModalOpen(false);
+      setIsLoading(true);
+      document.body.style.overflow = 'hidden';
+      
+      try {
+        const response = await fetch("/api/scrape-job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: roleDescription.trim(),
+            extractedFields: completedData, // Use completed fields
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to scrape job");
+        }
+        
+        const result = await response.json();
+        
+        // Update all state with new data
+        setScrapedData(result.data);
+        setSimilarJobs(result.similarJobs || []);
+        setCandidates(result.candidates || []);
+        setLinkedInJobsCount(result.linkedInJobsCount || 0);
+        setIndeedJobsCount(result.indeedJobsCount || 0);
+        setGlassdoorJobsCount(result.glassdoorJobsCount || 0);
+        setJobAnalysisCards(result.jobAnalysisCards || null);
+        setPeopleAnalysisCards(result.peopleAnalysisCards || null);
+        setCombinedAnalysisCards(result.combinedAnalysisCards || null);
+        setDerivedStrategyCards(result.derivedStrategyCards || null);
+        setExtractedFields(result.extractedFields || completedData);
+        setAdditionalDataSources(result.dataSources || null);
+        
+        // Save to sessionStorage
+        const formData = {
+          scrapedData: result.data,
+          similarJobs: result.similarJobs || [],
+          candidates: result.candidates || [],
+          linkedInJobsCount: result.linkedInJobsCount || 0,
+          indeedJobsCount: result.indeedJobsCount || 0,
+          glassdoorJobsCount: result.glassdoorJobsCount || 0,
+          platform: result.platform,
+          extractedFields: result.extractedFields || completedData,
+          jobAnalysisCards: result.jobAnalysisCards,
+          peopleAnalysisCards: result.peopleAnalysisCards,
+          combinedAnalysisCards: result.combinedAnalysisCards,
+          derivedStrategyCards: result.derivedStrategyCards,
+        };
+        sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+        
+        // Hide loading and navigate to results
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        router.push("/results");
+        return; // Exit early
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to scrape job";
+        console.error("❌ Error scraping job:", error);
+        setError(errorMessage);
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        return;
+      }
+    }
+    
+    // If initial scraping was already done, merge and check if we need to refresh
     // Merge completed data with extracted fields
     const mergedData = {
       ...extractedFields,
       ...completedData,
     };
-    setExtractedFields(mergedData);
+    console.log("🔄 Merged data:", mergedData);
     
-    // Store merged data
-    const formData = {
-      scrapedData,
-      similarJobs,
-      candidates,
-      linkedInJobsCount,
-      indeedJobsCount,
-      glassdoorJobsCount,
-      platform,
-      extractedFields: mergedData,
-      jobAnalysisCards, // Include AI-generated cards
-      peopleAnalysisCards,
-      combinedAnalysisCards,
-      derivedStrategyCards,
-    };
-    sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
-    router.push("/results");
+    // Check if completed fields affect Apify scraping
+    const needsApifyRefresh = doCompletedFieldsAffectApify(extractedFields, completedData);
+    console.log("🔄 Needs Apify refresh:", needsApifyRefresh);
+    
+    if (needsApifyRefresh) {
+      // Fields affect Apify - need to redo scraping and card generation (2+ minutes)
+      console.log("🔄 Completed fields affect Apify - redoing scraping and card generation");
+      setChatbotModalOpen(false);
+      // Keep loading screen visible for 2+ minutes
+      setIsLoading(true);
+      document.body.style.overflow = 'hidden';
+      
+      try {
+        // Call scrape-job API again with updated fields
+        // Use the original job URL if available, or use the merged data
+        const jobURL = scrapedData?.url || roleDescription;
+        
+        const response = await fetch("/api/scrape-job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: jobURL,
+            // Pass merged extracted fields to update the data
+            extractedFields: mergedData,
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to refresh job data");
+        }
+        
+        const result = await response.json();
+        
+        // Update all state with new data
+        setScrapedData(result.data);
+        setSimilarJobs(result.similarJobs || []);
+        setCandidates(result.candidates || []);
+        setLinkedInJobsCount(result.linkedInJobsCount || 0);
+        setIndeedJobsCount(result.indeedJobsCount || 0);
+        setGlassdoorJobsCount(result.glassdoorJobsCount || 0);
+        setJobAnalysisCards(result.jobAnalysisCards || null);
+        setPeopleAnalysisCards(result.peopleAnalysisCards || null);
+        setCombinedAnalysisCards(result.combinedAnalysisCards || null);
+        setDerivedStrategyCards(result.derivedStrategyCards || null);
+        setExtractedFields(result.extractedFields || mergedData);
+        setAdditionalDataSources(result.dataSources || null);
+        
+        // Save to sessionStorage
+        const formData = {
+          scrapedData: result.data,
+          similarJobs: result.similarJobs || [],
+          candidates: result.candidates || [],
+          linkedInJobsCount: result.linkedInJobsCount || 0,
+          indeedJobsCount: result.indeedJobsCount || 0,
+          glassdoorJobsCount: result.glassdoorJobsCount || 0,
+          platform: result.platform,
+          extractedFields: result.extractedFields || mergedData,
+          jobAnalysisCards: result.jobAnalysisCards,
+          peopleAnalysisCards: result.peopleAnalysisCards,
+          combinedAnalysisCards: result.combinedAnalysisCards,
+          derivedStrategyCards: result.derivedStrategyCards,
+        };
+        sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+        
+        // Hide loading and navigate to results
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        router.push("/results");
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to refresh job data";
+        console.error("❌ Error refreshing job data:", error);
+        setError(errorMessage);
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+      }
+    } else {
+      // Fields don't affect Apify - use existing data, just update extractedFields
+      console.log("✅ Using existing scraped data and cards - no Apify refresh needed");
+      setChatbotModalOpen(false);
+      setIsLoading(true); // Show brief loading
+      document.body.style.overflow = 'hidden';
+      
+      // Brief loading (500ms) then show results
+      setTimeout(() => {
+        setExtractedFields(mergedData);
+        
+        // Store merged data with existing cards
+        const formData = {
+          scrapedData,
+          similarJobs,
+          candidates,
+          linkedInJobsCount,
+          indeedJobsCount,
+          glassdoorJobsCount,
+          platform,
+          extractedFields: mergedData,
+          jobAnalysisCards, // Use existing cards
+          peopleAnalysisCards,
+          combinedAnalysisCards,
+          derivedStrategyCards,
+        };
+        sessionStorage.setItem("scrapedJobData", JSON.stringify(formData));
+        
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        router.push("/results");
+      }, 500);
+    }
   };
 
   const handleSubmit = async () => {
@@ -393,6 +567,25 @@ export const HomeHeroSection = () => {
       // Set additional data sources (Glassdoor, Levels.fyi, Crunchbase, GitHub)
       setAdditionalDataSources(result.dataSources || null);
       
+      // Save all card data to sessionStorage for dynamic card rendering
+      try {
+        const cardDataToStore = {
+          jobAnalysisCards: result.jobAnalysisCards || null,
+          peopleAnalysisCards: result.peopleAnalysisCards || null,
+          combinedAnalysisCards: result.combinedAnalysisCards || null,
+          derivedStrategyCards: result.derivedStrategyCards || null,
+          extractedFields: result.extractedFields || null,
+          scrapedData: result.data || null,
+          similarJobs: result.similarJobs || [],
+          candidates: result.candidates || [],
+          dataSources: result.dataSources || null,
+        };
+        sessionStorage.setItem("scrapedJobData", JSON.stringify(cardDataToStore));
+        console.log("✅ Saved card data to sessionStorage for dynamic rendering");
+      } catch (error) {
+        console.error("❌ Error saving card data to sessionStorage:", error);
+      }
+      
       // Mark API as completed
       setApiCompleted(true);
       
@@ -430,8 +623,9 @@ export const HomeHeroSection = () => {
         document.body.style.overflow = 'auto';
         proceedToResults();
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to scrape job";
+      setError(errorMessage);
       setIsLoading(false);
       document.body.style.overflow = 'auto';
       console.error("Error scraping job:", err);
@@ -618,11 +812,47 @@ export const HomeHeroSection = () => {
                       )}
                     </button>
                     {jobAnalysisCardsOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(jobAnalysisCards, null, 2)}
-                        </pre>
+                      <div className="p-4 bg-slate-900/50 space-y-4">
+                        {jobAnalysisCards.roleCard && (
+                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-green-300 mb-2">Role Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableRoleCard data={jobAnalysisCards.roleCard} />
+                            </div>
+                          </div>
+                        )}
+                        {jobAnalysisCards.skillCard && (
+                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-green-300 mb-2">Skill Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableSkillCard data={jobAnalysisCards.skillCard} />
+                            </div>
+                          </div>
+                        )}
+                        {jobAnalysisCards.fitCard && (
+                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-green-300 mb-2">Fit Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableFitCard data={jobAnalysisCards.fitCard} />
+                            </div>
+                          </div>
+                        )}
+                        {jobAnalysisCards.messageCard && (
+                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-green-300 mb-2">Message Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableMessageCard data={jobAnalysisCards.messageCard} />
+                            </div>
+                          </div>
+                        )}
+                        {jobAnalysisCards.outreachCard && (
+                          <div className="border border-green-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-green-300 mb-2">Outreach Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableOutreachCard data={jobAnalysisCards.outreachCard} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -652,10 +882,14 @@ export const HomeHeroSection = () => {
                     </button>
                     {peopleAnalysisCardsOpen && (
                       <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(peopleAnalysisCards, null, 2)}
-                        </pre>
+                        {peopleAnalysisCards.talentMapCard && (
+                          <div className="border border-blue-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-blue-300 mb-2">Talent Map Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableTalentMapCard data={peopleAnalysisCards.talentMapCard} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -684,11 +918,39 @@ export const HomeHeroSection = () => {
                       )}
                     </button>
                     {combinedAnalysisCardsOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(combinedAnalysisCards, null, 2)}
-                        </pre>
+                      <div className="p-4 bg-slate-900/50 space-y-4">
+                        {combinedAnalysisCards.marketCard && (
+                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-amber-300 mb-2">Market Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableMarketCard data={combinedAnalysisCards.marketCard} />
+                            </div>
+                          </div>
+                        )}
+                        {combinedAnalysisCards.payCard && (
+                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-amber-300 mb-2">Pay Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditablePayCard data={combinedAnalysisCards.payCard} />
+                            </div>
+                          </div>
+                        )}
+                        {combinedAnalysisCards.funnelCard && (
+                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-amber-300 mb-2">Funnel Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableFunnelCard data={combinedAnalysisCards.funnelCard} />
+                            </div>
+                          </div>
+                        )}
+                        {combinedAnalysisCards.realityCard && (
+                          <div className="border border-amber-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-amber-300 mb-2">Reality Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableRealityCard data={combinedAnalysisCards.realityCard} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -717,11 +979,31 @@ export const HomeHeroSection = () => {
                       )}
                     </button>
                     {derivedStrategyCardsOpen && (
-                      <div className="p-4 bg-slate-900/50">
-                        <div className="text-xs text-slate-400 mb-2 font-medium">Card Data:</div>
-                        <pre className="text-[10px] overflow-x-auto text-slate-300 max-h-[40vh] overflow-y-auto bg-slate-950/50 rounded-lg p-3 border border-slate-700/50">
-                          {JSON.stringify(derivedStrategyCards, null, 2)}
-                        </pre>
+                      <div className="p-4 bg-slate-900/50 space-y-4">
+                        {derivedStrategyCards.interviewCard && (
+                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-purple-300 mb-2">Interview Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableInterviewCard data={derivedStrategyCards.interviewCard} />
+                            </div>
+                          </div>
+                        )}
+                        {derivedStrategyCards.scorecardCard && (
+                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-purple-300 mb-2">Scorecard Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditableScorecardCard data={derivedStrategyCards.scorecardCard} />
+                            </div>
+                          </div>
+                        )}
+                        {derivedStrategyCards.planCard && (
+                          <div className="border border-purple-400/30 rounded-lg p-3 bg-slate-800/50">
+                            <div className="text-xs font-bold text-purple-300 mb-2">Plan Card</div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                              <EditablePlanCard data={derivedStrategyCards.planCard} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1363,7 +1645,7 @@ export const HomeHeroSection = () => {
               {candidatesOpen && (
                 <div className="p-4 max-h-[60vh] overflow-y-auto bg-slate-950/50 dark:bg-slate-900/50 backdrop-blur-sm">
                   <div className="space-y-3">
-                    {candidates.map((person, index) => (
+                    {candidates.map((person) => (
                       <div
                         key={person.id}
                         className="p-4 bg-gradient-to-br from-slate-800/60 to-slate-800/40 rounded-xl border border-slate-700/50 hover:border-purple-500/50 transition-all duration-200 hover:shadow-lg"
@@ -1371,9 +1653,11 @@ export const HomeHeroSection = () => {
                         {/* Person Header */}
                         <div className="flex items-start gap-3 mb-3">
                           {person.avatar && (
-                            <img
+                            <Image
                               src={person.avatar}
                               alt={`${person.firstName} ${person.lastName}`}
+                              width={56}
+                              height={56}
                               className="w-14 h-14 rounded-xl object-cover border-2 border-purple-500/30"
                             />
                           )}
@@ -1774,9 +2058,11 @@ export const HomeHeroSection = () => {
                         {/* Job Header */}
                         <div className="flex items-start gap-3 mb-2">
                           {job.company.logo && (
-                            <img
+                            <Image
                               src={job.company.logo}
                               alt={job.company.name}
+                              width={40}
+                              height={40}
                               className="w-10 h-10 rounded object-cover"
                             />
                           )}

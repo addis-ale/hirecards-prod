@@ -56,10 +56,6 @@ export async function scrapeJobURL(url: string): Promise<ScrapedJobData> {
       scrapedData = scrapeLinkedIn($, url);
     } else if (hostname.includes("indeed.com")) {
       scrapedData = scrapeIndeed($, url);
-    } else if (hostname.includes("greenhouse.io")) {
-      scrapedData = scrapeGreenhouse($, url);
-    } else if (hostname.includes("lever.co")) {
-      scrapedData = scrapeLever($, url);
     } else if (hostname.includes("workday.com")) {
       scrapedData = scrapeWorkday($, url);
     } else if (hostname.includes("myworkdayjobs.com")) {
@@ -72,8 +68,9 @@ export async function scrapeJobURL(url: string): Promise<ScrapedJobData> {
 
     console.log("✅ ScrapingBee success");
     return scrapedData;
-  } catch (error: any) {
-    console.error("❌ ScrapingBee error:", error?.message || error);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ ScrapingBee error:", errorMessage);
     throw new Error("Failed to scrape job URL using ScrapingBee");
   }
 }
@@ -81,7 +78,7 @@ export async function scrapeJobURL(url: string): Promise<ScrapedJobData> {
 /**
  * Scrape LinkedIn job postings
  */
-function scrapeLinkedIn($: cheerio.CheerioAPI, url: string): ScrapedJobData {
+function scrapeLinkedIn($: cheerio.CheerioAPI): ScrapedJobData {
   const title = $("h1.top-card-layout__title, h1.topcard__title")
     .first()
     .text()
@@ -121,7 +118,7 @@ function scrapeLinkedIn($: cheerio.CheerioAPI, url: string): ScrapedJobData {
 /**
  * Scrape Indeed job postings
  */
-function scrapeIndeed($: cheerio.CheerioAPI, url: string): ScrapedJobData {
+function scrapeIndeed($: cheerio.CheerioAPI): ScrapedJobData {
   const title = $("h1.jobsearch-JobInfoHeader-title, h1").first().text().trim();
   const company = $(
     ".jobsearch-InlineCompanyRating-companyHeader, .jobsearch-CompanyInfoContainer"
@@ -161,65 +158,9 @@ function scrapeIndeed($: cheerio.CheerioAPI, url: string): ScrapedJobData {
 }
 
 /**
- * Scrape Greenhouse job postings
- */
-function scrapeGreenhouse($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  const title = $("#header .app-title, h1.app-title").first().text().trim();
-  const company = $(".company-name").first().text().trim();
-  const location = $(".location").first().text().trim();
-
-  const description = $("#content, .content").text().trim();
-
-  const rawText = $("body").text().replace(/\s+/g, " ").trim();
-
-  return {
-    title: title || "Job Position",
-    description: description || rawText,
-    location: location || undefined,
-    company: company || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
-    rawText,
-    source: "Greenhouse",
-  };
-}
-
-/**
- * Scrape Lever job postings
- */
-function scrapeLever($: cheerio.CheerioAPI, url: string): ScrapedJobData {
-  const title = $(".posting-headline h2, h2").first().text().trim();
-  const company = $(".main-header-text-item-company, .company-name")
-    .first()
-    .text()
-    .trim();
-  const location = $(".posting-categories .location, .workplaceTypes")
-    .first()
-    .text()
-    .trim();
-
-  const description = $(".section-wrapper, .posting-description").text().trim();
-
-  const rawText = $("body").text().replace(/\s+/g, " ").trim();
-
-  return {
-    title: title || "Job Position",
-    description: description || rawText,
-    location: location || undefined,
-    company: company || undefined,
-    requirements: extractListItems($, "requirements", description),
-    responsibilities: extractListItems($, "responsibilities", description),
-    benefits: extractListItems($, "benefits", description),
-    rawText,
-    source: "Lever",
-  };
-}
-
-/**
  * Scrape Workday job postings
  */
-function scrapeWorkday($: cheerio.CheerioAPI, url: string): ScrapedJobData {
+function scrapeWorkday($: cheerio.CheerioAPI): ScrapedJobData {
   const title = $('h1[data-automation-id="jobPostingHeader"], h1')
     .first()
     .text()
@@ -276,7 +217,6 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
   // Extract structured fields from sidebar (Location, Employment Type, etc.)
   let company = "";
   let location = "";
-  let employmentType = "";
   let locationType = "";
   let department = "";
   let salary = "";
@@ -315,7 +255,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
         console.log(`✅ Location extracted (comma-separated): "${location}"`);
       } else {
         // Multiple lines for locations
-        let locations = [next];
+        const locations = [next];
 
         // Check if next line(s) are also locations (not a field label)
         const fieldLabels = [
@@ -344,7 +284,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
         console.log(`✅ Location extracted (multi-line): "${location}"`);
       }
     } else if (current === "Employment Type") {
-      employmentType = next;
+      // employmentType = next; // Unused variable
     } else if (current === "Location Type") {
       locationType = next;
       // Normalize work model values
@@ -471,7 +411,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
             location = parts.join(", ");
             console.log(`✅ Location extracted from JSON-LD: "${location}"`);
           }
-        } catch (e) {
+        } catch {
           // JSON parse failed, continue
         }
       });
@@ -540,8 +480,7 @@ function scrapeAshby($: cheerio.CheerioAPI, url: string): ScrapedJobData {
  * Generic scraping for unknown job boards
  */
 function scrapeGenericJobBoard(
-  $: cheerio.CheerioAPI,
-  url: string
+  $: cheerio.CheerioAPI
 ): ScrapedJobData {
   // Try to find title using common patterns
   const title = $(
@@ -594,8 +533,7 @@ function scrapeGenericJobBoard(
  */
 function extractListItems(
   $: cheerio.CheerioAPI,
-  section: string,
-  context: string
+  section: string
 ): string[] {
   const items: string[] = [];
 
@@ -635,7 +573,7 @@ function extractListItems(
  */
 export async function parseScrapedJobData(
   scrapedData: ScrapedJobData
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -664,7 +602,7 @@ ${scrapedData.description.substring(0, 4000)}
 CRITICAL: First, determine if this is actually a job posting. If it's NOT a job posting (e.g., company homepage, random article, search page, error page), set confidence to 0.0 and return minimal data.
 
 If it IS a valid job posting, extract the following:
-- Company name (CRITICAL: Extract the ACTUAL hiring company name, NOT the job board/platform name like "LinkedIn", "Indeed", "Greenhouse", etc. Look for phrases like "at [Company]", "join [Company]", or company names in the job description)
+- Company name (CRITICAL: Extract the ACTUAL hiring company name, NOT the job board/platform name like "LinkedIn", "Indeed", etc. Look for phrases like "at [Company]", "join [Company]", or company names in the job description)
 - Job title (clean format)
 - Location (city/state/country or "Remote")
 - Work model (Remote, Hybrid, On-site)
@@ -741,11 +679,11 @@ Return ONLY valid JSON with this exact structure:
     // Prioritize AI-extracted company name, but fall back to scraped company
     // Make sure we never use the job board name (source) as the company
     const extractedCompany = parsed.company || scrapedData.company;
-    const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
-    const isJobBoardName = jobBoardNames.some(board => 
+    const jobBoardNames = ["LinkedIn", "Indeed", "Workday", "Ashby", "Generic"];
+    const isJobBoardName = jobBoardNames.some((board) =>
       extractedCompany?.toLowerCase().includes(board.toLowerCase())
     );
-    
+
     return {
       ...parsed,
       company: isJobBoardName ? scrapedData.company : extractedCompany, // Use scraped company if AI returned job board name
@@ -761,7 +699,9 @@ Return ONLY valid JSON with this exact structure:
 /**
  * Extract basic fields without AI (fallback)
  */
-function extractBasicFields(scrapedData: ScrapedJobData): any {
+function extractBasicFields(
+  scrapedData: ScrapedJobData
+): Record<string, unknown> {
   const description = scrapedData.description.toLowerCase();
 
   // Determine work model

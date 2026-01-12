@@ -123,16 +123,19 @@ export default function ConversationalChatbot() {
     router.push("/results");
   }, [extractedData, router]);
 
-  // Check if completion message detected
+  // Check if completion message detected - automatically proceed immediately
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     if (
       lastMessage?.role === "assistant" &&
       lastMessage.content.includes("generate your HireCard now")
     ) {
-      setTimeout(() => {
+      // Automatically proceed after a brief moment to show the message
+      const timer = setTimeout(() => {
         handleComplete();
-      }, 1000);
+      }, 500); // Reduced from 1000ms to 500ms for faster auto-proceed
+      
+      return () => clearTimeout(timer);
     }
   }, [messages, handleComplete]);
 
@@ -212,8 +215,9 @@ export default function ConversationalChatbot() {
         role: "assistant",
         content: assistantMessage.content,
       });
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Something went wrong";
+      setError(errorMessage);
       console.error("Error:", err);
     } finally {
       setIsLoading(false);

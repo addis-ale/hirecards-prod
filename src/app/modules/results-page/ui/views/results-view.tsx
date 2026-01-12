@@ -15,7 +15,7 @@ import {
 export default function ResultsView() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [currentCardId, setCurrentCardId] = useState<string | null>(null);
+  const [, setCurrentCardId] = useState<string | null>(null);
 
   // Get current card from session or URL params
   React.useEffect(() => {
@@ -25,13 +25,17 @@ export default function ResultsView() {
     }
   }, []);
 
+  // All cards are now dynamic - show all 13 cards
+  const allCardIds = ["reality", "role", "skill", "fit", "message", "outreach", "talentmap", "market", "pay", "funnel", "interview", "scorecard", "plan"];
+  const allDynamicCards = allCards.filter((card) => allCardIds.includes(card.id));
+  
   const filteredCards = selectedCategory
-    ? getCardsByCategory(selectedCategory)
-    : allCards;
+    ? getCardsByCategory(selectedCategory).filter((card) => allCardIds.includes(card.id))
+    : allDynamicCards;
 
-  const selectedCategoryData = selectedCategory
-    ? cardCategories.find((cat) => cat.id === selectedCategory)
-    : null;
+  // const selectedCategoryData = selectedCategory
+  //   ? cardCategories.find((cat) => cat.id === selectedCategory)
+  //   : null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -41,11 +45,16 @@ export default function ResultsView() {
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-4 uppercase">
-            HireCards Battle Deck
+            Job Analysis Cards
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
-            Your strategy before you go to market
+            Dynamic cards generated from your job description
           </p>
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-300 dark:border-blue-700">
+            <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+              📊 Showing all 13 dynamic cards: Reality, Role, Skill, Fit, Message, Outreach, Talent Map, Market, Pay, Funnel, Interview, Scorecard, Plan
+            </span>
+          </div>
         </div>
 
         {/* Category Filters */}

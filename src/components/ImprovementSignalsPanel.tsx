@@ -8,7 +8,7 @@ interface ImprovementSignalsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   currentScore: number;
-  cardData: any;
+  cardData: Record<string, unknown>;
   onApplySuggestion: (signalId: string, targetTab: string, scoreIncrease?: number) => void;
   onNavigateToTab: (tabId: string) => void;
 }
@@ -17,9 +17,9 @@ export function ImprovementSignalsPanel({
   isOpen,
   onClose,
   currentScore,
-  cardData,
-  onApplySuggestion,
-  onNavigateToTab,
+  cardData: _cardData,
+  onApplySuggestion: _onApplySuggestion,
+  onNavigateToTab: _onNavigateToTab,
 }: ImprovementSignalsPanelProps) {
   return (
     <AnimatePresence>

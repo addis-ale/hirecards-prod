@@ -12,7 +12,6 @@ import {
   Mic,
   ClipboardList,
   CalendarCheck,
-  Target,
 } from "lucide-react";
 
 export interface Card {

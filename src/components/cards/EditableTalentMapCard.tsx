@@ -5,22 +5,16 @@ import {
   Users,
   Target,
   AlertTriangle,
-  Wrench,
   XCircle,
   ArrowRight,
-  Building2,
-  MapPin,
-  Info,
 } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
 import { EditableList, EditableText } from "@/components/EditableCard";
 import {
   ScoreImpactTable,
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface TalentMapCardProps {
   data?: {
@@ -51,6 +45,12 @@ export const EditableTalentMapCard = ({
   currentCardId,
   onOpenSuggestions,
 }: TalentMapCardProps = {}) => {
+  console.log("🗺️ EditableTalentMapCard rendered with data:", data ? "YES" : "NO");
+  if (data) {
+    console.log("🗺️ Data.primaryFeeders:", data.primaryFeeders);
+    console.log("🗺️ Data.primaryFeeders length:", data.primaryFeeders?.length);
+  }
+  
   const [primaryFeeders, setPrimaryFeeders] = useState(
     data?.primaryFeeders ?? [
       "Adyen",
@@ -226,30 +226,91 @@ export const EditableTalentMapCard = ({
     scoreImpactRows,
   ]);
 
+  // Update when data prop changes - PRIORITY: data prop overrides everything
   useEffect(() => {
+    console.log("🗺️ ============================================");
+    console.log("🗺️ UPDATING TALENT MAP CARD FROM DYNAMIC DATA");
+    console.log("🗺️ ============================================");
+    console.log("🗺️ Data received:", data);
+    console.log("🗺️ Data type:", typeof data);
+    console.log("🗺️ Data is object?", typeof data === 'object');
+    console.log("🗺️ Data keys:", data ? Object.keys(data) : 'null');
+    console.log("🗺️ Data stringified:", JSON.stringify(data, null, 2));
+    
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      console.log("🗺️ ✅ Data is valid, updating state...");
+      if (data.primaryFeeders !== undefined && Array.isArray(data.primaryFeeders) && data.primaryFeeders.length > 0) {
+        console.log("🗺️ Updating primaryFeeders from data:", data.primaryFeeders.length, "items");
+        setPrimaryFeeders(data.primaryFeeders);
+      }
+      if (data.secondaryFeeders !== undefined && Array.isArray(data.secondaryFeeders) && data.secondaryFeeders.length > 0) {
+        console.log("🗺️ Updating secondaryFeeders from data:", data.secondaryFeeders.length, "items");
+        setSecondaryFeeders(data.secondaryFeeders);
+      }
+      if (data.avoidList !== undefined && Array.isArray(data.avoidList) && data.avoidList.length > 0) {
+        console.log("🗺️ Updating avoidList from data:", data.avoidList.length, "items");
+        setAvoidList(data.avoidList);
+      }
+      if (data.brutalTruth !== undefined && data.brutalTruth !== null) {
+        console.log("🗺️ Updating brutalTruth from data:", data.brutalTruth);
+        setBrutalTruth(data.brutalTruth);
+      }
+      if (data.redFlags !== undefined && Array.isArray(data.redFlags) && data.redFlags.length > 0) {
+        console.log("🗺️ Updating redFlags from data:", data.redFlags.length, "items");
+        setRedFlags(data.redFlags);
+      }
+      if (data.donts !== undefined && Array.isArray(data.donts) && data.donts.length > 0) {
+        console.log("🗺️ Updating donts from data:", data.donts.length, "items");
+        setDonts(data.donts);
+      }
+      if (data.fixes !== undefined && Array.isArray(data.fixes) && data.fixes.length > 0) {
+        console.log("🗺️ Updating fixes from data:", data.fixes.length, "items");
+        setFixes(data.fixes);
+      }
+      if (data.hiddenBottleneck !== undefined && data.hiddenBottleneck !== null) {
+        console.log("🗺️ Updating hiddenBottleneck from data:", data.hiddenBottleneck);
+        setHiddenBottleneck(data.hiddenBottleneck);
+      }
+      if (data.talentFlowMap !== undefined && Array.isArray(data.talentFlowMap) && data.talentFlowMap.length > 0) {
+        console.log("🗺️ Updating talentFlowMap from data:", data.talentFlowMap.length, "items");
+        setTalentFlowMap(data.talentFlowMap);
+      }
+      if (data.personaInsights !== undefined && Array.isArray(data.personaInsights) && data.personaInsights.length > 0) {
+        console.log("🗺️ Updating personaInsights from data:", data.personaInsights.length, "items");
+        setPersonaInsights(data.personaInsights);
+      }
+    }
+  }, [data]);
+
+  // Fallback: Load from sessionStorage if data prop is not available
+  useEffect(() => {
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      // Data prop is available, skip sessionStorage
+      return;
+    }
+    
     const saved = sessionStorage.getItem("editableTalentMapCard");
     if (saved) {
       try {
-        const data = JSON.parse(saved);
-        if (data.primaryFeeders) setPrimaryFeeders(data.primaryFeeders);
-        if (data.secondaryFeeders) setSecondaryFeeders(data.secondaryFeeders);
-        if (data.avoidList) setAvoidList(data.avoidList);
-        if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
-        if (data.redFlags) setRedFlags(data.redFlags);
-        if (data.donts) setDonts(data.donts);
-        if (data.fixes) setFixes(data.fixes);
-        if (data.hiddenBottleneck) setHiddenBottleneck(data.hiddenBottleneck);
-        if (data.talentFlowMap) setTalentFlowMap(data.talentFlowMap);
-        if (data.personaInsights) setPersonaInsights(data.personaInsights);
-        if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
-          setScoreImpactRows(data.scoreImpactRows);
+        const savedData = JSON.parse(saved);
+        if (savedData.primaryFeeders) setPrimaryFeeders(savedData.primaryFeeders);
+        if (savedData.secondaryFeeders) setSecondaryFeeders(savedData.secondaryFeeders);
+        if (savedData.avoidList) setAvoidList(savedData.avoidList);
+        if (savedData.brutalTruth) setBrutalTruth(savedData.brutalTruth);
+        if (savedData.redFlags) setRedFlags(savedData.redFlags);
+        if (savedData.donts) setDonts(savedData.donts);
+        if (savedData.fixes) setFixes(savedData.fixes);
+        if (savedData.hiddenBottleneck) setHiddenBottleneck(savedData.hiddenBottleneck);
+        if (savedData.talentFlowMap) setTalentFlowMap(savedData.talentFlowMap);
+        if (savedData.personaInsights) setPersonaInsights(savedData.personaInsights);
+        if (savedData.scoreImpactRows && Array.isArray(savedData.scoreImpactRows) && savedData.scoreImpactRows.length > 0) {
+          setScoreImpactRows(savedData.scoreImpactRows);
         }
       } catch (e) {
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const sections = [
     {
@@ -442,7 +503,6 @@ export const EditableTalentMapCard = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

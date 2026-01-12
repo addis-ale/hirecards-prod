@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  MessageSquare,
   Target,
   AlertTriangle,
   Wrench,
@@ -19,9 +18,8 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { SectionModal } from "@/components/ui/SectionModal";
-import { shouldShowInline, renderContentPreview } from "@/lib/sectionContentHelper";
 
 interface MessageCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -186,7 +184,6 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const corePitchContent = (
@@ -412,7 +409,6 @@ export const EditableMessageCard: React.FC<MessageCardProps> = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

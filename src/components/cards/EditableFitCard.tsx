@@ -11,8 +11,6 @@ import {
   XCircle,
   CheckCircle,
 } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
 import { Pill } from "@/components/ui/Pill";
 import { EditableList, EditableText } from "@/components/EditableCard";
 import {
@@ -20,7 +18,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface FitCardProps {
   data?: {
@@ -225,7 +223,6 @@ export const EditableFitCard = ({
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sections = [
@@ -409,8 +406,6 @@ export const EditableFitCard = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
-
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },
             warning: { accent: "#d97706", bg: "rgba(217,119,6,0.1)" },

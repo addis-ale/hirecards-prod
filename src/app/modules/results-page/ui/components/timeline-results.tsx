@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Sparkles, TrendingUp, ChevronRight } from "lucide-react";
 
 export function TimelineResults() {
-  const data = detailedHeroCards.map((card, index) => ({
+  const data = detailedHeroCards.map((card) => ({
     title: card.title,
     content: (
       <div className="space-y-4">
@@ -57,7 +57,7 @@ export function TimelineResults() {
                         <Sparkles className="w-8 h-8 text-yellow-500" /> The HireCards Journey
                     </h3>
                     <p className="text-slate-400 font-bold max-w-2xl leading-relaxed">
-                        Achieving a perfect hire isn't about one single card. It's the cumulative effect of fixing alignment, market scope, and process speed across the entire HireCards battle deck.
+                        Achieving a perfect hire isn&apos;t about one single card. It&apos;s the cumulative effect of fixing alignment, market scope, and process speed across the entire HireCards battle deck.
                     </p>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">

@@ -17,7 +17,6 @@ import {
   useMotionTemplate,
 } from "motion/react";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const scrollToHeroInput = () => {
   const inputSection = document.getElementById("hero-input-section");

@@ -1,14 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Briefcase, Target, Trophy, AlertTriangle, Wrench, FlagTriangleRight, FileText, XCircle, Info, CheckCircle, Lightbulb } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
-import { Pill } from "@/components/ui/Pill";
+import { Briefcase, Target, Trophy, AlertTriangle, FlagTriangleRight, FileText, XCircle, Lightbulb } from "lucide-react";
 import { EditableText, EditableList } from "@/components/EditableCard";
 import { ScoreImpactTable, ScoreImpactRow } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { SectionModal } from "@/components/ui/SectionModal";
 
 interface RoleCardProps {
@@ -314,7 +311,6 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const [openModal, setOpenModal] = useState<string | null>(null);
@@ -522,7 +518,6 @@ export const EditableRoleCard: React.FC<RoleCardProps> = ({ data, onNavigateToCa
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

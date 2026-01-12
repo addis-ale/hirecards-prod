@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { getCardById, allCards } from "@/lib/cardCategories";
+import { getCardById } from "@/lib/cardCategories";
 import { HireCardTabs } from "@/components/HireCardTabs";
 import { CardNavigator } from "@/components/cards/CardNavigator";
 

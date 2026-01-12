@@ -7,20 +7,16 @@ import {
   Hammer,
   Brain,
   Users,
-  TrendingUp,
-  XCircle,
   Target,
   BookOpen,
 } from "lucide-react";
-import { Section } from "@/components/ui/Section";
-import { Callout } from "@/components/ui/Callout";
 import { EditableList, EditableText } from "@/components/EditableCard";
 import {
   ScoreImpactTable,
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface SkillCardProps {
   data?: {
@@ -261,7 +257,6 @@ export const EditableSkillCard = ({
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const sections = [
@@ -408,7 +403,6 @@ export const EditableSkillCard = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },

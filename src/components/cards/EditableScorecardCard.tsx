@@ -15,7 +15,7 @@ import {
   ScoreImpactRow,
 } from "@/components/ui/ScoreImpactTable";
 import { FixMeNowBoxes } from "@/components/ui/FixMeNowBoxes";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface ScorecardCardProps {
   onNavigateToCard?: (cardId: string) => void;
@@ -171,7 +171,26 @@ export const EditableScorecardCard: React.FC<ScorecardCardProps> = ({
     scoreImpactRows,
   ]);
 
+  // Load from data prop first, then sessionStorage as fallback
   useEffect(() => {
+    // Prioritize data prop if provided
+    if (data) {
+      if (data.competencies) setCompetencies(data.competencies);
+      if (data.rating1) setRating1(data.rating1);
+      if (data.rating2) setRating2(data.rating2);
+      if (data.rating3) setRating3(data.rating3);
+      if (data.rating4) setRating4(data.rating4);
+      if (data.brutalTruth) setBrutalTruth(data.brutalTruth);
+      if (data.donts) setDonts(data.donts);
+      if (data.fixes) setFixes(data.fixes);
+      if (data.evaluationMapping) setEvaluationMapping(data.evaluationMapping);
+      if (data.scoreImpactRows && Array.isArray(data.scoreImpactRows) && data.scoreImpactRows.length > 0) {
+        setScoreImpactRows(data.scoreImpactRows);
+      }
+      return; // Don't load from sessionStorage if data prop is provided
+    }
+    
+    // Fallback to sessionStorage
     const saved = sessionStorage.getItem("editableScorecardCard");
     if (saved) {
       try {
@@ -192,8 +211,7 @@ export const EditableScorecardCard: React.FC<ScorecardCardProps> = ({
         console.error("Failed to load saved data:", e);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data]);
 
   const competenciesContent = (
     <div className="space-y-6">
@@ -428,7 +446,6 @@ export const EditableScorecardCard: React.FC<ScorecardCardProps> = ({
           if (b.id === "score-impact") return -1;
           return 0;
         }).map((section) => {
-          const Icon = section.Icon;
 
           const toneColors: Record<string, { accent: string; bg: string }> = {
             info: { accent: "#2563eb", bg: "rgba(37,99,235,0.1)" },
