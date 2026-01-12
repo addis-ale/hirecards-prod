@@ -1365,10 +1365,12 @@ export const HomeHeroSection = () => {
                 </div>
               )}
             </div>
-          )}
+        </div>
+      )}
 
-          {/* Similar Jobs Panel - Combined LinkedIn + Indeed + Glassdoor */}
-          {(linkedInJobsCount > 0 || indeedJobsCount > 0 || glassdoorJobsCount > 0) && (
+      {/* Similar Jobs Panel - Combined LinkedIn + Indeed + Glassdoor */}
+      {(linkedInJobsCount > 0 || indeedJobsCount > 0 || glassdoorJobsCount > 0) && (
+        <div className="fixed bottom-4 right-4 z-[100] max-w-md space-y-2">
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:bg-slate-800 rounded-xl shadow-2xl border border-cyan-500/30 overflow-hidden backdrop-blur-sm">
               {/* Header */}
               <button
@@ -1499,10 +1501,11 @@ export const HomeHeroSection = () => {
                 </div>
               )}
             </div>
-          )}
+        </div>
+      )}
 
-          {/* ========================================= */}
-          {/* AI-GENERATED CARD GROUPS */}
+      {/* ========================================= */}
+      {/* AI-GENERATED CARD GROUPS */}
           {/* ========================================= */}
 
           {/* Group 1: Job Analysis Cards (5 cards) */}
@@ -1810,8 +1813,6 @@ export const HomeHeroSection = () => {
               )}
             </div>
           )}
-        </div>
-      )}
 
       {/* Warnings Display */}
       {warnings.length > 0 && (
@@ -1831,7 +1832,6 @@ export const HomeHeroSection = () => {
                 ×
               </button>
             </div>
-          </div>
           </div>
         </div>
       )}
