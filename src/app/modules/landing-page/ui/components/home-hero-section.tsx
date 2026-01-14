@@ -197,6 +197,8 @@ export const HomeHeroSection = () => {
   const [extractedFields, setExtractedFields] = useState<ExtractedFields | null>(null);
   const [missingFieldsModalOpen, setMissingFieldsModalOpen] = useState(false);
   const [chatbotModalOpen, setChatbotModalOpen] = useState(false);
+  const [loaderAnimationComplete, setLoaderAnimationComplete] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"navigate" | "modal" | null>(null);
   
   // Quick scrape state for real-time scraping (removed automatic scraping)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -215,6 +217,31 @@ export const HomeHeroSection = () => {
       });
     }
   }, [missingFieldsModalOpen, missingFields]);
+
+  // Handle pending action after loader animation completes
+  // Note: proceedToResults is intentionally not in deps - data is already set before animation completes
+  useEffect(() => {
+    if (loaderAnimationComplete && pendingAction) {
+      console.log("🎬 Loader animation complete, executing pending action:", pendingAction);
+      if (pendingAction === "navigate") {
+        setIsLoading(false);
+        document.body.style.overflow = 'auto';
+        proceedToResults();
+      } else if (pendingAction === "modal") {
+        console.log("🚀 OPENING MISSING FIELDS MODAL NOW (after loader animation)");
+        setMissingFieldsModalOpen(true);
+      }
+      setPendingAction(null);
+      setLoaderAnimationComplete(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaderAnimationComplete, pendingAction]);
+  
+  // Handler for when loader animation completes
+  const handleLoaderComplete = () => {
+    console.log("✅ Loader animation finished showing all 13 cards");
+    setLoaderAnimationComplete(true);
+  };
 
   // Removed automatic scraping on URL detection
   // Scraping now only happens when user clicks the submit button
@@ -276,6 +303,9 @@ export const HomeHeroSection = () => {
     setMissingFieldsModalOpen(false);
     setIsLoading(false);
     setChatbotModalOpen(false);
+    setApiCompleted(false);
+    setLoaderAnimationComplete(false);
+    setPendingAction(null);
     setRoleDescription("");
     setScrapedData(null);
     setSimilarJobs([]);
@@ -521,6 +551,8 @@ export const HomeHeroSection = () => {
     
     setIsLoading(true);
     setApiCompleted(false); // Reset API completion state
+    setLoaderAnimationComplete(false); // Reset loader animation state
+    setPendingAction(null); // Reset pending action
     setError(null);
     
     // Prevent scrolling when loading
@@ -642,20 +674,14 @@ export const HomeHeroSection = () => {
       setMissingFields(missingFieldsArray);
       
       if (hasMissing && missingFieldsArray.length > 0) {
-        // Keep loading screen visible and show modal on top
+        // Keep loading screen visible and set pending action to show modal after animation
         console.log("✅ SHOULD OPEN MODAL - Missing", missingFieldsArray.length, "fields");
-        // Small delay to ensure state updates are processed
-        setTimeout(() => {
-          console.log("🚀 OPENING MISSING FIELDS MODAL NOW (on loading screen)");
-          setMissingFieldsModalOpen(true);
-          // Don't hide loading screen yet - it will be hidden when user makes a choice
-        }, 100);
+        console.log("⏳ Waiting for loader animation to complete before showing modal...");
+        setPendingAction("modal");
       } else {
-        // No missing fields, hide loading and proceed to results immediately
-        console.log("⏭️ NO MISSING FIELDS - Proceeding to results immediately");
-        setIsLoading(false);
-        document.body.style.overflow = 'auto';
-        proceedToResults();
+        // No missing fields, set pending action to navigate after animation completes
+        console.log("⏭️ NO MISSING FIELDS - Will proceed to results after loader animation completes");
+        setPendingAction("navigate");
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to scrape job";
@@ -697,6 +723,7 @@ export const HomeHeroSection = () => {
           {!missingFieldsModalOpen && !chatbotModalOpen && (
             <Loader1 
               isComplete={apiCompleted}
+              onComplete={handleLoaderComplete}
             />
           )}
           

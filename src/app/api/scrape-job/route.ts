@@ -3,7 +3,7 @@ import { scrapeJobURL } from "@/lib/jobScraper";
 import OpenAI from "openai";
 import { ApifyClient } from "apify-client";
 import * as cardGenerators from "./cardGenerators";
-import { fetchAllDataSources, scrapeIndustryBenchmarks } from "./dataSources";
+import { fetchAllDataSources, scrapeIndustryBenchmarks, type GlassdoorSalaryData } from "./dataSources";
 import type { CardData } from "./cardGenerators";
 
 // Initialize OpenAI client
@@ -1408,80 +1408,46 @@ export async function POST(request: NextRequest) {
 
     // ============================================
     // CACHE LOOKUP (for URLs only)
+    // We cache DATA SOURCES only (scraped data, similar jobs, candidates, salary)
+    // Cards are NOT cached - they are regenerated each time from cached data
     // ============================================
+    let cachedDataSources: {
+      scrapedData: Record<string, unknown> | null;
+      similarJobs: Array<Record<string, unknown>>;
+      candidates: Array<Record<string, unknown>>;
+      salaryData: Record<string, unknown> | null;
+      aiExtractedData: Record<string, unknown> | null;
+      platform: string;
+    } | null = null;
+    
     if (isURL) {
       const { findCachedJob, getCacheRefreshNeeds } = await import("@/lib/jobCache");
       const cached = await findCachedJob(input.trim());
       
       if (cached) {
-        console.log("📦 Found cached job data");
+        console.log("📦 Found cached job data sources");
         const refreshNeeds = getCacheRefreshNeeds(cached);
         
-        // Validate that cached cards are complete before returning
-        const jobCards = cached.job_analysis_cards as Record<string, unknown> | undefined;
-        const combinedCards = cached.combined_analysis_cards as Record<string, unknown> | undefined;
-        const derivedCards = cached.derived_strategy_cards as Record<string, unknown> | undefined;
-        const hasCompleteCards = 
-          jobCards &&
-          combinedCards &&
-          derivedCards &&
-          // Check required cards exist
-          jobCards.roleCard &&
-          jobCards.skillCard &&
-          jobCards.fitCard &&
-          jobCards.messageCard &&
-          jobCards.outreachCard &&
-          combinedCards.marketCard &&
-          combinedCards.payCard &&
-          combinedCards.funnelCard &&
-          combinedCards.realityCard &&
-          derivedCards.interviewCard &&
-          derivedCards.scorecardCard &&
-          derivedCards.planCard;
-        
-        if (!hasCompleteCards) {
-          console.warn("⚠️ Cached cards incomplete, will regenerate");
-          // Continue with full scrape below
-        } else if (
-          !refreshNeeds.needsScrapedRefresh &&
-          !refreshNeeds.needsExternalRefresh &&
-          !refreshNeeds.needsCardRefresh
-        ) {
-          console.log("✅ All cached data is valid and cards are complete, returning from cache");
+        // Check if cached data sources are still valid
+        if (!refreshNeeds.needsScrapedRefresh && !refreshNeeds.needsExternalRefresh) {
+          console.log("✅ Cached data sources are valid, will use them and regenerate cards");
           
           // Update access metadata
           const { updateAccessMetadata } = await import("@/lib/jobCache");
           await updateAccessMetadata(input.trim());
           
-          return NextResponse.json({
-            success: true,
-            data: cached.scraped_data,
-            platform: cached.platform,
-            similarJobs: cached.similar_jobs || [],
-            similarJobsCount: cached.similar_jobs_count || 0,
-            linkedInJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "linkedin").length : 0),
-            indeedJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "indeed").length : 0),
-            glassdoorJobsCount: (Array.isArray(cached.similar_jobs) ? cached.similar_jobs.filter((j: Record<string, unknown>) => j.platform === "glassdoor").length : 0),
-            candidates: cached.candidates || [],
-            candidatesCount: cached.candidates_count || 0,
-            inputType: "url",
-            extractedFields: cached.ai_extracted_data || null,
-            missingFields: [],
-            hasMissingFields: false,
-            jobAnalysisCards: cached.job_analysis_cards || null,
-            peopleAnalysisCards: cached.people_analysis_cards || null,
-            combinedAnalysisCards: cached.combined_analysis_cards || null,
-            derivedStrategyCards: cached.derived_strategy_cards || null,
-            dataSources: cached.salary_data ? {
-              glassdoorSalaries: cached.salary_data,
-              benchmarks: null,
-              fetchedAt: cached.external_data_fetched_at,
-            } : null,
-            fromCache: true,
-          });
+          // Store cached data sources to use later
+          cachedDataSources = {
+            scrapedData: cached.scraped_data as Record<string, unknown> | null,
+            similarJobs: (cached.similar_jobs as Array<Record<string, unknown>>) || [],
+            candidates: (cached.candidates as Array<Record<string, unknown>>) || [],
+            salaryData: cached.salary_data as Record<string, unknown> | null,
+            aiExtractedData: cached.ai_extracted_data as Record<string, unknown> | null,
+            platform: cached.platform as string || "unknown",
+          };
         } else {
-          console.log("⚠️ Cached data expired, refreshing:", refreshNeeds);
-          // Will continue with scraping below, but can use cached scraped data if still valid
+          console.log("⚠️ Cached data sources expired, will refresh:", refreshNeeds);
+          // Will continue with scraping below
         }
       }
     }
@@ -1490,7 +1456,12 @@ export async function POST(request: NextRequest) {
     let inputType: string;
     let scrapingError: string | null = null;
 
-    if (isURL) {
+    // Use cached scraped data if available, otherwise scrape fresh
+    if (cachedDataSources?.scrapedData) {
+      console.log("📦 Using cached scraped data");
+      scrapedData = cachedDataSources.scrapedData as ScrapedJobData;
+      inputType = "url";
+    } else if (isURL) {
       // If it's a URL, scrape it
       try {
         scrapedData = await scrapeJobURL(input.trim()) as ScrapedJobData;
@@ -1526,114 +1497,124 @@ export async function POST(request: NextRequest) {
     }
 
     // Use AI to extract additional details from the description
-    const textToAnalyze =
-      (typeof scrapedData === "object" && scrapedData !== null && "description" in scrapedData ? String(scrapedData.description || "") : "") ||
-      (typeof scrapedData === "object" && scrapedData !== null && "descriptionPlainText" in scrapedData ? String(scrapedData.descriptionPlainText || "") : "") ||
-      (typeof scrapedData === "object" && scrapedData !== null && "rawText" in scrapedData ? String(scrapedData.rawText || "") : "") ||
-      "";
-
     let aiExtractedData: ExtractedJobData = {};
     let similarJobs: ApifyJobData[] = [];
+    let candidates: ApifyPeopleData[] = [];
+    let candidateSearchResult: CandidateSearchResult = { candidates: [], sampleSize: 0, source: "linkedin" };
 
-    if (textToAnalyze && typeof textToAnalyze === "string" && textToAnalyze.length > 50) {
-      aiExtractedData = await extractJobDetailsWithAI(
-        textToAnalyze,
-        scrapedData
-      );
+    // If we have cached data sources, use them instead of fetching fresh
+    if (cachedDataSources) {
+      console.log("📦 Using cached AI extracted data and external data");
+      aiExtractedData = (cachedDataSources.aiExtractedData as unknown as ExtractedJobData) || {};
+      similarJobs = (cachedDataSources.similarJobs as unknown as ApifyJobData[]) || [];
+      candidates = (cachedDataSources.candidates as unknown as ApifyPeopleData[]) || [];
+      candidateSearchResult = { candidates, sampleSize: candidates.length, source: "linkedin" };
+    } else {
+      // Fresh extraction and fetching
+      const textToAnalyze =
+        (typeof scrapedData === "object" && scrapedData !== null && "description" in scrapedData ? String(scrapedData.description || "") : "") ||
+        (typeof scrapedData === "object" && scrapedData !== null && "descriptionPlainText" in scrapedData ? String(scrapedData.descriptionPlainText || "") : "") ||
+        (typeof scrapedData === "object" && scrapedData !== null && "rawText" in scrapedData ? String(scrapedData.rawText || "") : "") ||
+        "";
 
-      // Merge AI-extracted data with scraped data
-      // Only add AI data if the field doesn't already exist
-      console.log(`📍 Location data - Scraped: "${scrapedData.location}", AI extracted: "${aiExtractedData.location}"`);
-      
-      // Ensure company is the actual hiring company, not the job board
-      const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
-      let finalCompany: string | undefined = (typeof scrapedData.company === 'string' ? scrapedData.company : undefined) || aiExtractedData.company;
-      
-      // If company matches job board name, try to get it from AI extraction or keep scraped
-      if (finalCompany && jobBoardNames.some(board => finalCompany?.toLowerCase().includes(board.toLowerCase()))) {
-        console.warn(`⚠️ Company name "${finalCompany}" appears to be a job board name, using scraped company instead`);
-        finalCompany = typeof scrapedData.company === 'string' ? scrapedData.company : undefined; // Prefer scraped company name
+      if (textToAnalyze && typeof textToAnalyze === "string" && textToAnalyze.length > 50) {
+        aiExtractedData = await extractJobDetailsWithAI(
+          textToAnalyze,
+          scrapedData
+        );
+
+        // Merge AI-extracted data with scraped data
+        // Only add AI data if the field doesn't already exist
+        console.log(`📍 Location data - Scraped: "${scrapedData.location}", AI extracted: "${aiExtractedData.location}"`);
+        
+        // Ensure company is the actual hiring company, not the job board
+        const jobBoardNames = ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday", "Ashby", "Generic"];
+        let finalCompany: string | undefined = (typeof scrapedData.company === 'string' ? scrapedData.company : undefined) || aiExtractedData.company;
+        
+        // If company matches job board name, try to get it from AI extraction or keep scraped
+        if (finalCompany && jobBoardNames.some(board => finalCompany?.toLowerCase().includes(board.toLowerCase()))) {
+          console.warn(`⚠️ Company name "${finalCompany}" appears to be a job board name, using scraped company instead`);
+          finalCompany = typeof scrapedData.company === 'string' ? scrapedData.company : undefined; // Prefer scraped company name
+        }
+        
+        scrapedData = {
+          ...scrapedData,
+          company: finalCompany, // Ensure we use the actual company, not job board
+          location: scrapedData.location || aiExtractedData.location,
+          locationType: scrapedData.locationType || aiExtractedData.locationType,
+          salary: scrapedData.salary || aiExtractedData.salary,
+          experienceLevel: aiExtractedData.experienceLevel,
+          employmentType:
+            scrapedData.employmentType || aiExtractedData.employmentType,
+          requirements:
+            scrapedData.requirements || aiExtractedData.requirements || undefined,
+          responsibilities:
+            scrapedData.responsibilities ||
+            aiExtractedData.responsibilities ||
+            undefined,
+          benefits: scrapedData.benefits || aiExtractedData.benefits || undefined,
+          skills: aiExtractedData.skills || undefined,
+          department: aiExtractedData.department,
+          aiEnhanced: true, // Flag to indicate AI extraction was used
+        };
+
+        // Search for similar jobs on both LinkedIn and Indeed using Apify
+        const jobTitleForSearch = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.department || "";
+        const locationForSearch = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || "";
+
+        if (jobTitleForSearch && typeof jobTitleForSearch === "string" && apifyClient) {
+          console.log("Searching for similar jobs on LinkedIn and Indeed...");
+
+          // Normalize job title with AI for better search results
+          const normalizedJobTitle = await normalizeJobTitleWithAI(jobTitleForSearch);
+
+          const filters: {
+            workplaceType?: string;
+            employmentType?: string;
+            experienceLevel?: string;
+            salary?: string;
+          } = {
+            workplaceType: typeof scrapedData.locationType === 'string' ? scrapedData.locationType : undefined,
+            employmentType: typeof scrapedData.employmentType === 'string' ? scrapedData.employmentType : undefined,
+            experienceLevel: typeof scrapedData.experienceLevel === 'string' ? scrapedData.experienceLevel : undefined,
+            salary: typeof scrapedData.salary === 'string' ? scrapedData.salary : undefined,
+          };
+
+          // Search all platforms in parallel with normalized title
+          const [linkedInJobs, indeedJobs, glassdoorJobs] = await Promise.all([
+            searchSimilarJobsWithApify(normalizedJobTitle, locationForSearch, filters),
+            searchSimilarJobsOnIndeed(normalizedJobTitle, locationForSearch, filters),
+            searchSimilarJobsOnGlassdoor(normalizedJobTitle, locationForSearch, filters),
+          ]);
+
+          // Combine results from all platforms
+          similarJobs = [...linkedInJobs, ...indeedJobs, ...glassdoorJobs];
+          console.log(
+            `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed + ${glassdoorJobs.length} from Glassdoor = ${similarJobs.length} total`
+          );
+        } else if (!apifyClient) {
+          console.warn("⚠️ Apify API key not configured - skipping job search");
+          similarJobs = [];
+        } else {
+          console.warn("⚠️ No job title available - skipping job search");
+          similarJobs = [];
+        }
       }
-      
-      scrapedData = {
-        ...scrapedData,
-        company: finalCompany, // Ensure we use the actual company, not job board
-        location: scrapedData.location || aiExtractedData.location,
-        locationType: scrapedData.locationType || aiExtractedData.locationType,
-        salary: scrapedData.salary || aiExtractedData.salary,
-        experienceLevel: aiExtractedData.experienceLevel,
-        employmentType:
-          scrapedData.employmentType || aiExtractedData.employmentType,
-        requirements:
-          scrapedData.requirements || aiExtractedData.requirements || undefined,
-        responsibilities:
-          scrapedData.responsibilities ||
-          aiExtractedData.responsibilities ||
-          undefined,
-        benefits: scrapedData.benefits || aiExtractedData.benefits || undefined,
-        skills: aiExtractedData.skills || undefined,
-        department: aiExtractedData.department,
-        aiEnhanced: true, // Flag to indicate AI extraction was used
-      };
 
-      // Search for similar jobs on both LinkedIn and Indeed using Apify
+      // Search for candidates with matching job title and location from LinkedIn
       const jobTitle = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.department || "";
       const location = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || "";
 
-      if (jobTitle && typeof jobTitle === "string" && apifyClient) {
-        console.log("Searching for similar jobs on LinkedIn and Indeed...");
-
-        // Normalize job title with AI for better search results
-        const normalizedJobTitle = await normalizeJobTitleWithAI(jobTitle);
-
-        const filters: {
-          workplaceType?: string;
-          employmentType?: string;
-          experienceLevel?: string;
-          salary?: string;
-        } = {
-          workplaceType: typeof scrapedData.locationType === 'string' ? scrapedData.locationType : undefined,
-          employmentType: typeof scrapedData.employmentType === 'string' ? scrapedData.employmentType : undefined,
-          experienceLevel: typeof scrapedData.experienceLevel === 'string' ? scrapedData.experienceLevel : undefined,
-          salary: typeof scrapedData.salary === 'string' ? scrapedData.salary : undefined,
-        };
-
-        // Search all platforms in parallel with normalized title
-        const [linkedInJobs, indeedJobs, glassdoorJobs] = await Promise.all([
-          searchSimilarJobsWithApify(normalizedJobTitle, location, filters),
-          searchSimilarJobsOnIndeed(normalizedJobTitle, location, filters),
-          searchSimilarJobsOnGlassdoor(normalizedJobTitle, location, filters),
-        ]);
-
-        // Combine results from all platforms
-        similarJobs = [...linkedInJobs, ...indeedJobs, ...glassdoorJobs];
-        console.log(
-          `✅ Combined results: ${linkedInJobs.length} from LinkedIn + ${indeedJobs.length} from Indeed + ${glassdoorJobs.length} from Glassdoor = ${similarJobs.length} total`
-        );
-      } else if (!apifyClient) {
-        console.warn("⚠️ Apify API key not configured - skipping job search");
-        similarJobs = [];
+      if (jobTitle) {
+        console.log("🔍 Searching for candidates from LinkedIn...");
+        candidateSearchResult = apifyClient
+          ? await searchCandidatesWithApify(jobTitle, location)
+          : { candidates: [], sampleSize: 0, source: "linkedin" };
+        candidates = candidateSearchResult.candidates;
       } else {
-        console.warn("⚠️ No job title available - skipping job search");
-        similarJobs = [];
+        console.warn("⚠️ No job title available - skipping candidate search");
+        candidates = [];
       }
-    }
-
-    // Search for candidates with matching job title and location from LinkedIn
-    let candidates: ApifyPeopleData[] = [];
-    let candidateSearchResult: CandidateSearchResult = { candidates: [], sampleSize: 0, source: "linkedin" };
-    const jobTitle = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.department || "";
-    const location = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || "";
-
-    if (jobTitle) {
-      console.log("🔍 Searching for candidates from LinkedIn...");
-      candidateSearchResult = apifyClient
-        ? await searchCandidatesWithApify(jobTitle, location)
-        : { candidates: [], sampleSize: 0, source: "linkedin" };
-      candidates = candidateSearchResult.candidates;
-    } else {
-      console.warn("⚠️ No job title available - skipping candidate search");
-      candidates = [];
     }
 
     // Calculate platform breakdown for response
@@ -1723,26 +1704,36 @@ export async function POST(request: NextRequest) {
     console.log("📊 ============================================");
 
     let dataSources = null;
-    try {
-      // Extract skills from job data
-      const skills = scrapedData.skills || extractedFields?.skills || [];
-      const company = scrapedData.company || extractedFields?.company || "Unknown";
-      const location = scrapedData.location || extractedFields?.location || "Remote";
-      const jobTitle = scrapedData.title || extractedFields?.roleTitle || "Software Engineer";
-      
-      // Fetch all data sources in parallel (Glassdoor)
-      dataSources = await fetchAllDataSources(
-        jobTitle,
-        company,
-        location,
-        Array.isArray(skills) ? skills : [skills],
-        "technology" // Default to technology industry
-      );
-      
-      console.log("✅ Additional data sources fetched");
-    } catch (error) {
-      console.error("⚠️ Error fetching additional data sources:", error);
-      // Continue without additional data sources
+    
+    // Skip fetching if we have cached salary data
+    if (cachedDataSources?.salaryData) {
+      console.log("📦 Using cached salary data, skipping Glassdoor fetch");
+      dataSources = {
+        glassdoorSalaries: cachedDataSources.salaryData as unknown as GlassdoorSalaryData[],
+        fetchedAt: new Date().toISOString(),
+      };
+    } else {
+      try {
+        // Extract skills from job data
+        const skills = scrapedData.skills || extractedFields?.skills || [];
+        const company = scrapedData.company || extractedFields?.company || "Unknown";
+        const location = scrapedData.location || extractedFields?.location || "Remote";
+        const jobTitle = scrapedData.title || extractedFields?.roleTitle || "Software Engineer";
+        
+        // Fetch all data sources in parallel (Glassdoor)
+        dataSources = await fetchAllDataSources(
+          jobTitle,
+          company,
+          location,
+          Array.isArray(skills) ? skills : [skills],
+          "technology" // Default to technology industry
+        );
+        
+        console.log("✅ Additional data sources fetched");
+      } catch (error) {
+        console.error("⚠️ Error fetching additional data sources:", error);
+        // Continue without additional data sources
+      }
     }
 
     // Get industry benchmarks (scraped from real sources)
@@ -1880,43 +1871,49 @@ export async function POST(request: NextRequest) {
 
     // ============================================
     // SAVE TO CACHE (for URLs only)
-    // Only saves if ALL cards are fully generated
+    // Only saves DATA SOURCES if both job title AND location are present
+    // Does NOT cache generated cards - cards are regenerated each time
     // ============================================
     if (isURL && scrapedData) {
-      try {
-        const { saveToCache } = await import("@/lib/jobCache");
-        const cacheResult = await saveToCache(input.trim(), {
-          scrapedData: scrapedData as Record<string, unknown>,
-          aiExtractedData: aiExtractedData as Record<string, unknown>,
-          similarJobs: similarJobs as unknown as Array<Record<string, unknown>>,
-          candidates: candidates as unknown as Array<Record<string, unknown>>,
-          salaryData: dataSources?.glassdoorSalaries as Record<string, unknown> | undefined,
-          jobAnalysisCards: jobAnalysisCards as Record<string, unknown> | undefined,
-          peopleAnalysisCards: peopleAnalysisCards as Record<string, unknown> | undefined,
-          combinedAnalysisCards: combinedAnalysisCards as Record<string, unknown> | undefined,
-          derivedStrategyCards: derivedStrategyCards as Record<string, unknown> | undefined,
-          company: (typeof scrapedData === "object" && scrapedData !== null && "company" in scrapedData ? String(scrapedData.company || "") : "") || aiExtractedData.company || undefined,
-          title: (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.jobTitle || undefined,
-          location: (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || undefined,
-          platform,
-        });
-        
-        if (cacheResult.success) {
-          console.log("✅ Saved complete job data and all cards to cache");
-        } else {
-          console.warn("⚠️ Did not save to cache:", cacheResult.reason);
-          console.warn("   This is expected if card generation was incomplete");
+      const jobTitle = (typeof scrapedData === "object" && scrapedData !== null && "title" in scrapedData ? String(scrapedData.title || "") : "") || aiExtractedData.jobTitle || undefined;
+      const jobLocation = (typeof scrapedData === "object" && scrapedData !== null && "location" in scrapedData ? String(scrapedData.location || "") : "") || aiExtractedData.location || undefined;
+      const jobCompany = (typeof scrapedData === "object" && scrapedData !== null && "company" in scrapedData ? String(scrapedData.company || "") : "") || aiExtractedData.company || undefined;
+      
+      // Only cache if both title and location are present
+      if (jobTitle && jobLocation) {
+        try {
+          const { saveToCache } = await import("@/lib/jobCache");
+          const cacheResult = await saveToCache(input.trim(), {
+            scrapedData: scrapedData as Record<string, unknown>,
+            aiExtractedData: aiExtractedData as Record<string, unknown>,
+            similarJobs: similarJobs as unknown as Array<Record<string, unknown>>,
+            candidates: candidates as unknown as Array<Record<string, unknown>>,
+            salaryData: dataSources?.glassdoorSalaries as Record<string, unknown> | undefined,
+            company: jobCompany,
+            title: jobTitle,
+            location: jobLocation,
+            platform,
+          });
+          
+          if (cacheResult.success) {
+            console.log("✅ Saved job data sources to cache");
+          } else {
+            console.warn("⚠️ Did not save to cache:", cacheResult.reason);
+          }
+        } catch (cacheError) {
+          console.error("⚠️ Failed to save to cache:", cacheError instanceof Error ? cacheError.message : String(cacheError));
+          // Don't fail the request if cache save fails
         }
-      } catch (cacheError) {
-        console.error("⚠️ Failed to save to cache:", cacheError instanceof Error ? cacheError.message : String(cacheError));
-        // Don't fail the request if cache save fails
+      } else {
+        console.log("⚠️ Skipping cache: missing job title or location");
+        console.log(`   Title: "${jobTitle || 'missing'}", Location: "${jobLocation || 'missing'}"`);
       }
     }
 
     return NextResponse.json({
       success: true,
       data: scrapedData,
-      platform: platform, // Which platform was scraped (linkedin/indeed/unknown)
+      platform: cachedDataSources?.platform || platform, // Which platform was scraped (linkedin/indeed/unknown)
       similarJobs: similarJobs,
       similarJobsCount: similarJobs.length,
       linkedInJobsCount: linkedInJobsCount,
@@ -1931,17 +1928,23 @@ export async function POST(request: NextRequest) {
       extractedFields,
       missingFields,
       hasMissingFields: missingFields.length > 0,
-      // AI-generated card groups
+      // AI-generated card groups (always freshly generated, never from cache)
       jobAnalysisCards,
       peopleAnalysisCards,
       combinedAnalysisCards,
       derivedStrategyCards,
       // Additional data sources
-      dataSources: dataSources ? {
+      dataSources: cachedDataSources?.salaryData ? {
+        glassdoorSalaries: cachedDataSources.salaryData,
+        benchmarks: benchmarks,
+        fetchedAt: new Date().toISOString(),
+      } : dataSources ? {
         glassdoorSalaries: dataSources.glassdoorSalaries,
         benchmarks: benchmarks,
         fetchedAt: dataSources.fetchedAt,
       } : null,
+      // Indicates if data sources were loaded from cache (cards are always fresh)
+      dataSourcesFromCache: !!cachedDataSources,
     });
   } catch (error) {
     console.error("Error in scrape-job API:", error);

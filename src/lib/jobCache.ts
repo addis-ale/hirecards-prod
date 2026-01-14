@@ -158,61 +158,34 @@ export async function findCachedJob(jobURL: string): Promise<Record<string, unkn
 }
 
 /**
- * Validate that all cards are fully generated
+ * Validate that required fields (title and location) are present for caching
+ * We only cache data sources if both job title and location are available,
+ * since external data (similar jobs, candidates, salary) requires these fields
  */
-function validateCardsComplete(data: {
-  jobAnalysisCards?: Record<string, unknown>;
-  peopleAnalysisCards?: Record<string, unknown>;
-  combinedAnalysisCards?: Record<string, unknown>;
-  derivedStrategyCards?: Record<string, unknown>;
-}): { isValid: boolean; missingCards: string[] } {
-  const missingCards: string[] = [];
+function validateCacheRequirements(data: {
+  title?: string;
+  location?: string;
+}): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
   
-  // Check Job Analysis Cards (Group 1)
-  if (!data.jobAnalysisCards) {
-    missingCards.push("jobAnalysisCards");
-  } else {
-    const required = ["roleCard", "skillCard", "fitCard", "messageCard", "outreachCard"];
-    const missing = required.filter(key => !data.jobAnalysisCards?.[key]);
-    if (missing.length > 0) {
-      missingCards.push(`jobAnalysisCards: ${missing.join(", ")}`);
-    }
+  if (!data.title || data.title.trim() === "" || data.title === "Unknown") {
+    missingFields.push("job title");
   }
   
-  // Check People Analysis Cards (Group 2) - Optional if no candidates
-  // We'll check this separately
-  
-  // Check Combined Analysis Cards (Group 3)
-  if (!data.combinedAnalysisCards) {
-    missingCards.push("combinedAnalysisCards");
-  } else {
-    const required = ["marketCard", "payCard", "funnelCard", "realityCard"];
-    const missing = required.filter(key => !data.combinedAnalysisCards?.[key]);
-    if (missing.length > 0) {
-      missingCards.push(`combinedAnalysisCards: ${missing.join(", ")}`);
-    }
-  }
-  
-  // Check Derived Strategy Cards (Group 4)
-  if (!data.derivedStrategyCards) {
-    missingCards.push("derivedStrategyCards");
-  } else {
-    const required = ["interviewCard", "scorecardCard", "planCard"];
-    const missing = required.filter(key => !data.derivedStrategyCards?.[key]);
-    if (missing.length > 0) {
-      missingCards.push(`derivedStrategyCards: ${missing.join(", ")}`);
-    }
+  if (!data.location || data.location.trim() === "") {
+    missingFields.push("location");
   }
   
   return {
-    isValid: missingCards.length === 0,
-    missingCards,
+    isValid: missingFields.length === 0,
+    missingFields,
   };
 }
 
 /**
- * Save job data to cache
- * Only saves if all cards are fully generated
+ * Save job data sources to cache
+ * Only saves if both job title AND location are present
+ * Does NOT cache generated cards - only data sources (scraped data, similar jobs, candidates, salary)
  */
 export async function saveToCache(
   jobURL: string,
@@ -222,36 +195,31 @@ export async function saveToCache(
     similarJobs?: Array<Record<string, unknown>>;
     candidates?: Array<Record<string, unknown>>;
     salaryData?: Record<string, unknown>;
-    jobAnalysisCards?: Record<string, unknown>;
-    peopleAnalysisCards?: Record<string, unknown>;
-    combinedAnalysisCards?: Record<string, unknown>;
-    derivedStrategyCards?: Record<string, unknown>;
     company?: string;
     title?: string;
     location?: string;
     platform?: string;
-    forceSave?: boolean; // Allow saving even if cards incomplete (for debugging)
+    forceSave?: boolean; // Allow saving even if title/location missing (for debugging)
   }
 ): Promise<{ success: boolean; reason?: string }> {
   try {
-    // Validate that all cards are complete before caching
+    // Validate that title and location are present before caching
+    // Without these, external data (similar jobs, candidates, salary) won't be useful
     if (!data.forceSave) {
-      const validation = validateCardsComplete({
-        jobAnalysisCards: data.jobAnalysisCards,
-        peopleAnalysisCards: data.peopleAnalysisCards,
-        combinedAnalysisCards: data.combinedAnalysisCards,
-        derivedStrategyCards: data.derivedStrategyCards,
+      const validation = validateCacheRequirements({
+        title: data.title,
+        location: data.location,
       });
       
       if (!validation.isValid) {
-        console.warn("⚠️ Cards incomplete, not caching:", validation.missingCards);
+        console.warn("⚠️ Missing required fields for caching:", validation.missingFields);
         return {
           success: false,
-          reason: `Incomplete cards: ${validation.missingCards.join(", ")}`,
+          reason: `Missing required fields: ${validation.missingFields.join(", ")}`,
         };
       }
       
-      console.log("✅ All cards validated as complete, proceeding with cache save");
+      console.log("✅ Title and location present, proceeding with cache save");
     }
     
     const { createClient } = await import("@supabase/supabase-js");
@@ -312,19 +280,9 @@ export async function saveToCache(
       cacheData.external_data_fetched_at = new Date().toISOString();
     }
     
-    // Add generated cards if provided
-    if (
-      data.jobAnalysisCards ||
-      data.peopleAnalysisCards ||
-      data.combinedAnalysisCards ||
-      data.derivedStrategyCards
-    ) {
-      cacheData.job_analysis_cards = data.jobAnalysisCards || null;
-      cacheData.people_analysis_cards = data.peopleAnalysisCards || null;
-      cacheData.combined_analysis_cards = data.combinedAnalysisCards || null;
-      cacheData.derived_strategy_cards = data.derivedStrategyCards || null;
-      cacheData.cards_generated_at = new Date().toISOString();
-    }
+    // NOTE: We intentionally do NOT cache generated cards
+    // Cards can be regenerated from cached data sources
+    // This saves storage and ensures fresh AI generation each time
     
     if (existing) {
       // Update existing entry
@@ -338,7 +296,7 @@ export async function saveToCache(
         return { success: false, reason: error.message };
       }
       
-      console.log("✅ Updated cached job data with complete cards");
+      console.log("✅ Updated cached job data sources");
       return { success: true };
     } else {
       // Insert new entry
@@ -354,7 +312,7 @@ export async function saveToCache(
         return { success: false, reason: error.message };
       }
       
-      console.log("✅ Saved complete job data and cards to cache");
+      console.log("✅ Saved job data sources to cache (title + location present)");
       return { success: true };
     }
   } catch (error) {
