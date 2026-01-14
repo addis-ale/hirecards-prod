@@ -4,6 +4,13 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+// Total number of cards - must match CARDS array length
+const TOTAL_CARDS = 13;
+// Minimum total animation duration: 2 minutes
+const MIN_ANIMATION_DURATION_MS = 2 * 60 * 1000; // 120,000ms = 2 minutes
+// Time per card: 2 minutes / 13 cards ≈ 9.2 seconds per card
+const _TIME_PER_CARD_MS = MIN_ANIMATION_DURATION_MS / TOTAL_CARDS;
+
 interface Loader1Props {
   onComplete?: () => void;
   isComplete?: boolean;
@@ -16,85 +23,87 @@ export default function Loader1({
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());
   const animationFrameRef = useRef<number | null>(null);
+  const jobCompleteTimeRef = useRef<number | null>(null);
+  const hasCalledCompleteRef = useRef(false);
 
   useEffect(() => {
-    // If marked as complete, smoothly finish the loader immediately
-    if (isComplete) {
-      // Cancel any ongoing progress animation
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-
-      // Animate to 100% quickly
-      const targetProgress = 100;
-      const currentProgress = progress;
-      const duration = 400; // 400ms to complete
-      const startProgress = currentProgress;
-      const animationStart = Date.now();
-
-      const animate = () => {
-        const elapsed = Date.now() - animationStart;
-        const ratio = Math.min(elapsed / duration, 1);
-        // Ease out animation
-        const eased = 1 - Math.pow(1 - ratio, 3);
-        const newProgress =
-          startProgress + (targetProgress - startProgress) * eased;
-
-        setProgress(newProgress);
-
-        if (ratio < 1) {
-          animationFrameRef.current = requestAnimationFrame(animate);
-        } else {
-          setProgress(100);
-          // Small delay to show completion, then call onComplete
-          setTimeout(() => {
-            onComplete?.();
-          }, 150);
-        }
-      };
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      };
+    // Track when the job was marked complete
+    if (isComplete && jobCompleteTimeRef.current === null) {
+      jobCompleteTimeRef.current = Date.now();
     }
 
-    // While loading, show smooth progress based on elapsed time
-    // Use a 2-minute minimum duration to ensure all cards have equal time
-    const estimatedDuration = 120000; // 2 minutes (120 seconds)
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const rawProgress = (elapsed / estimatedDuration) * 100;
+    // Cancel any ongoing animation when dependencies change
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
 
-      // Cap at 95% until isComplete is true (to avoid showing 100% before completion)
-      const cappedProgress = Math.min(rawProgress, 95);
+    const animate = () => {
+      const now = Date.now();
+      const elapsed = now - startTimeRef.current;
 
-      // Add subtle variance to make it feel organic
-      const variance = Math.sin(elapsed / 1000) * 0.5;
-      const newProgress = Math.min(cappedProgress + variance, 95);
+      // Calculate progress for card animation (each card gets equal time)
+      // This ensures all 13 cards are shown over MIN_ANIMATION_DURATION_MS
+      const animationProgress = Math.min(
+        (elapsed / MIN_ANIMATION_DURATION_MS) * 95,
+        95
+      );
+
+      // Add subtle variance for organic feel
+      const variance = Math.sin(elapsed / 1000) * 0.3;
+      let newProgress = animationProgress + variance;
+
+      // If job is complete, check if we've shown all cards
+      if (isComplete && jobCompleteTimeRef.current !== null) {
+        const timeSinceStart = now - startTimeRef.current;
+        const allCardsShown = timeSinceStart >= MIN_ANIMATION_DURATION_MS;
+
+        if (allCardsShown) {
+          // All cards have been shown, now animate to 100%
+          const timeSinceAllCardsShown =
+            now - (startTimeRef.current + MIN_ANIMATION_DURATION_MS);
+          const completionDuration = 400; // 400ms to go from 95 to 100
+          const completionRatio = Math.min(
+            timeSinceAllCardsShown / completionDuration,
+            1
+          );
+          // Ease out animation
+          const eased = 1 - Math.pow(1 - completionRatio, 3);
+          newProgress = 95 + 5 * eased;
+
+          if (completionRatio >= 1 && !hasCalledCompleteRef.current) {
+            hasCalledCompleteRef.current = true;
+            setProgress(100);
+            // Small delay to show completion, then call onComplete
+            setTimeout(() => {
+              onComplete?.();
+            }, 150);
+            return; // Stop animation
+          }
+        }
+      }
 
       setProgress((prev) => {
         // Only update if change is significant
-        if (Math.abs(newProgress - prev) < 0.1) {
+        if (Math.abs(newProgress - prev) < 0.05) {
           return prev;
         }
-        return newProgress;
+        return Math.min(newProgress, 100);
       });
 
-      if (!isComplete && newProgress < 95) {
-        animationFrameRef.current = requestAnimationFrame(updateProgress);
+      // Continue animation unless we've called complete
+      if (!hasCalledCompleteRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
       }
     };
 
-    animationFrameRef.current = requestAnimationFrame(updateProgress);
+    animationFrameRef.current = requestAnimationFrame(animate);
+
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isComplete, onComplete, progress]);
+  }, [isComplete, onComplete]);
 
   return <DynamicLoader progress={progress} />;
 }
@@ -244,7 +253,7 @@ export function DynamicLoader({ progress = 0, className }: LoaderBlackProps) {
   }, []);
 
   // Progressively reveal cards based on progress - equal time per card
-  // With 2-minute duration and 13 cards, each card gets ~9.2 seconds
+  // With 5-minute duration and 13 cards, each card gets ~23 seconds
   useEffect(() => {
     let cardsToShow;
     if (progress >= 100) {

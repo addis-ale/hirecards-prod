@@ -1,12 +1,22 @@
 # Job Caching & Database Strategy
 
-This document outlines how to implement a database cache to avoid re-scraping and re-generating cards for the same job.
+This document outlines how to implement a database cache to avoid re-scraping for the same job.
 
 ---
 
 ## 🎯 GOAL
 
-Avoid re-scraping from Apify and re-generating AI cards when we've already processed the same job.
+Avoid re-scraping from ScrapingBee and re-fetching from Apify when we've already processed the same job.
+
+**Important:** We cache **DATA SOURCES only**, not generated cards:
+- ✅ Scraped job data (from ScrapingBee)
+- ✅ AI extracted data (job details)
+- ✅ Similar jobs (from Apify)
+- ✅ Candidates (from Apify)
+- ✅ Salary data (from Glassdoor/Apify)
+- ❌ Generated cards (always regenerated fresh)
+
+**Caching Requirement:** Both **job title** AND **location** must be present to cache. Without these, external data sources (similar jobs, candidates, salary) won't be useful.
 
 ---
 
